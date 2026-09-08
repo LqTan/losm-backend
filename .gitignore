@@ -4,7 +4,7 @@ obj/
 .vscode/
 
 docker/dev/.env
-Dockerfile
+docker/production/.env.production
 
 src/LocationSearch.Api/appsettings.Development.json
 src/LocationSearch.Api/appsettings.json

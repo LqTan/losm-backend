@@ -1,0 +1,40 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: location-search-api
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+      Here__ApiKey: ${Here__ApiKey}
+      Jwt__SecretKey: ${Jwt__SecretKey}
+      Jwt__Issuer: ${Jwt__Issuer}
+      Jwt__Audience: ${Jwt__Audience}
+    depends_on:
+      - sqlserver
+    networks:
+      - location-search-network
+  
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: location-search-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    volumes:
+      - location-search-sql-data:/var/opt/mssql
+    networks:
+      - location-search-network
+
+networks:
+  location-search-network:
+
+volumes:
+  location-search-sql-data:
