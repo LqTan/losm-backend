@@ -33,6 +33,14 @@ public class ExceptionHandlingMiddleware
                 ex.Message
             );
         }
+        catch (KeyNotFoundException ex)
+        {
+            await WriteResponse(
+                context,
+                HttpStatusCode.NotFound,
+                ex.Message
+            );
+        }
         catch (Exception)
         {
             await WriteResponse(
