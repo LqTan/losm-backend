@@ -1,4 +1,5 @@
 using System.Text;
+using AgentCore;
 using LocationSearch.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +21,7 @@ builder.Services.AddPlaces(builder.Configuration);
 builder.Services.AddSearch();
 builder.Services.AddReviews(builder.Configuration);
 builder.Services.AddUsers(builder.Configuration);
+builder.Services.AddAgentCore(builder.Configuration);
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
