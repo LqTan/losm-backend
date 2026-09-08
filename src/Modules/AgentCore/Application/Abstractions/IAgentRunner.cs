@@ -12,4 +12,14 @@ public interface IAgentRunner
         Guid? userId,
         CancellationToken cancellationToken = default
     );
+
+    Task<AgentRunResult> RunApprovedPlanAsync(
+        string input,
+        double latitude,
+        double longitude,
+        Guid? sessionId,
+        Guid? userId,
+        string approvedPlan,
+        CancellationToken cancellationToken = default
+    );
 }

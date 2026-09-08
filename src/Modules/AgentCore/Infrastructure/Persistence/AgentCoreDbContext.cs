@@ -18,6 +18,8 @@ public class AgentCoreDbContext : DbContext
         => Set<AgentMessage>();
     public DbSet<AgentToolCall> AgentToolCalls
         => Set<AgentToolCall>();
+    public DbSet<AgentPlan> AgentPlans
+        => Set<AgentPlan>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

@@ -16,10 +16,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Search\Search.csproj" />
-    <Content Include="Infrastructure/Prompts/grounding-system.txt">
+    <Content Include="Infrastructure/Prompts/*.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <Link>Prompts/grounding-system.txt</Link>
+      <Link>Prompts/%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>
 

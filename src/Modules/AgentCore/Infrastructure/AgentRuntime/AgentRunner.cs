@@ -38,13 +38,63 @@ public sealed class AgentRunner : IAgentRunner
         _logger = logger;
     }
 
-    public async Task<AgentRunResult> RunAsync(
+    public Task<AgentRunResult> RunAsync(
         string input,
         double latitude,
         double longitude,
         Guid? sessionId,
         Guid? userId,
         CancellationToken cancellationToken = default
+    )
+    {
+        return RunInternalAsync(
+            input,
+            latitude,
+            longitude,
+            sessionId,
+            userId,
+            null,
+            cancellationToken
+        );
+    }
+
+    public Task<AgentRunResult> RunApprovedPlanAsync(
+        string input,
+        double latitude,
+        double longitude,
+        Guid? sessionId,
+        Guid? userId,
+        string approvedPlan,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (string.IsNullOrWhiteSpace(approvedPlan))
+        {
+            throw new ArgumentException(
+                "Approved plan is required.",
+                nameof(approvedPlan)
+            );
+        }
+
+        return RunInternalAsync(
+            input,
+            latitude,
+            longitude,
+            sessionId,
+            userId,
+            approvedPlan,
+            cancellationToken
+        );
+    }
+
+    private async Task<AgentRunResult> RunInternalAsync(
+        string input,
+        double latitude,
+        double longitude,
+        Guid? sessionId,
+        Guid? userId,
+        string? approvedPlan,
+        CancellationToken cancellationToken
     )
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -85,6 +135,26 @@ public sealed class AgentRunner : IAgentRunner
         );
 
         var messages = BuildModelMessages(session);
+
+        if (!string.IsNullOrWhiteSpace(approvedPlan))
+        {
+            messages.Insert(
+                0,
+                new AgentModelMessage(
+                    AgentModelRole.System,
+                    $"""
+                    Execute the user's request according to the approved plan below.
+
+                    Do not execute work outside this plan.
+                    Use available tools when required.
+                    If evidence is unavailable, do not invent it.
+
+                    APPROVED PLAN:
+                    {approvedPlan}
+                    """
+                )
+            );
+        }
 
         var tools = _toolRegistry.GetAll();
 

@@ -1,9 +1,12 @@
 using AgentCore.Application.Abstractions;
+using AgentCore.Application.Agent.Commands.ApproveAgentPlan;
+using AgentCore.Application.Agent.Commands.CreateAgentPlan;
 using AgentCore.Application.Agent.Commands.ExecuteAgent;
 using AgentCore.Application.Agent.Queries.GetAgentSessionHistory;
 using AgentCore.Infrastructure.AgentRuntime;
 using AgentCore.Infrastructure.Llm;
 using AgentCore.Infrastructure.Persistence;
+using AgentCore.Infrastructure.Planning;
 using AgentCore.Infrastructure.Repositories;
 using AgentCore.Infrastructure.Tools;
 using AgentCore.Infrastructure.Validation;
@@ -31,6 +34,10 @@ public static class DependencyInjection
         );
 
         services.AddScoped<IAgentSessionRepository, AgentSessionRepository>();
+        services.AddScoped<IAgentPlanner, LlmAgentPlanner>();
+        services.AddScoped<IAgentPlanRepository, AgentPlanRepository>();
+        services.AddScoped<CreateAgentPlanHandler>();
+        services.AddScoped<ApproveAgentPlanHandler>();
         services.AddScoped<IAgentTool, SearchPlacesTool>();
         services.AddScoped<IAgentTool, PlaceReviewsTool>();
         services.AddScoped<IAgentTool, GetCurrentUserTool>();
