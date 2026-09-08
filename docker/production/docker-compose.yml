@@ -7,15 +7,11 @@ services:
     restart: unless-stopped
     ports:
       - "8082:8080"
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-
-      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
-      Here__ApiKey: ${Here__ApiKey}
-      Jwt__SecretKey: ${Jwt__SecretKey}
-      Jwt__Issuer: ${Jwt__Issuer}
-      Jwt__Audience: ${Jwt__Audience}
     depends_on:
       - sqlserver
     networks:
