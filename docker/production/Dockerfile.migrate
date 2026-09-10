@@ -26,16 +26,12 @@ RUN for entry in "Sandbox:SandboxDbContext" \
         --target-runtime linux-x64; \
     done
 
-FROM debian:bookworm-slim
+FROM mcr.microsoft.com/mssql-tools18:latest
 WORKDIR /migrations
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
- && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /out/efbundle-* /migrations/
 COPY docker/production/scripts/run-migrations.sh /migrations/run-migrations.sh
 
-RUN chmod +x /migrations/efbundle-* /migrations/run-migrations.sh
+RUN chmod +x /migrations/efbundle-*
 
 ENTRYPOINT ["/migrations/run-migrations.sh"]
