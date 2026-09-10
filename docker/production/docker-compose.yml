@@ -1,4 +1,19 @@
 services:
+  migrate:
+    build:
+      context: ../..
+      dockerfile: docker/production/Dockerfile.migrate
+    image: location-search-migrate:latest
+    container_name: location-search-migrate
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      CONNECTION_STRING: "Server=sqlserver,1433;Database=LocationSearch;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=True"
+    networks:
+      - location-search-network
+    restart: "no"
+
   api:
     build:
       context: ../..
@@ -12,8 +27,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=LocationSearch;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=True"
     depends_on:
-      - sqlserver
+      migrate:
+        condition: service_completed_successfully
+      sqlserver:
+        condition: service_healthy
     networks:
       - location-search-network
 
@@ -24,8 +43,15 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_PID: Express
     volumes:
       - location-search-sql-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -C -h -1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks:
       - location-search-network
 
