@@ -1,34 +1,4 @@
 services:
-
-  tailscale:
-    image: tailscale/tailscale:latest
-    container_name: ts-location-search
-    network_mode: service:sqlserver
-    environment:
-      - TS_AUTHKEY=${TS_AUTHKEY}
-      - TS_STATE_DIR=/var/lib/tailscale
-    volumes:
-      - tailscale-state:/var/lib/tailscale
-      - /dev/net/tun:/dev/net/tun
-    cap_add:
-      - NET_ADMIN
-    restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "tailscale", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    command: >
-      sh -c "
-        tailscaled --statedir=/var/lib/tailscale &
-        until tailscale status >/dev/null 2>&1; do sleep 2; done
-        tailscale up --authkey=$$TS_AUTHKEY --hostname=ts-location-search --accept-routes
-        wait
-      "
-
   api:
     build:
       context: ../..
@@ -43,8 +13,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
     depends_on:
-      sqlserver:
-        condition: service_started
+      - sqlserver
     networks:
       - location-search-network
 
@@ -65,4 +34,3 @@ networks:
 
 volumes:
   location-search-sql-data:
-  tailscale-state:
