@@ -10,6 +10,7 @@ using Sandbox;
 using Scalar.AspNetCore;
 using Search;
 using Users;
+using Users.Application.Users.Commands.LoginUser;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,6 +78,18 @@ builder.Services
                 )
             )
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                if (ctx.Request.Cookies.TryGetValue(
+                    "scalar_token", out var cookieToken))
+                {
+                    ctx.Token = cookieToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 var app = builder.Build();
@@ -84,8 +97,13 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
+}
+else
+{
+    app.MapOpenApi().RequireAuthorization();
+    app.MapScalarApiReference().RequireAuthorization();
 }
 
 app.UseHttpsRedirection();
@@ -95,6 +113,35 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.MapStaticAssets();
+
+app.MapPost("/scalar/login", async (
+    LoginUserCommand cmd,
+    LoginUserHandler handler,
+    HttpContext http,
+    IConfiguration config) =>
+{
+    var result = await handler.HandleAsync(cmd);
+    var requireSecure = config.GetValue<bool>(
+        "ScalarAuth:SecureCookie", false);
+    http.Response.Cookies.Append("scalar_token", result.Token,
+        new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = requireSecure,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTimeOffset.UtcNow.AddHours(8)
+        });
+    return Results.Ok(
+        new { result.Id, result.Username, result.Email });
+}).AllowAnonymous();
+
+app.MapPost("/scalar/logout", (HttpContext http) =>
+{
+    http.Response.Cookies.Delete("scalar_token");
+    return Results.Ok();
+}).AllowAnonymous();
 
 app.MapControllers();
 
