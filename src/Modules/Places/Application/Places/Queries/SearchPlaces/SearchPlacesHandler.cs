@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Places.Application.Abstractions;
 using Places.Domain.Entities;
 
@@ -7,15 +8,19 @@ public sealed class SearchPlacesHandler
 {
     private readonly IPlaceProvider _placeProvider;
     private readonly IPlaceRepository _placeRepository;
+    private readonly ILogger<SearchPlacesHandler> _logger;
 
     public SearchPlacesHandler(
         IPlaceProvider placeProvider,
-        IPlaceRepository placeRepository
+        IPlaceRepository placeRepository,
+        ILogger<SearchPlacesHandler> logger
     )
     {
         _placeProvider = placeProvider;
         _placeRepository = placeRepository;
+        _logger = logger;
     }
+
     public async Task<IReadOnlyList<Place>> HandleAsync(
         SearchPlacesQuery query,
         CancellationToken cancellationToken = default
@@ -28,10 +33,24 @@ public sealed class SearchPlacesHandler
             query.RadiusKm,
             cancellationToken
         );
-        await _placeRepository.UpsertRangeAsync(
-            places,
-            cancellationToken
-        );
-        return places;        
+
+        if (places.Count > 0)
+        {
+            try
+            {
+                await _placeRepository.UpsertRangeAsync(
+                    places,
+                    cancellationToken
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to upsert {Count} places; returning provider results without persisting",
+                    places.Count);
+            }
+        }
+
+        return places;
     }
 }
