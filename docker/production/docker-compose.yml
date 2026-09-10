@@ -1,19 +1,4 @@
 services:
-  migrate:
-    build:
-      context: ../..
-      dockerfile: docker/production/Dockerfile.migrate
-    image: location-search-migrate:latest
-    container_name: location-search-migrate
-    depends_on:
-      sqlserver:
-        condition: service_healthy
-    environment:
-      CONNECTION_STRING: "Server=sqlserver,1433;Database=LocationSearch;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=True"
-    networks:
-      - location-search-network
-    restart: "no"
-
   api:
     build:
       context: ../..
@@ -27,10 +12,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=LocationSearch;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=True"
     depends_on:
-      migrate:
-        condition: service_completed_successfully
       sqlserver:
         condition: service_healthy
     networks:
