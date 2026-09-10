@@ -1,16 +1,22 @@
 using System.Text;
 using AgentCore;
+using AgentCore.Infrastructure.Persistence;
 using LocationSearch.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Reviews;
+using Reviews.Infrastructure.Persistence;
 using Sandbox;
+using Sandbox.Infrastructure.Persistence;
 using Scalar.AspNetCore;
 using Search;
 using Users;
 using Users.Application.Users.Commands.LoginUser;
+using Users.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,6 +99,34 @@ builder.Services
     });
 
 var app = builder.Build();
+
+var connectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is not configured");
+
+var dbName = new SqlConnectionStringBuilder(connectionString).InitialCatalog;
+{
+    var masterCs = new SqlConnectionStringBuilder(connectionString)
+    {
+        InitialCatalog = "master"
+    };
+    await using var conn = new SqlConnection(masterCs.ConnectionString);
+    await conn.OpenAsync();
+    await using var cmd = new SqlCommand(
+        $"IF DB_ID(@db) IS NULL CREATE DATABASE [{dbName}]", conn);
+    cmd.Parameters.AddWithValue("@db", dbName);
+    await cmd.ExecuteNonQueryAsync();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var sp = scope.ServiceProvider;
+    await sp.GetRequiredService<UsersDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<ReviewsDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<SandboxDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<AgentCoreDbContext>().Database.MigrateAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
