@@ -27,8 +27,10 @@ public sealed class SavePlaceTool
     public override string Name => "save_place";
 
     public override string Description =>
-        "Save a place to the user's Saved Places list. " +
-        "The action requires explicit user confirmation before it is applied.";
+        "Save a place to the currently authenticated user's Saved Places list. " +
+        "Returns a confirmation draft that the user must approve in the UI " +
+        "before it is persisted. Call this whenever the user asks to save, " +
+        "bookmark, keep, or remember a place.";
 
     protected override Task<string> ExecuteAsync(
         SavePlaceToolArguments arguments,

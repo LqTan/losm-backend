@@ -27,8 +27,10 @@ public sealed class CreateReviewTool
     public override string Name => "create_review";
 
     public override string Description =>
-        "Draft a community review (rating + optional comment) for a place. " +
-        "The action requires explicit user confirmation before it is applied.";
+        "Submit a community review (rating 1-5 and optional comment) for a " +
+        "place the user just visited. Returns a confirmation draft that the " +
+        "user must approve in the UI before it is persisted. Call this when " +
+        "the user gives a rating or feedback about a place from the session.";
 
     protected override Task<string> ExecuteAsync(
         CreateReviewToolArguments arguments,
