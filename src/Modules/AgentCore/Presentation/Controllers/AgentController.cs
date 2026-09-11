@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using AgentCore.Application.Abstractions;
 using AgentCore.Application.Agent.Commands.ApproveAgentPlan;
 using AgentCore.Application.Agent.Commands.ConfirmAgentAction;
 using AgentCore.Application.Agent.Commands.CreateAgentPlan;
 using AgentCore.Application.Agent.Commands.ExecuteAgent;
 using AgentCore.Application.Agent.Queries.GetAgentSessionHistory;
+using AgentCore.Infrastructure.Streaming;
 using AgentCore.Presentation.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,6 +43,57 @@ public sealed class AgentController : ControllerBase
         );
 
         return Ok(result);
+    }
+
+    [HttpPost("stream")]
+    public async Task ExecuteStream(
+        ExecuteAgentRequest request,
+        [FromServices] IAgentRunner runner,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            Response.StatusCode = 401;
+            return;
+        }
+
+        var sink = new SseAgentEventSink();
+
+        var runnerTask = runner.RunStreamedAsync(
+            request.Message,
+            request.Latitude,
+            request.Longitude,
+            request.SessionId,
+            userId,
+            sink,
+            cancellationToken
+        );
+
+        var writerTask = SseWriter.WriteSseStreamAsync(
+            Response,
+            sink,
+            cancellationToken
+        );
+
+        try
+        {
+            await runnerTask;
+        }
+        catch (Exception)
+        {
+            // error already emitted to sink
+        }
+        finally
+        {
+            sink.Complete();
+        }
+
+        await writerTask;
     }
 
     [HttpPost("plans")]
