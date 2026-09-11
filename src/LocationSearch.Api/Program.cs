@@ -8,6 +8,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Places.Infrastructure.Persistence;
 using Reviews;
 using Reviews.Infrastructure.Persistence;
 using Sandbox;
@@ -124,6 +125,7 @@ using (var scope = app.Services.CreateScope())
     var sp = scope.ServiceProvider;
     await sp.GetRequiredService<UsersDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<ReviewsDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<PlacesDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<SandboxDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<AgentCoreDbContext>().Database.MigrateAsync();
 }

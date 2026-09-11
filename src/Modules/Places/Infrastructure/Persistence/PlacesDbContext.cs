@@ -9,6 +9,8 @@ public sealed class PlacesDbContext : DbContext
         : base(options){}
 
     public DbSet<Place> Places => Set<Place>();
+    public DbSet<SavedPlace> SavedPlaces => Set<SavedPlace>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

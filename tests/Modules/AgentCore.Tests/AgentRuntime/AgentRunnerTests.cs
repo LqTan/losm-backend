@@ -476,12 +476,16 @@ public class AgentRunnerTests
         IAgentResponseValidator responseValidator
     )
     {
+        var pendingActions =
+            new AgentCore.Infrastructure.Stores.InMemoryPendingActionStore();
+
         return new AgentRunner(
             modelClient,
             toolRegistry,
             sessionRepository,
             executionContext,
             responseValidator,
+            pendingActions,
             Options.Create(
                 new AgentRunnerOptions
                 {

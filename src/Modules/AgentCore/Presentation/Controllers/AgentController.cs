@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AgentCore.Application.Agent.Commands.ApproveAgentPlan;
+using AgentCore.Application.Agent.Commands.ConfirmAgentAction;
 using AgentCore.Application.Agent.Commands.CreateAgentPlan;
 using AgentCore.Application.Agent.Commands.ExecuteAgent;
 using AgentCore.Application.Agent.Queries.GetAgentSessionHistory;
@@ -91,6 +92,33 @@ public sealed class AgentController : ControllerBase
         var result = await handler.HandleAsync(
             new ApproveAgentPlanCommand(
                 planId,
+                userId
+            ),
+            cancellationToken
+        );
+
+        return Ok(result);
+    }
+
+    [HttpPost("confirm")]
+    public async Task<IActionResult> ConfirmAction(
+        ConfirmAgentActionRequest request,
+        [FromServices] ConfirmAgentActionHandler handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await handler.HandleAsync(
+            new ConfirmAgentActionCommand(
+                request.ActionId,
                 userId
             ),
             cancellationToken

@@ -16,6 +16,7 @@ public sealed class AgentRunner : IAgentRunner
     private readonly IAgentSessionRepository _sessionRepository;
     private readonly IAgentExecutionContext _executionContext;
     private readonly IAgentResponseValidator _responseValidator;
+    private readonly IPendingActionStore _pendingActionStore;
     private readonly AgentRunnerOptions _options;
     private readonly ILogger<AgentRunner> _logger;
 
@@ -25,6 +26,7 @@ public sealed class AgentRunner : IAgentRunner
         IAgentSessionRepository sessionRepository,
         IAgentExecutionContext executionContext,
         IAgentResponseValidator responseValidator,
+        IPendingActionStore pendingActionStore,
         IOptions<AgentRunnerOptions> options,
         ILogger<AgentRunner> logger
     )
@@ -34,6 +36,7 @@ public sealed class AgentRunner : IAgentRunner
         _sessionRepository = sessionRepository;
         _executionContext = executionContext;
         _responseValidator = responseValidator;
+        _pendingActionStore = pendingActionStore;
         _options = options.Value;
         _logger = logger;
     }
@@ -118,6 +121,8 @@ public sealed class AgentRunner : IAgentRunner
             cancellationToken
         );
 
+        _executionContext.SetSession(session.Id);
+
         _logger.LogInformation(
             "Agent run started. SessionId: {SessionId}, UserId: {UserId}",
             session.Id,
@@ -160,6 +165,9 @@ public sealed class AgentRunner : IAgentRunner
 
         var toolExecutions =
             new List<AgentToolExecution>();
+
+        var activity = new List<AgentActivityStep>();
+        var activityOrder = 0;
 
         for (var step = 0; step < _options.MaxSteps; step++)
         {
@@ -214,14 +222,39 @@ public sealed class AgentRunner : IAgentRunner
                     step + 1
                 );
 
+                activity.Add(
+                    new AgentActivityStep(
+                        activityOrder++,
+                        AgentActivityStepKind.Finalize,
+                        null,
+                        "Generated final answer.",
+                        true
+                    )
+                );
+
+                var pending =
+                    _pendingActionStore.GetBySession(session.Id);
+
                 return new AgentRunResult(
                     session.Id,
-                    validatedAnswer
+                    validatedAnswer,
+                    activity,
+                    pending
                 );
             }
 
             foreach (var toolCall in response.ToolCalls)
             {
+                activity.Add(
+                    new AgentActivityStep(
+                        activityOrder++,
+                        AgentActivityStepKind.ToolCall,
+                        toolCall.Name,
+                        $"Calling tool '{toolCall.Name}'.",
+                        true
+                    )
+                );
+
                 var execution =
                     await ExecuteToolCallAsync(
                         session,
@@ -229,6 +262,32 @@ public sealed class AgentRunner : IAgentRunner
                         toolCall,
                         cancellationToken
                     );
+
+                activity.Add(
+                    new AgentActivityStep(
+                        activityOrder++,
+                        AgentActivityStepKind.ToolResult,
+                        toolCall.Name,
+                        execution.Succeeded
+                            ? $"Tool '{toolCall.Name}' completed."
+                            : $"Tool '{toolCall.Name}' failed.",
+                        execution.Succeeded
+                    )
+                );
+
+                if (execution.Succeeded &&
+                    IsWriteActionTool(toolCall.Name))
+                {
+                    activity.Add(
+                        new AgentActivityStep(
+                            activityOrder++,
+                            AgentActivityStepKind.PendingAction,
+                            toolCall.Name,
+                            "Waiting for user confirmation.",
+                            true
+                        )
+                    );
+                }
 
                 toolExecutions.Add(
                     execution
@@ -432,5 +491,10 @@ public sealed class AgentRunner : IAgentRunner
                 ["error"] = message
             }
         );
+    }
+
+    private static bool IsWriteActionTool(string toolName)
+    {
+        return toolName is "save_place" or "create_review";
     }
 }
