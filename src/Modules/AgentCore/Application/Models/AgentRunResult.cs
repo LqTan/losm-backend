@@ -2,5 +2,7 @@ namespace AgentCore.Application.Models;
 
 public sealed record AgentRunResult(
     Guid SessionId,
-    string Answer
+    string Answer,
+    IReadOnlyList<AgentActivityStep> Steps,
+    IReadOnlyList<PendingAgentAction> PendingActions
 );

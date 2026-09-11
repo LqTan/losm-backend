@@ -28,7 +28,9 @@ public sealed class ExecuteAgentHandler
 
         return new ExecuteAgentResult(
             result.SessionId,
-            result.Answer
+            result.Answer,
+            result.Steps,
+            result.PendingActions
         );
     }
 }

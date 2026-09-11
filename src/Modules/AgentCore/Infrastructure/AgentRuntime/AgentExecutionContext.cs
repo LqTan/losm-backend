@@ -6,6 +6,7 @@ public sealed class AgentExecutionContext
     : IAgentExecutionContext
 {
     public Guid? UserId { get; private set; }
+    public Guid? SessionId { get; private set; }
     public double Latitude { get; private set; }
     public double Longitude { get; private set; }
 
@@ -19,6 +20,18 @@ public sealed class AgentExecutionContext
             );
         }
         UserId = userId;
+    }
+
+    public void SetSession(Guid? sessionId)
+    {
+        if (sessionId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "SessionId cannot be empty.",
+                nameof(sessionId)
+            );
+        }
+        SessionId = sessionId;
     }
 
     public void SetLocation(
