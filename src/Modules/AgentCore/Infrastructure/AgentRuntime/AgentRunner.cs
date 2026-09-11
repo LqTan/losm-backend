@@ -57,6 +57,7 @@ public sealed class AgentRunner : IAgentRunner
             sessionId,
             userId,
             null,
+            null,
             cancellationToken
         );
     }
@@ -86,8 +87,54 @@ public sealed class AgentRunner : IAgentRunner
             sessionId,
             userId,
             approvedPlan,
+            null,
             cancellationToken
         );
+    }
+
+    public async Task<AgentRunResult> RunStreamedAsync(
+        string input,
+        double latitude,
+        double longitude,
+        Guid? sessionId,
+        Guid? userId,
+        IAgentEventSink sink,
+        CancellationToken cancellationToken = default
+    )
+    {
+        try
+        {
+            var result = await RunInternalAsync(
+                input,
+                latitude,
+                longitude,
+                sessionId,
+                userId,
+                null,
+                sink,
+                cancellationToken
+            );
+
+            await sink.EmitResultAsync(result, cancellationToken);
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Streamed agent run failed. UserId: {UserId}",
+                userId
+            );
+            await sink.EmitErrorAsync(
+                ex.Message,
+                cancellationToken
+            );
+            throw;
+        }
     }
 
     private async Task<AgentRunResult> RunInternalAsync(
@@ -97,6 +144,7 @@ public sealed class AgentRunner : IAgentRunner
         Guid? sessionId,
         Guid? userId,
         string? approvedPlan,
+        IAgentEventSink? sink,
         CancellationToken cancellationToken
     )
     {
@@ -167,7 +215,7 @@ public sealed class AgentRunner : IAgentRunner
             new List<AgentToolExecution>();
 
         var activity = new List<AgentActivityStep>();
-        var activityOrder = 0;
+        var order = new Counter();
 
         for (var step = 0; step < _options.MaxSteps; step++)
         {
@@ -222,14 +270,14 @@ public sealed class AgentRunner : IAgentRunner
                     step + 1
                 );
 
-                activity.Add(
-                    new AgentActivityStep(
-                        activityOrder++,
-                        AgentActivityStepKind.Finalize,
-                        null,
-                        "Generated final answer.",
-                        true
-                    )
+await RecordStep(
+                    activity,
+                    sink,
+                    order,
+                    AgentActivityStepKind.Finalize,
+                    null,
+                    "Generated final answer.",
+                    true
                 );
 
                 var pending =
@@ -245,14 +293,14 @@ public sealed class AgentRunner : IAgentRunner
 
             foreach (var toolCall in response.ToolCalls)
             {
-                activity.Add(
-                    new AgentActivityStep(
-                        activityOrder++,
-                        AgentActivityStepKind.ToolCall,
-                        toolCall.Name,
-                        $"Calling tool '{toolCall.Name}'.",
-                        true
-                    )
+await RecordStep(
+                    activity,
+                    sink,
+                    order,
+                    AgentActivityStepKind.ToolCall,
+                    toolCall.Name,
+                    $"Calling tool '{toolCall.Name}'.",
+                    true
                 );
 
                 var execution =
@@ -263,29 +311,29 @@ public sealed class AgentRunner : IAgentRunner
                         cancellationToken
                     );
 
-                activity.Add(
-                    new AgentActivityStep(
-                        activityOrder++,
-                        AgentActivityStepKind.ToolResult,
-                        toolCall.Name,
-                        execution.Succeeded
-                            ? $"Tool '{toolCall.Name}' completed."
-                            : $"Tool '{toolCall.Name}' failed.",
-                        execution.Succeeded
-                    )
+await RecordStep(
+                    activity,
+                    sink,
+                    order,
+                    AgentActivityStepKind.ToolResult,
+                    toolCall.Name,
+                    execution.Succeeded
+                        ? $"Tool '{toolCall.Name}' completed."
+                        : $"Tool '{toolCall.Name}' failed.",
+                    execution.Succeeded
                 );
 
                 if (execution.Succeeded &&
                     IsWriteActionTool(toolCall.Name))
                 {
-                    activity.Add(
-                        new AgentActivityStep(
-                            activityOrder++,
-                            AgentActivityStepKind.PendingAction,
-                            toolCall.Name,
-                            "Waiting for user confirmation.",
-                            true
-                        )
+await RecordStep(
+                        activity,
+                        sink,
+                        order,
+                        AgentActivityStepKind.PendingAction,
+                        toolCall.Name,
+                        "Waiting for user confirmation.",
+                        true
                     );
                 }
 
@@ -496,5 +544,40 @@ public sealed class AgentRunner : IAgentRunner
     private static bool IsWriteActionTool(string toolName)
     {
         return toolName is "save_place" or "create_review";
+    }
+
+    private static async Task RecordStep(
+        List<AgentActivityStep> activity,
+        IAgentEventSink? sink,
+        Counter order,
+        AgentActivityStepKind kind,
+        string? toolName,
+        string summary,
+        bool succeeded
+    )
+    {
+        var step = new AgentActivityStep(
+            order.Next(),
+            kind,
+            toolName,
+            summary,
+            succeeded
+        );
+
+        activity.Add(step);
+
+        if (sink is not null)
+        {
+            await sink.EmitStepAsync(
+                step,
+                CancellationToken.None
+            );
+        }
+    }
+
+    private sealed class Counter
+    {
+        private int _value;
+        public int Next() => _value++;
     }
 }

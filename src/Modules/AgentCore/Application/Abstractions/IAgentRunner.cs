@@ -22,4 +22,14 @@ public interface IAgentRunner
         string approvedPlan,
         CancellationToken cancellationToken = default
     );
+
+    Task<AgentRunResult> RunStreamedAsync(
+        string input,
+        double latitude,
+        double longitude,
+        Guid? sessionId,
+        Guid? userId,
+        IAgentEventSink sink,
+        CancellationToken cancellationToken = default
+    );
 }
