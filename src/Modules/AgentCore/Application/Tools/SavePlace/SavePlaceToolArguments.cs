@@ -1,6 +1,6 @@
 namespace AgentCore.Application.Tools.SavePlace;
 
 public sealed record SavePlaceToolArguments(
-    Guid PlaceId,
+    string PlaceName,
     string? Note = null
 );
