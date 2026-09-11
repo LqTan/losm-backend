@@ -24,7 +24,42 @@ public sealed class PlaceRepository : IPlaceRepository
                 x => x.Id == id,
                 cancellationToken
             );
-    }    
+    }
+
+    public async Task<IReadOnlyList<Place>> SearchByNameAsync(
+        string name,
+        int limit = 5,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var trimmed = name.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return [];
+        }
+
+        var pattern = $"%{trimmed}%";
+
+        var containsMatches = await _dbContext.Places
+            .AsNoTracking()
+            .Where(x =>
+                x.Name != null &&
+                EF.Functions.Like(x.Name, pattern))
+            .OrderBy(x => x.Name.Length)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        if (containsMatches.Count > 0)
+        {
+            return containsMatches;
+        }
+
+        return await _dbContext.Places
+            .AsNoTracking()
+            .OrderBy(x => x.Name)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
 
     public async Task UpsertRangeAsync(
         IReadOnlyList<Place> places,
@@ -43,7 +78,7 @@ public sealed class PlaceRepository : IPlaceRepository
                 await _dbContext.Places.AddAsync(
                     place,
                     cancellationToken
-                );                
+                );
             }
             else
             {
@@ -55,7 +90,7 @@ public sealed class PlaceRepository : IPlaceRepository
                     place.Latitude,
                     place.Longitude
                 );
-            }            
+            }
         }
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
