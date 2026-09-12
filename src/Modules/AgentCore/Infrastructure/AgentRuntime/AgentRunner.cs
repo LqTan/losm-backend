@@ -276,7 +276,6 @@ await RecordStep(
                     order,
                     AgentActivityStepKind.Finalize,
                     null,
-                    "Generated final answer.",
                     true
                 );
 
@@ -299,7 +298,6 @@ await RecordStep(
                     order,
                     AgentActivityStepKind.ToolCall,
                     toolCall.Name,
-                    $"Calling tool '{toolCall.Name}'.",
                     true
                 );
 
@@ -318,9 +316,6 @@ await RecordStep(
                     AgentActivityStepKind.ToolResult,
                     toolCall.Name,
                     execution.Succeeded
-                        ? $"Tool '{toolCall.Name}' completed."
-                        : $"Tool '{toolCall.Name}' failed.",
-                    execution.Succeeded
                 );
 
                 if (execution.Succeeded &&
@@ -332,7 +327,6 @@ await RecordStep(
                         order,
                         AgentActivityStepKind.PendingAction,
                         toolCall.Name,
-                        "Waiting for user confirmation.",
                         true
                     );
                 }
@@ -552,10 +546,15 @@ await RecordStep(
         Counter order,
         AgentActivityStepKind kind,
         string? toolName,
-        string summary,
         bool succeeded
     )
     {
+        var summary = StepSummary.FromStep(
+            kind,
+            toolName,
+            succeeded
+        );
+
         var step = new AgentActivityStep(
             order.Next(),
             kind,
