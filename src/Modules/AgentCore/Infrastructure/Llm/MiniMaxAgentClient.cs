@@ -38,6 +38,8 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
 
         var model = _configuration["Minimax:Model"] ?? "Minimax-M3";
 
+        var messagesWithSystem = InjectSystemPrompt(messages);
+
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
             "chat/completions"
@@ -50,7 +52,7 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
             new
             {
                 model,
-                messages = messages.Select(MapMessage),
+                messages = messagesWithSystem.Select(MapMessage),
                 tools = tools.Select(MapTool)
             }
         );
@@ -197,11 +199,115 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
             return content;
         }
 
-        return Regex.Replace(
+        var stripped = Regex.Replace(
             content,
             @"<think>[\s\S]*?</think>\s*",
             string.Empty,
             RegexOptions.IgnoreCase
-        ).Trim();
+        );
+
+        stripped = MarkdownToPlainText(stripped);
+
+        return stripped.Trim();
+    }
+
+    private static IReadOnlyList<AgentModelMessage> InjectSystemPrompt(
+        IReadOnlyList<AgentModelMessage> messages
+    )
+    {
+        const string systemPrompt =
+            "You answer in plain conversational prose addressed to the user. " +
+            "Never use markdown formatting: no bold, no italics, no bullet " +
+            "lists, no numbered lists, no pipe tables, no headings, no code " +
+            "fences, no horizontal rules. Use natural sentences and simple " +
+            "punctuation. Place names can still be emphasized with quotation " +
+            "marks if needed. Do not output JSON unless explicitly asked. " +
+            "Keep replies concise.";
+
+        var existing = messages.FirstOrDefault();
+
+        if (existing is not null &&
+            existing.Role == AgentModelRole.System)
+        {
+            return messages;
+        }
+
+        var result = new List<AgentModelMessage>(messages.Count + 1)
+        {
+            new AgentModelMessage(
+                AgentModelRole.System,
+                systemPrompt
+            )
+        };
+        result.AddRange(messages);
+        return result;
+    }
+
+    private static string MarkdownToPlainText(string input)
+    {
+        var text = input;
+
+        text = Regex.Replace(text, @"\*\*(.+?)\*\*", "$1");
+        text = Regex.Replace(text, @"__(.+?)__", "$1");
+        text = Regex.Replace(text, @"\*(.+?)\*", "$1");
+        text = Regex.Replace(text, @"_(.+?)_", "$1");
+        text = Regex.Replace(text, @"~~(.+?)~~", "$1");
+        text = Regex.Replace(text, @"`([^`]+)`", "$1");
+
+        text = Regex.Replace(
+            text,
+            @"(\n\|.+\|\s*\n\|[\s\-:|]+\|)([\s\S]*?(?=\n\n|\n[^\|]|\Z))",
+            match =>
+            {
+                var rowsBlock = match.Value;
+                var lines = rowsBlock
+                    .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+                var rows = lines
+                    .Where(line => !Regex.IsMatch(line, @"^\|[\s\-:|]+\|$"))
+                    .ToList();
+
+                var converted = new List<string>();
+                foreach (var row in rows)
+                {
+                    var cells = row
+                        .Trim(' ', '|')
+                        .Split('|')
+                        .Select(c => c.Trim())
+                        .Where(c => c.Length > 0)
+                        .ToList();
+
+                    if (cells.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    converted.Add(string.Join(" — ", cells));
+                }
+
+                return converted.Count == 0
+                    ? string.Empty
+                    : string.Join("\n", converted) + "\n";
+            }
+        );
+
+        text = Regex.Replace(text, @"^\s{0,3}#{1,6}\s+", "",
+            RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^\s*[-*+]\s+", "",
+            RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^\s*\d+\.\s+", "",
+            RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^\s*>\s?", "",
+            RegexOptions.Multiline);
+        text = Regex.Replace(text, @"^\s*[-*_]{3,}\s*$", "",
+            RegexOptions.Multiline);
+
+        text = Regex.Replace(text, @"\\([\\`*_{}\[\]()#+\-.!])", "$1");
+
+        text = Regex.Replace(text, @"\n{3,}", "\n\n");
+
+        text = Regex.Replace(text, @"[ \t]+\n", "\n");
+
+        return text;
     }
 }
