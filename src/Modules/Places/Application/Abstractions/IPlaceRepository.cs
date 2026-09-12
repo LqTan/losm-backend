@@ -10,7 +10,7 @@ public interface IPlaceRepository
         int limit = 5,
         CancellationToken cancellationToken = default
     );
-    Task UpsertRangeAsync(
+    Task<IReadOnlyList<Place>> UpsertRangeAsync(
         IReadOnlyList<Place> places,
         CancellationToken cancellationToken = default
     );

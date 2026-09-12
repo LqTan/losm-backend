@@ -61,28 +61,35 @@ public sealed class PlaceRepository : IPlaceRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task UpsertRangeAsync(
+    public async Task<IReadOnlyList<Place>> UpsertRangeAsync(
         IReadOnlyList<Place> places,
         CancellationToken cancellationToken = default
     )
     {
+        if (places.Count == 0)
+        {
+            return [];
+        }
+
+        var externalIds = places
+            .Select(p => p.ExternalId)
+            .Distinct()
+            .ToList();
+
+        var existing = await _dbContext.Places
+            .Where(p => externalIds.Contains(p.ExternalId))
+            .ToListAsync(cancellationToken);
+
+        var byExternalId = existing.ToDictionary(p => p.ExternalId);
+
+        var toInsert = new List<Place>();
+        var canonical = new List<Place>(places.Count);
+
         foreach (var place in places)
         {
-            var existing = await _dbContext.Places
-                .FirstOrDefaultAsync(
-                    x => x.ExternalId == place.ExternalId,
-                    cancellationToken
-                );
-            if (existing is null)
+            if (byExternalId.TryGetValue(place.ExternalId, out var matched))
             {
-                await _dbContext.Places.AddAsync(
-                    place,
-                    cancellationToken
-                );
-            }
-            else
-            {
-                existing.UpdateDetails(
+                matched.UpdateDetails(
                     place.Name,
                     place.Address,
                     place.Category,
@@ -90,8 +97,25 @@ public sealed class PlaceRepository : IPlaceRepository
                     place.Latitude,
                     place.Longitude
                 );
+                canonical.Add(matched);
+            }
+            else
+            {
+                toInsert.Add(place);
+                canonical.Add(place);
             }
         }
+
+        if (toInsert.Count > 0)
+        {
+            await _dbContext.Places.AddRangeAsync(
+                toInsert,
+                cancellationToken
+            );
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return canonical;
     }
 }

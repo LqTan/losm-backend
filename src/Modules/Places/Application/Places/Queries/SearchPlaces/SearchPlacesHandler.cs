@@ -34,23 +34,24 @@ public sealed class SearchPlacesHandler
             cancellationToken
         );
 
-        if (places.Count > 0)
+        if (places.Count == 0)
         {
-            try
-            {
-                await _placeRepository.UpsertRangeAsync(
-                    places,
-                    cancellationToken
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Failed to upsert {Count} places; returning provider results without persisting",
-                    places.Count);
-            }
+            return [];
         }
 
-        return places;
+        try
+        {
+            return await _placeRepository.UpsertRangeAsync(
+                places,
+                cancellationToken
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to upsert {Count} places; returning provider results without persisting",
+                places.Count);
+            return places;
+        }
     }
 }
