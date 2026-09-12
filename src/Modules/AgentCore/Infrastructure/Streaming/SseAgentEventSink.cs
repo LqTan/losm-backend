@@ -46,7 +46,8 @@ public sealed class SseAgentEventSink : IAgentEventSink
                 sessionId = result.SessionId,
                 answer = result.Answer,
                 steps = result.Steps,
-                pendingActions = result.PendingActions
+                pendingActions = result.PendingActions,
+                attachedPlaces = result.AttachedPlaces
             },
             JsonOptions
         );

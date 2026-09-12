@@ -216,6 +216,8 @@ public sealed class AgentRunner : IAgentRunner
 
         var activity = new List<AgentActivityStep>();
         var order = new Counter();
+        var attachedPlaces = new List<AttachedPlace>();
+        var attachedPlaceIds = new HashSet<Guid>();
 
         for (var step = 0; step < _options.MaxSteps; step++)
         {
@@ -286,7 +288,8 @@ await RecordStep(
                     session.Id,
                     validatedAnswer,
                     activity,
-                    pending
+                    pending,
+                    attachedPlaces
                 );
             }
 
@@ -308,6 +311,22 @@ await RecordStep(
                         toolCall,
                         cancellationToken
                     );
+
+                if (execution.Succeeded &&
+                    !string.IsNullOrWhiteSpace(execution.Result))
+                {
+                    var extracted = AttachedPlaceExtractor.Extract(
+                        toolCall.Name,
+                        execution.Result,
+                        attachedPlaceIds
+                    );
+
+                    foreach (var place in extracted)
+                    {
+                        attachedPlaceIds.Add(place.PlaceId);
+                        attachedPlaces.Add(place);
+                    }
+                }
 
 await RecordStep(
                     activity,

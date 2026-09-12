@@ -30,7 +30,8 @@ public sealed class ExecuteAgentHandler
             result.SessionId,
             result.Answer,
             result.Steps,
-            result.PendingActions
+            result.PendingActions,
+            result.AttachedPlaces
         );
     }
 }

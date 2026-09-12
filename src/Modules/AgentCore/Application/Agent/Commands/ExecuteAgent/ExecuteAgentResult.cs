@@ -6,5 +6,6 @@ public sealed record ExecuteAgentResult(
     Guid SessionId,
     string Answer,
     IReadOnlyList<AgentActivityStep> Steps,
-    IReadOnlyList<PendingAgentAction> PendingActions
+    IReadOnlyList<PendingAgentAction> PendingActions,
+    IReadOnlyList<AttachedPlace> AttachedPlaces
 );
