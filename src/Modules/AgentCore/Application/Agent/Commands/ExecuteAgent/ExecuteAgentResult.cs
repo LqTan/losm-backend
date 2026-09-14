@@ -1,4 +1,5 @@
 using AgentCore.Application.Models;
+using AgentCore.Domain.Entities;
 
 namespace AgentCore.Application.Agent.Commands.ExecuteAgent;
 

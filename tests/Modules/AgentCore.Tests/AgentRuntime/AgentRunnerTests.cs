@@ -6,6 +6,7 @@ using AgentCore.Application.Models;
 using AgentCore.Domain.Entities;
 using AgentCore.Domain.Enums;
 using AgentCore.Infrastructure.AgentRuntime;
+using AgentCore.Tests.TestSupport;
 
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -477,7 +478,10 @@ public class AgentRunnerTests
     )
     {
         var pendingActions =
-            new AgentCore.Infrastructure.Stores.InMemoryPendingActionStore();
+            new AgentCore.Tests.TestSupport.InMemoryPendingActionStore();
+
+        var lastSearchStore =
+            new AgentCore.Tests.TestSupport.InMemoryLastSearchContextStore();
 
         return new AgentRunner(
             modelClient,
@@ -486,12 +490,14 @@ public class AgentRunnerTests
             executionContext,
             responseValidator,
             pendingActions,
+            lastSearchStore,
             Options.Create(
                 new AgentRunnerOptions
                 {
                     MaxSteps = 8
                 }
             ),
+            new ConfigurationStub(),
             NullLogger<AgentRunner>.Instance
         );
     }

@@ -1,6 +1,7 @@
 using System.Text;
 using AgentCore;
 using AgentCore.Infrastructure.Persistence;
+using Configuration;
 using LocationSearch.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
@@ -62,6 +63,7 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddSandbox(
     builder.Configuration.GetConnectionString("DefaultConnection")!);
+builder.Services.AddConfigurationModule(builder.Configuration);
 builder.Services.AddPlaces(builder.Configuration);
 builder.Services.AddSearch();
 builder.Services.AddReviews(builder.Configuration);

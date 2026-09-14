@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentCore.Application.Tools;
 using AgentCore.Application.Tools.PlaceReviews;
+using Configuration.Application.Abstractions;
 using Reviews.Application.Reviews.Queries.GetAverageRatingByPlace;
 using Reviews.Application.Reviews.Queries.GetReviewsByPlace;
 
@@ -14,14 +15,17 @@ public sealed class PlaceReviewsTool
 
     private readonly GetReviewsByPlaceHandler _getReviewsHandler;
     private readonly GetAverageRatingByPlaceHandler _getAverageRatingHandler;
+    private readonly Configuration.Application.Abstractions.ITuningProvider _tuning;
 
     public PlaceReviewsTool(
         GetReviewsByPlaceHandler getReviewsHandler,
-        GetAverageRatingByPlaceHandler getAverageRatingHandler
-    )
+        GetAverageRatingByPlaceHandler getAverageRatingHandler,
+        Configuration.Application.Abstractions.ITuningProvider tuning)
+        : base(tuning, "get_place_reviews")
     {
         _getReviewsHandler = getReviewsHandler;
         _getAverageRatingHandler = getAverageRatingHandler;
+        _tuning = tuning;
     }
 
     public override string Name => "get_place_reviews";
@@ -38,38 +42,28 @@ public sealed class PlaceReviewsTool
         {
             throw new ArgumentException(
                 "PlaceId is required.",
-                nameof(arguments.PlaceId)
-            );
+                nameof(arguments.PlaceId));
         }
 
-        if (arguments.Limit is < 1 or > 20)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(arguments.Limit)
-            );
-        }
+        var opts = await _tuning.GetToolOptionsAsync(Name, cancellationToken);
+        var limit = arguments.Limit > 0 ? arguments.Limit : opts.DefaultLimit;
+        if (limit > opts.MaxLimit) limit = opts.MaxLimit;
 
         var reviews = await _getReviewsHandler.HandleAsync(
-            new GetReviewsByPlaceQuery(
-                arguments.PlaceId
-            )
+            new GetReviewsByPlaceQuery(arguments.PlaceId)
         );
 
-        var averageRating =
-            await _getAverageRatingHandler.HandleAsync(
-                new GetAverageRatingByPlaceQuery(
-                    arguments.PlaceId
-                )
-            );
+        var averageRating = await _getAverageRatingHandler.HandleAsync(
+            new GetAverageRatingByPlaceQuery(arguments.PlaceId)
+        );
 
         var result = new
         {
             placeId = arguments.PlaceId,
             averageRating = averageRating.AverageRating,
-
             reviews = reviews
                 .OrderByDescending(x => x.CreatedAt)
-                .Take(arguments.Limit)
+                .Take(limit)
                 .Select(x => new
                 {
                     rating = x.Rating,
@@ -79,9 +73,6 @@ public sealed class PlaceReviewsTool
                 .ToList()
         };
 
-        return JsonSerializer.Serialize(
-            result,
-            JsonOptions
-        );
+        return JsonSerializer.Serialize(result, JsonOptions);
     }
 }

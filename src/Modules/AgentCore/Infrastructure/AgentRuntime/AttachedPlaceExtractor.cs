@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentCore.Application.Abstractions;
 using AgentCore.Application.Models;
 
 namespace AgentCore.Infrastructure.AgentRuntime;
@@ -6,20 +7,12 @@ namespace AgentCore.Infrastructure.AgentRuntime;
 internal static class AttachedPlaceExtractor
 {
     public static IReadOnlyList<AttachedPlace> Extract(
-        string toolName,
+        IAgentTool tool,
         string toolResultJson,
-        IReadOnlySet<Guid> seen
-    )
+        IReadOnlySet<Guid> seen)
     {
-        if (string.IsNullOrWhiteSpace(toolResultJson))
-        {
-            return [];
-        }
-
-        if (toolName != "search_places")
-        {
-            return [];
-        }
+        if (!tool.SuppliesPlaces) return [];
+        if (string.IsNullOrWhiteSpace(toolResultJson)) return [];
 
         var added = new List<AttachedPlace>();
 
@@ -34,40 +27,28 @@ internal static class AttachedPlaceExtractor
 
             foreach (var elem in doc.RootElement.EnumerateArray())
             {
-                if (elem.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
+                if (elem.ValueKind != JsonValueKind.Object) continue;
 
                 var placeId = TryGetGuid(elem, "placeId");
-                if (placeId is null || seen.Contains(placeId.Value))
-                {
-                    continue;
-                }
+                if (placeId is null || seen.Contains(placeId.Value)) continue;
 
                 var name = TryGetString(elem, "name");
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    continue;
-                }
+                if (string.IsNullOrWhiteSpace(name)) continue;
 
-                added.Add(
-                    new AttachedPlace(
-                        placeId.Value,
-                        name,
-                        TryGetString(elem, "address"),
-                        TryGetDouble(elem, "latitude") ?? 0,
-                        TryGetDouble(elem, "longitude") ?? 0,
-                        TryGetString(elem, "category"),
-                        TryGetDouble(elem, "distanceKm"),
-                        TryGetDouble(elem, "finalScore")
-                    )
-                );
+                added.Add(new AttachedPlace(
+                    placeId.Value,
+                    name,
+                    TryGetString(elem, "address"),
+                    TryGetDouble(elem, "latitude") ?? 0,
+                    TryGetDouble(elem, "longitude") ?? 0,
+                    TryGetString(elem, "category"),
+                    TryGetDouble(elem, "distanceKm"),
+                    TryGetDouble(elem, "finalScore")
+                ));
             }
         }
         catch (JsonException)
         {
-            // tool result not parseable; skip silently
         }
 
         return added;
@@ -75,58 +56,22 @@ internal static class AttachedPlaceExtractor
 
     private static Guid? TryGetGuid(JsonElement obj, string propertyName)
     {
-        if (!obj.TryGetProperty(propertyName, out var prop))
-        {
-            return null;
-        }
-
-        if (prop.ValueKind == JsonValueKind.String)
-        {
-            var raw = prop.GetString();
-            return Guid.TryParse(raw, out var id) ? id : null;
-        }
-
-        return null;
+        if (!obj.TryGetProperty(propertyName, out var prop)) return null;
+        if (prop.ValueKind != JsonValueKind.String) return null;
+        var raw = prop.GetString();
+        return Guid.TryParse(raw, out var id) ? id : null;
     }
 
-    private static string? TryGetString(
-        JsonElement obj,
-        string propertyName
-    )
+    private static string? TryGetString(JsonElement obj, string propertyName)
     {
-        if (!obj.TryGetProperty(propertyName, out var prop))
-        {
-            return null;
-        }
-
-        if (prop.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        if (prop.ValueKind == JsonValueKind.String)
-        {
-            return prop.GetString();
-        }
-
-        return prop.ToString();
+        if (!obj.TryGetProperty(propertyName, out var prop)) return null;
+        if (prop.ValueKind == JsonValueKind.Null) return null;
+        return prop.ValueKind == JsonValueKind.String ? prop.GetString() : prop.ToString();
     }
 
-    private static double? TryGetDouble(
-        JsonElement obj,
-        string propertyName
-    )
+    private static double? TryGetDouble(JsonElement obj, string propertyName)
     {
-        if (!obj.TryGetProperty(propertyName, out var prop))
-        {
-            return null;
-        }
-
-        if (prop.ValueKind == JsonValueKind.Number && prop.TryGetDouble(out var d))
-        {
-            return d;
-        }
-
-        return null;
+        if (!obj.TryGetProperty(propertyName, out var prop)) return null;
+        return prop.ValueKind == JsonValueKind.Number && prop.TryGetDouble(out var d) ? d : null;
     }
 }
