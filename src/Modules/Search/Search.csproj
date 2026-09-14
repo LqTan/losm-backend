@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Places\Places.csproj" />
+    <ProjectReference Include="..\Configuration\Configuration.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

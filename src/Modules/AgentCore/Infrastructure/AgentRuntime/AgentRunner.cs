@@ -4,6 +4,8 @@ using AgentCore.Application.Enums;
 using AgentCore.Application.Models;
 using AgentCore.Domain.Entities;
 using AgentCore.Domain.Enums;
+using AgentCore.Infrastructure.Services;
+using Configuration.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -17,7 +19,9 @@ public sealed class AgentRunner : IAgentRunner
     private readonly IAgentExecutionContext _executionContext;
     private readonly IAgentResponseValidator _responseValidator;
     private readonly IPendingActionStore _pendingActionStore;
+    private readonly ILastSearchContextStore _lastSearchContextStore;
     private readonly AgentRunnerOptions _options;
+    private readonly ITuningProvider _tuning;
     private readonly ILogger<AgentRunner> _logger;
 
     public AgentRunner(
@@ -27,7 +31,9 @@ public sealed class AgentRunner : IAgentRunner
         IAgentExecutionContext executionContext,
         IAgentResponseValidator responseValidator,
         IPendingActionStore pendingActionStore,
+        ILastSearchContextStore lastSearchContextStore,
         IOptions<AgentRunnerOptions> options,
+        ITuningProvider tuning,
         ILogger<AgentRunner> logger
     )
     {
@@ -37,7 +43,9 @@ public sealed class AgentRunner : IAgentRunner
         _executionContext = executionContext;
         _responseValidator = responseValidator;
         _pendingActionStore = pendingActionStore;
+        _lastSearchContextStore = lastSearchContextStore;
         _options = options.Value;
+        _tuning = tuning;
         _logger = logger;
     }
 
@@ -157,11 +165,7 @@ public sealed class AgentRunner : IAgentRunner
         }
 
         _executionContext.SetUser(userId);
-
-        _executionContext.SetLocation(
-            latitude,
-            longitude
-        );
+        _executionContext.SetLocation(latitude, longitude);
 
         var session = await GetOrCreateSessionAsync(
             sessionId,
@@ -177,43 +181,57 @@ public sealed class AgentRunner : IAgentRunner
             userId
         );
 
-        session.AddMessage(
-            AgentMessageRole.User,
-            input
-        );
+        session.AddMessage(AgentMessageRole.User, input);
 
-        await _sessionRepository.UpdateAsync(
-            session,
-            cancellationToken
-        );
+        await _sessionRepository.UpdateAsync(session, cancellationToken);
 
         var messages = BuildModelMessages(session);
 
         if (!string.IsNullOrWhiteSpace(approvedPlan))
         {
+            var approvedPlanSystemPrompt = PromptFile.Load("approved-plan-system.txt");
+            var injectedPrompt =
+                approvedPlanSystemPrompt.Replace("{approvedPlan}", approvedPlan);
+
             messages.Insert(
                 0,
-                new AgentModelMessage(
-                    AgentModelRole.System,
-                    $"""
-                    Execute the user's request according to the approved plan below.
-
-                    Do not execute work outside this plan.
-                    Use available tools when required.
-                    If evidence is unavailable, do not invent it.
-
-                    APPROVED PLAN:
-                    {approvedPlan}
-                    """
-                )
+                new AgentModelMessage(AgentModelRole.System, injectedPrompt)
             );
+        }
+
+        if (session.Id != Guid.Empty)
+        {
+            var lastContext = await _lastSearchContextStore.GetAsync(
+                session.Id, cancellationToken);
+
+            if (lastContext is not null)
+            {
+                var contextJson = JsonSerializer.Serialize(new
+                {
+                    lastQuery = lastContext.Query,
+                    center = new
+                    {
+                        latitude = lastContext.CenterLatitude,
+                        longitude = lastContext.CenterLongitude
+                    },
+                    radiusKm = lastContext.RadiusKm,
+                    resultPlaceIds = lastContext.ResultPlaceIdsJson
+                });
+
+                messages.Insert(
+                    0,
+                    new AgentModelMessage(
+                        AgentModelRole.System,
+                        "Recent structured search context for this session (use to interpret follow-up turns):\n" +
+                        contextJson
+                    )
+                );
+            }
         }
 
         var tools = _toolRegistry.GetAll();
 
-        var toolExecutions =
-            new List<AgentToolExecution>();
-
+        var toolExecutions = new List<AgentToolExecution>();
         var activity = new List<AgentActivityStep>();
         var order = new Counter();
         var attachedPlaces = new List<AttachedPlace>();
@@ -233,14 +251,11 @@ public sealed class AgentRunner : IAgentRunner
                 cancellationToken
             );
 
-            messages.Add(
-                response.AssistantMessage
-            );
+            messages.Add(response.AssistantMessage);
 
             if (!response.HasToolCalls)
             {
-                var answer =
-                    response.AssistantMessage.Content;
+                var answer = response.AssistantMessage.Content;
 
                 if (string.IsNullOrWhiteSpace(answer))
                 {
@@ -249,22 +264,15 @@ public sealed class AgentRunner : IAgentRunner
                     );
                 }
 
-                var validatedAnswer =
-                    await _responseValidator.ValidateAsync(
-                        answer,
-                        toolExecutions,
-                        cancellationToken
-                    );
-
-                session.AddMessage(
-                    AgentMessageRole.Assistant,
-                    validatedAnswer
-                );
-
-                await _sessionRepository.UpdateAsync(
-                    session,
+                var validatedAnswer = await _responseValidator.ValidateAsync(
+                    answer,
+                    toolExecutions,
                     cancellationToken
                 );
+
+                session.AddMessage(AgentMessageRole.Assistant, validatedAnswer);
+
+                await _sessionRepository.UpdateAsync(session, cancellationToken);
 
                 _logger.LogInformation(
                     "Agent run completed. SessionId: {SessionId}, Steps: {Steps}",
@@ -272,17 +280,12 @@ public sealed class AgentRunner : IAgentRunner
                     step + 1
                 );
 
-await RecordStep(
-                    activity,
-                    sink,
-                    order,
-                    AgentActivityStepKind.Finalize,
-                    null,
-                    true
-                );
+                await RecordStep(
+                    activity, sink, order,
+                    AgentActivityStepKind.Finalize, null, true);
 
-                var pending =
-                    _pendingActionStore.GetBySession(session.Id);
+                var pending = await _pendingActionStore
+                    .GetBySessionAsync(session.Id, cancellationToken);
 
                 return new AgentRunResult(
                     session.Id,
@@ -295,31 +298,20 @@ await RecordStep(
 
             foreach (var toolCall in response.ToolCalls)
             {
-await RecordStep(
-                    activity,
-                    sink,
-                    order,
-                    AgentActivityStepKind.ToolCall,
-                    toolCall.Name,
-                    true
-                );
+                var tool = _toolRegistry.GetRequired(toolCall.Name);
 
-                var execution =
-                    await ExecuteToolCallAsync(
-                        session,
-                        messages,
-                        toolCall,
-                        cancellationToken
-                    );
+                await RecordStep(
+                    activity, sink, order,
+                    AgentActivityStepKind.ToolCall, toolCall.Name, true);
+
+                var execution = await ExecuteToolCallAsync(
+                    session, messages, toolCall, cancellationToken);
 
                 if (execution.Succeeded &&
                     !string.IsNullOrWhiteSpace(execution.Result))
                 {
                     var extracted = AttachedPlaceExtractor.Extract(
-                        toolCall.Name,
-                        execution.Result,
-                        attachedPlaceIds
-                    );
+                        tool, execution.Result, attachedPlaceIds);
 
                     foreach (var place in extracted)
                     {
@@ -328,31 +320,19 @@ await RecordStep(
                     }
                 }
 
-await RecordStep(
-                    activity,
-                    sink,
-                    order,
-                    AgentActivityStepKind.ToolResult,
-                    toolCall.Name,
-                    execution.Succeeded
-                );
+                await RecordStep(
+                    activity, sink, order,
+                    AgentActivityStepKind.ToolResult, toolCall.Name, execution.Succeeded);
 
                 if (execution.Succeeded &&
-                    IsWriteActionTool(toolCall.Name))
+                    tool.Kind == ToolKind.WriteRequiresConfirmation)
                 {
-await RecordStep(
-                        activity,
-                        sink,
-                        order,
-                        AgentActivityStepKind.PendingAction,
-                        toolCall.Name,
-                        true
-                    );
+                    await RecordStep(
+                        activity, sink, order,
+                        AgentActivityStepKind.PendingAction, toolCall.Name, true);
                 }
 
-                toolExecutions.Add(
-                    execution
-                );
+                toolExecutions.Add(execution);
             }
         }
 
@@ -375,45 +355,32 @@ await RecordStep(
     {
         if (sessionId.HasValue)
         {
-            var existingSession =
-                await _sessionRepository.GetByIdAsync(
-                    sessionId.Value,
-                    cancellationToken
-                );
+            var existingSession = await _sessionRepository.GetByIdAsync(
+                sessionId.Value, cancellationToken);
 
             if (existingSession is null)
             {
                 throw new KeyNotFoundException(
-                    $"Agent session '{sessionId.Value}' was not found."
-                );
+                    $"Agent session '{sessionId.Value}' was not found.");
             }
 
             if (existingSession.UserId != userId)
             {
                 throw new KeyNotFoundException(
-                    $"Agent session '{sessionId.Value}' was not found."
-                );
+                    $"Agent session '{sessionId.Value}' was not found.");
             }
 
             return existingSession;
         }
 
-        var session = new AgentSession(
-            Guid.NewGuid(),
-            userId
-        );
+        var session = new AgentSession(Guid.NewGuid(), userId);
 
-        await _sessionRepository.AddAsync(
-            session,
-            cancellationToken
-        );
+        await _sessionRepository.AddAsync(session, cancellationToken);
 
         return session;
     }
 
-    private static List<AgentModelMessage> BuildModelMessages(
-        AgentSession session
-    )
+    private static List<AgentModelMessage> BuildModelMessages(AgentSession session)
     {
         return session.Messages
             .OrderBy(x => x.CreatedAt)
@@ -421,27 +388,17 @@ await RecordStep(
             .ToList();
     }
 
-    private static AgentModelMessage MapMessage(
-        AgentMessage message
-    )
+    private static AgentModelMessage MapMessage(AgentMessage message)
     {
         var role = message.Role switch
         {
-            AgentMessageRole.User =>
-                AgentModelRole.User,
-
-            AgentMessageRole.Assistant =>
-                AgentModelRole.Assistant,
-
+            AgentMessageRole.User => AgentModelRole.User,
+            AgentMessageRole.Assistant => AgentModelRole.Assistant,
             _ => throw new InvalidOperationException(
-                $"Unsupported agent message role: {message.Role}"
-            )
+                $"Unsupported agent message role: {message.Role}")
         };
 
-        return new AgentModelMessage(
-            role,
-            message.Content
-        );
+        return new AgentModelMessage(role, message.Content);
     }
 
     private async Task<AgentToolExecution> ExecuteToolCallAsync(
@@ -457,44 +414,28 @@ await RecordStep(
             toolCall.Name
         );
 
-        var persistedToolCall =
-            session.StartToolCall(
-                toolCall.Name,
-                toolCall.ArgumentsJson
-            );
-
-        await _sessionRepository.UpdateAsync(
-            session,
-            cancellationToken
+        var persistedToolCall = session.StartToolCall(
+            toolCall.Name,
+            toolCall.ArgumentsJson
         );
 
-        string toolResult;
+        await _sessionRepository.UpdateAsync(session, cancellationToken);
 
+        string toolResult;
         var succeeded = false;
 
         try
         {
-            var tool =
-                _toolRegistry.GetRequired(
-                    toolCall.Name
-                );
+            var tool = _toolRegistry.GetRequired(toolCall.Name);
 
-            using var argumentsDocument =
-                JsonDocument.Parse(
-                    toolCall.ArgumentsJson
-                );
+            using var argumentsDocument = JsonDocument.Parse(toolCall.ArgumentsJson);
 
-            toolResult =
-                await tool.ExecuteAsync(
-                    argumentsDocument.RootElement,
-                    cancellationToken
-                );
-
-            session.CompleteToolCall(
-                persistedToolCall.Id,
-                toolResult
+            toolResult = await tool.ExecuteAsync(
+                argumentsDocument.RootElement,
+                cancellationToken
             );
 
+            session.CompleteToolCall(persistedToolCall.Id, toolResult);
             succeeded = true;
 
             _logger.LogInformation(
@@ -505,14 +446,9 @@ await RecordStep(
         }
         catch (Exception exception)
         {
-            toolResult = CreateToolError(
-                exception.Message
-            );
+            toolResult = CreateToolError(exception.Message);
 
-            session.FailToolCall(
-                persistedToolCall.Id,
-                exception.Message
-            );
+            session.FailToolCall(persistedToolCall.Id, exception.Message);
 
             _logger.LogError(
                 exception,
@@ -522,41 +458,20 @@ await RecordStep(
             );
         }
 
-        await _sessionRepository.UpdateAsync(
-            session,
-            cancellationToken
-        );
+        await _sessionRepository.UpdateAsync(session, cancellationToken);
 
-        messages.Add(
-            new AgentModelMessage(
-                AgentModelRole.Tool,
-                toolResult,
-                ToolCallId: toolCall.Id
-            )
-        );
+        messages.Add(new AgentModelMessage(
+            AgentModelRole.Tool, toolResult,
+            ToolCallId: toolCall.Id));
 
-        return new AgentToolExecution(
-            toolCall.Name,
-            toolResult,
-            succeeded
-        );
+        return new AgentToolExecution(toolCall.Name, toolResult, succeeded);
     }
 
-    private static string CreateToolError(
-        string message
-    )
+    private static string CreateToolError(string message)
     {
         return JsonSerializer.Serialize(
-            new Dictionary<string, string>
-            {
-                ["error"] = message
-            }
+            new Dictionary<string, string> { ["error"] = message }
         );
-    }
-
-    private static bool IsWriteActionTool(string toolName)
-    {
-        return toolName is "save_place" or "create_review";
     }
 
     private static async Task RecordStep(
@@ -568,17 +483,29 @@ await RecordStep(
         bool succeeded
     )
     {
-        var summary = StepSummary.FromStep(
-            kind,
-            toolName,
-            succeeded
-        );
+        var summary = kind switch
+        {
+            AgentActivityStepKind.ToolCall => toolName is null
+                ? StepSummary.Thinking
+                : null,
+            AgentActivityStepKind.ToolResult => toolName is null
+                ? StepSummary.Finalize
+                : null,
+            AgentActivityStepKind.ModelResponse => StepSummary.Thinking,
+            _ => kind switch
+            {
+                AgentActivityStepKind.Finalize => succeeded
+                    ? StepSummary.Finalize
+                    : StepSummary.FinalizeFailed,
+                _ => StepSummary.Thinking
+            }
+        };
 
         var step = new AgentActivityStep(
             order.Next(),
             kind,
             toolName,
-            summary,
+            summary ?? toolName ?? string.Empty,
             succeeded
         );
 
@@ -586,10 +513,7 @@ await RecordStep(
 
         if (sink is not null)
         {
-            await sink.EmitStepAsync(
-                step,
-                CancellationToken.None
-            );
+            await sink.EmitStepAsync(step, CancellationToken.None);
         }
     }
 

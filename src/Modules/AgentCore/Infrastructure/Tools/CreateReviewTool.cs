@@ -1,8 +1,8 @@
 using System.Text.Json;
 using AgentCore.Application.Abstractions;
-using AgentCore.Application.Models;
 using AgentCore.Application.Tools;
 using AgentCore.Application.Tools.CreateReview;
+using Configuration.Application.Abstractions;
 
 namespace AgentCore.Infrastructure.Tools;
 
@@ -14,14 +14,17 @@ public sealed class CreateReviewTool
 
     private readonly IPendingActionStore _pendingActionStore;
     private readonly IAgentExecutionContext _executionContext;
+    private readonly Configuration.Application.Abstractions.ITuningProvider _tuning;
 
     public CreateReviewTool(
         IPendingActionStore pendingActionStore,
-        IAgentExecutionContext executionContext
-    )
+        IAgentExecutionContext executionContext,
+        Configuration.Application.Abstractions.ITuningProvider tuning)
+        : base(tuning, "create_review")
     {
         _pendingActionStore = pendingActionStore;
         _executionContext = executionContext;
+        _tuning = tuning;
     }
 
     public override string Name => "create_review";
@@ -32,67 +35,79 @@ public sealed class CreateReviewTool
         "user must approve in the UI before it is persisted. Call this when " +
         "the user gives a rating or feedback about a place from the session.";
 
-    protected override Task<string> ExecuteAsync(
+    public override ToolKind Kind => ToolKind.WriteRequiresConfirmation;
+
+    protected override async Task<string> ExecuteAsync(
         CreateReviewToolArguments arguments,
         CancellationToken cancellationToken
     )
     {
         var userId = _executionContext.UserId;
+        var sessionId = _executionContext.SessionId;
+
         if (!userId.HasValue || userId.Value == Guid.Empty)
         {
-            throw new InvalidOperationException(
-                "Current user is not available."
-            );
+            throw new InvalidOperationException("Current user is not available.");
+        }
+        if (!sessionId.HasValue || sessionId.Value == Guid.Empty)
+        {
+            throw new InvalidOperationException("Current session is not available.");
         }
 
         if (arguments.PlaceId == Guid.Empty)
         {
             throw new ArgumentException(
                 "PlaceId is required.",
-                nameof(arguments.PlaceId)
-            );
+                nameof(arguments.PlaceId));
         }
 
         if (arguments.Rating is < 1 or > 5)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(arguments.Rating),
-                "Rating must be between 1 and 5."
-            );
+                "Rating must be between 1 and 5.");
         }
 
-        var action = new PendingAgentAction(
-            Id: Guid.NewGuid(),
-            SessionId: _executionContext.SessionId ?? Guid.Empty,
-            UserId: userId.Value,
-            Type: PendingAgentActionType.CreateReview,
-            Description:
-                $"Submit a {arguments.Rating}-star review" +
-                (string.IsNullOrWhiteSpace(arguments.Comment)
-                    ? string.Empty
-                    : $": \"{arguments.Comment}\""),
-            PlaceId: arguments.PlaceId,
-            Note: null,
-            Rating: arguments.Rating,
-            Comment: arguments.Comment,
-            CreatedAt: DateTime.UtcNow
-        );
-
-        var stored = _pendingActionStore.Add(action);
+        var confirmationId = Guid.NewGuid();
+        var actionId = Guid.NewGuid();
 
         var payload = new
         {
+            placeId = arguments.PlaceId,
+            rating = arguments.Rating,
+            comment = arguments.Comment
+        };
+
+        var payloadJson = JsonSerializer.Serialize(payload);
+
+        var action = new Domain.Entities.PendingAgentAction(
+            id: actionId,
+            sessionId: sessionId.Value,
+            userId: userId.Value,
+            actionType: "create_review",
+            payloadJson: payloadJson,
+            description:
+                $"Gửi đánh giá {arguments.Rating} sao" +
+                (string.IsNullOrWhiteSpace(arguments.Comment)
+                    ? string.Empty
+                    : $": \"{arguments.Comment}\""),
+            confirmationId: confirmationId
+        );
+
+        await _pendingActionStore.AddAsync(action, cancellationToken);
+
+        var response = new
+        {
             status = "awaiting_confirmation",
-            actionId = stored.Id,
+            actionId = action.Id,
+            confirmationId = confirmationId,
             action = "create_review",
-            placeId = stored.PlaceId,
-            rating = stored.Rating,
-            comment = stored.Comment,
+            placeId = arguments.PlaceId,
+            rating = arguments.Rating,
+            comment = arguments.Comment,
             message = "User must confirm before the review is saved."
         };
 
-        return Task.FromResult(
-            JsonSerializer.Serialize(payload, JsonOptions)
-        );
+        return JsonSerializer.Serialize(response, JsonOptions);
     }
 }

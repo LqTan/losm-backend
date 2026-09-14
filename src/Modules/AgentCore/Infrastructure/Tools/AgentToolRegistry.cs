@@ -2,12 +2,11 @@ using AgentCore.Application.Abstractions;
 
 namespace AgentCore.Infrastructure.Tools;
 
-public sealed class ArgentToolRegistry : IAgentToolRegistry
+public sealed class AgentToolRegistry : IAgentToolRegistry
 {
     private readonly IReadOnlyDictionary<string, IAgentTool> _tools;
-    public ArgentToolRegistry(
-        IEnumerable<IAgentTool> tools
-    )
+
+    public AgentToolRegistry(IEnumerable<IAgentTool> tools)
     {
         var toolList = tools.ToList();
 
@@ -18,14 +17,12 @@ public sealed class ArgentToolRegistry : IAgentToolRegistry
         if (duplicate is not null)
         {
             throw new InvalidOperationException(
-                $"Duplicate agent tool: {duplicate.Key}"
-            );
+                $"Duplicate agent tool: {duplicate.Key}");
         }
 
         _tools = toolList.ToDictionary(
             x => x.Name,
-            StringComparer.Ordinal
-        );
+            StringComparer.Ordinal);
     }
 
     public IReadOnlyCollection<IAgentTool> GetAll()
@@ -41,7 +38,6 @@ public sealed class ArgentToolRegistry : IAgentToolRegistry
         }
 
         throw new KeyNotFoundException(
-            $"Agent tool '{name}' was not found."
-        );
+            $"Agent tool '{name}' was not found.");
     }
 }

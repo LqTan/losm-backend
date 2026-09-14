@@ -1,5 +1,12 @@
 namespace Search.Application.Abstractions;
 
+public sealed record RankingScoreBreakdown(
+    double DistanceScore,
+    double RatingScore,
+    double FairnessScore,
+    double FinalScore
+);
+
 public interface IRankingService
 {
     double CalculateDistanceKm(
@@ -8,10 +15,24 @@ public interface IRankingService
         double placeLatitude,
         double placeLongitude
     );
-    double CalculateFinalScore(
+
+    Task<double> CalculateFinalScoreAsync(
         double relevanceScore,
         double distanceKm,
         double radiusKm,
-        double? rating
+        double? rating,
+        IReadOnlyList<double>? originDistancesKm,
+        string profileName,
+        CancellationToken ct
+    );
+
+    Task<RankingScoreBreakdown> CalculateBreakdownAsync(
+        double relevanceScore,
+        double distanceKm,
+        double radiusKm,
+        double? rating,
+        IReadOnlyList<double>? originDistancesKm,
+        string profileName,
+        CancellationToken ct
     );
 }

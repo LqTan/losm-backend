@@ -1,121 +1,111 @@
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Models;
-using Places.Application.SavedPlaces.Commands.SavePlace;
-using Reviews.Application.Reviews.Commands.CreateReview;
+using AgentCore.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace AgentCore.Application.Agent.Commands.ConfirmAgentAction;
 
 public sealed class ConfirmAgentActionHandler
 {
     private readonly IPendingActionStore _pendingActionStore;
-    private readonly SavePlaceHandler _savePlaceHandler;
-    private readonly CreateReviewHandler _createReviewHandler;
+    private readonly IAgentActionDispatcherResolver _dispatcherResolver;
+    private readonly ILogger<ConfirmAgentActionHandler> _logger;
 
     public ConfirmAgentActionHandler(
         IPendingActionStore pendingActionStore,
-        SavePlaceHandler savePlaceHandler,
-        CreateReviewHandler createReviewHandler
-    )
+        IAgentActionDispatcherResolver dispatcherResolver,
+        ILogger<ConfirmAgentActionHandler> logger)
     {
         _pendingActionStore = pendingActionStore;
-        _savePlaceHandler = savePlaceHandler;
-        _createReviewHandler = createReviewHandler;
+        _dispatcherResolver = dispatcherResolver;
+        _logger = logger;
     }
 
     public async Task<ConfirmAgentActionResult> HandleAsync(
         ConfirmAgentActionCommand command,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
-        var pending = _pendingActionStore.Remove(command.ActionId);
+        var pending = await _pendingActionStore.GetAsync(
+            command.ActionId, cancellationToken);
 
         if (pending is null)
         {
             throw new KeyNotFoundException(
                 $"Pending action '{command.ActionId}' was not found " +
-                "or has already been processed."
-            );
+                "or has already been processed.");
         }
 
         if (pending.UserId != command.UserId)
         {
             throw new KeyNotFoundException(
                 $"Pending action '{command.ActionId}' was not found " +
-                "or has already been processed."
-            );
+                "or has already been processed.");
         }
 
-        var outcome = pending.Type switch
-        {
-            PendingAgentActionType.SavePlace =>
-                await ConfirmSavePlaceAsync(pending, cancellationToken),
-
-            PendingAgentActionType.CreateReview =>
-                await ConfirmCreateReviewAsync(pending, cancellationToken),
-
-            _ => throw new InvalidOperationException(
-                $"Unsupported pending action type: {pending.Type}"
-            )
-        };
-
-        return new ConfirmAgentActionResult(outcome);
-    }
-
-    private async Task<ConfirmAgentActionOutcome> ConfirmSavePlaceAsync(
-        PendingAgentAction pending,
-        CancellationToken cancellationToken
-    )
-    {
-        if (pending.PlaceId is null)
+        if (pending.Status == PendingAgentActionStatus.Cancelled)
         {
             throw new InvalidOperationException(
-                "Pending save place action is missing PlaceId."
-            );
+                $"Pending action '{command.ActionId}' was cancelled.");
         }
 
-        await _savePlaceHandler.HandleAsync(
-            new SavePlaceCommand(
-                pending.UserId,
-                pending.PlaceId.Value,
-                pending.Note
-            ),
-            cancellationToken
-        );
-
-        return new ConfirmAgentActionOutcome(
-            pending.Id,
-            PendingAgentActionType.SavePlace,
-            "applied",
-            $"Place '{pending.PlaceId}' was saved."
-        );
-    }
-
-    private async Task<ConfirmAgentActionOutcome> ConfirmCreateReviewAsync(
-        PendingAgentAction pending,
-        CancellationToken cancellationToken
-    )
-    {
-        if (pending.PlaceId is null || pending.Rating is null)
+        if (pending.Status == PendingAgentActionStatus.Completed ||
+            pending.Status == PendingAgentActionStatus.Failed ||
+            pending.Status == PendingAgentActionStatus.PartiallyFailed)
         {
             throw new InvalidOperationException(
-                "Pending create review action is missing PlaceId or Rating."
-            );
+                $"Pending action '{command.ActionId}' has already been processed.");
         }
 
-        await _createReviewHandler.HandleAsync(
-            new CreateReviewCommand(
-                pending.PlaceId.Value,
-                pending.UserId,
-                pending.Rating.Value,
-                pending.Comment
-            )
-        );
+        var confirmationId = pending.ConfirmationId ?? Guid.NewGuid();
+        pending.Confirm(confirmationId);
+        await _pendingActionStore.UpdateAsync(pending, cancellationToken);
 
-        return new ConfirmAgentActionOutcome(
+        var beforeExecution = pending.Status;
+        pending.StartExecution();
+        await _pendingActionStore.UpdateAsync(pending, cancellationToken);
+
+        var dispatcher = _dispatcherResolver.Resolve(pending.ActionType);
+
+        if (dispatcher is null)
+        {
+            pending.Fail($"No dispatcher registered for action '{pending.ActionType}'.");
+            await _pendingActionStore.UpdateAsync(pending, cancellationToken);
+            return new ConfirmAgentActionResult(new ConfirmAgentActionOutcome(
+                pending.Id,
+                pending.ActionType,
+                pending.Status.ToString(),
+                $"No dispatcher registered for action '{pending.ActionType}'."
+            ));
+        }
+
+        var result = await dispatcher.DispatchAsync(pending, cancellationToken);
+
+        if (result.Succeeded)
+        {
+            pending.Complete(result.ResultJson);
+        }
+        else if (!string.IsNullOrEmpty(result.ResultJson) &&
+                 result.ResultJson != "{}")
+        {
+            pending.PartiallyFail(result.ResultJson,
+                result.Error ?? "Partial failure");
+        }
+        else
+        {
+            pending.Fail(result.Error ?? "Unknown error");
+        }
+
+        await _pendingActionStore.UpdateAsync(pending, cancellationToken);
+
+        string detail = result.Succeeded
+            ? $"Action '{pending.ActionType}' applied."
+            : (result.Error ?? "Action failed.");
+
+        return new ConfirmAgentActionResult(new ConfirmAgentActionOutcome(
             pending.Id,
-            PendingAgentActionType.CreateReview,
-            "applied",
-            $"Review for place '{pending.PlaceId}' was saved."
-        );
+            pending.ActionType,
+            pending.Status.ToString(),
+            detail
+        ));
     }
 }

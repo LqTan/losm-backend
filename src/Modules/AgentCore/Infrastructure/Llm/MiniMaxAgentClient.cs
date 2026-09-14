@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Enums;
 using AgentCore.Application.Models;
+using AgentCore.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 
 namespace AgentCore.Infrastructure.Llm;
@@ -215,14 +216,7 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
         IReadOnlyList<AgentModelMessage> messages
     )
     {
-        const string systemPrompt =
-            "You answer in plain conversational prose addressed to the user. " +
-            "Never use markdown formatting: no bold, no italics, no bullet " +
-            "lists, no numbered lists, no pipe tables, no headings, no code " +
-            "fences, no horizontal rules. Use natural sentences and simple " +
-            "punctuation. Place names can still be emphasized with quotation " +
-            "marks if needed. Do not output JSON unless explicitly asked. " +
-            "Keep replies concise.";
+        var systemPrompt = PromptFile.Load("agent-system.txt");
 
         var existing = messages.FirstOrDefault();
 

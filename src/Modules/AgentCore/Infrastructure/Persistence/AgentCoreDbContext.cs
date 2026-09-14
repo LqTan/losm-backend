@@ -9,7 +9,7 @@ public class AgentCoreDbContext : DbContext
         DbContextOptions<AgentCoreDbContext> options
     ) : base(options)
     {
-        
+
     }
 
     public DbSet<AgentSession> AgentSessions
@@ -20,6 +20,11 @@ public class AgentCoreDbContext : DbContext
         => Set<AgentToolCall>();
     public DbSet<AgentPlan> AgentPlans
         => Set<AgentPlan>();
+    public DbSet<PendingAgentAction> PendingAgentActions
+        => Set<PendingAgentAction>();
+    public DbSet<LastSearchContext> LastSearchContexts
+        => Set<LastSearchContext>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(
