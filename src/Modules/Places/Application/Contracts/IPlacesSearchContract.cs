@@ -9,6 +9,7 @@ public interface IPlacesSearchContract
         double latitude,
         double longitude,
         double radiusKm,
+        int candidateLimit,
         CancellationToken cancellationToken
     );
 }

@@ -16,6 +16,7 @@ public sealed class PlacesSearchContract : IPlacesSearchContract
         double latitude,
         double longitude,
         double radiusKm,
+        int candidateLimit,
         CancellationToken cancellationToken
     )
     {
@@ -23,7 +24,8 @@ public sealed class PlacesSearchContract : IPlacesSearchContract
             query,
             latitude,
             longitude,
-            radiusKm
+            radiusKm,
+            candidateLimit
         );
         return await _handler.HandleAsync(
             searchQuery,

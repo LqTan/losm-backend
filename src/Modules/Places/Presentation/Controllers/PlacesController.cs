@@ -1,3 +1,4 @@
+using Configuration.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Places.Application.Places.Queries.GetPlaceById;
 using Places.Application.Places.Queries.SearchPlaces;
@@ -10,14 +11,16 @@ public sealed class PlacesController : ControllerBase
 {
     private readonly SearchPlacesHandler _searchPlacesHandler;
     private readonly GetPlaceByIdHandler _getPlacesByIdHandler;
+    private readonly ITuningProvider _tuning;
 
     public PlacesController(
         SearchPlacesHandler searchPlacesHandler,
-        GetPlaceByIdHandler getPlaceByIdHandler
-    )
+        GetPlaceByIdHandler getPlacesByIdHandler,
+        ITuningProvider tuning)
     {
         _searchPlacesHandler = searchPlacesHandler;
-        _getPlacesByIdHandler = getPlaceByIdHandler;
+        _getPlacesByIdHandler = getPlacesByIdHandler;
+        _tuning = tuning;
     }
 
     [HttpGet("search")]
@@ -29,11 +32,14 @@ public sealed class PlacesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        var searchOptions = await _tuning.GetSearchOptionsAsync(cancellationToken);
+
         var searchQuery = new SearchPlacesQuery(
             query,
             latitude,
             longitude,
-            radiusKm
+            radiusKm,
+            searchOptions.CandidateLimit
         );
         var places = await _searchPlacesHandler.HandleAsync(
             searchQuery,
@@ -41,7 +47,7 @@ public sealed class PlacesController : ControllerBase
         );
         return Ok(places);
     }
-    
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(
         Guid id,

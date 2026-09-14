@@ -2,7 +2,9 @@ using System.Text.Json;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Tools;
 using AgentCore.Application.Tools.SearchPlaces;
+using AgentCore.Domain.Entities;
 using Configuration.Application.Abstractions;
+using Microsoft.Extensions.Logging;
 using Search.Application.Search.Queries.SearchPlaces;
 
 namespace AgentCore.Infrastructure.Tools;
@@ -15,16 +17,22 @@ public sealed class SearchPlacesTool
 
     private readonly SearchPlacesHandler _searchPlacesHandler;
     private readonly IAgentExecutionContext _executionContext;
+    private readonly ILastSearchContextStore _lastSearchContextStore;
     private readonly ITuningProvider _tuning;
+    private readonly ILogger<SearchPlacesTool> _logger;
 
     public SearchPlacesTool(
         SearchPlacesHandler searchPlacesHandler,
         IAgentExecutionContext executionContext,
-        ITuningProvider tuning) : base(tuning, "search_places")
+        ILastSearchContextStore lastSearchContextStore,
+        ITuningProvider tuning,
+        ILogger<SearchPlacesTool> logger) : base(tuning, "search_places")
     {
         _searchPlacesHandler = searchPlacesHandler;
         _executionContext = executionContext;
+        _lastSearchContextStore = lastSearchContextStore;
         _tuning = tuning;
+        _logger = logger;
     }
 
     public override string Name => "search_places";
@@ -46,6 +54,7 @@ public sealed class SearchPlacesTool
         }
 
         var opts = await _tuning.GetToolOptionsAsync(Name, cancellationToken);
+        var searchOptions = await _tuning.GetSearchOptionsAsync(cancellationToken);
 
         var radiusKm = arguments.RadiusKm > 0
             ? arguments.RadiusKm
@@ -58,7 +67,8 @@ public sealed class SearchPlacesTool
             arguments.Query,
             _executionContext.Latitude,
             _executionContext.Longitude,
-            radiusKm
+            radiusKm,
+            searchOptions.CandidateLimit
         );
 
         var results = await _searchPlacesHandler.HandleAsync(
@@ -66,9 +76,65 @@ public sealed class SearchPlacesTool
             cancellationToken
         );
 
+        await TryUpsertLastSearchContextAsync(
+            arguments.Query,
+            radiusKm,
+            results.Select(r => r.PlaceId),
+            cancellationToken);
+
         return JsonSerializer.Serialize(
             results.Take(limit),
             JsonOptions
         );
+    }
+
+    private async Task TryUpsertLastSearchContextAsync(
+        string query,
+        double radiusKm,
+        IEnumerable<Guid> resultPlaceIds,
+        CancellationToken cancellationToken)
+    {
+        var sessionId = _executionContext.SessionId;
+        if (!sessionId.HasValue || sessionId.Value == Guid.Empty) return;
+
+        try
+        {
+            var placeIdsJson = JsonSerializer.Serialize(resultPlaceIds);
+            var filtersJson = "{}";
+
+            var existing = await _lastSearchContextStore.GetAsync(
+                sessionId.Value, cancellationToken);
+
+            if (existing is null)
+            {
+                var context = new LastSearchContext(
+                    sessionId.Value,
+                    query,
+                    _executionContext.Latitude,
+                    _executionContext.Longitude,
+                    radiusKm,
+                    placeIdsJson,
+                    filtersJson);
+
+                await _lastSearchContextStore.UpsertAsync(context, cancellationToken);
+            }
+            else
+            {
+                existing.Update(
+                    query,
+                    _executionContext.Latitude,
+                    _executionContext.Longitude,
+                    radiusKm,
+                    placeIdsJson,
+                    filtersJson);
+                await _lastSearchContextStore.UpsertAsync(existing, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to upsert LastSearchContext for session {SessionId}",
+                sessionId);
+        }
     }
 }
