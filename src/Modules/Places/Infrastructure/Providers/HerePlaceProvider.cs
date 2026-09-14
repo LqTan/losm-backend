@@ -30,15 +30,17 @@ public sealed class HerePlaceProvider : IPlaceProvider
         double latitude,
         double longitude,
         double radiusKm,
+        int candidateLimit,
         CancellationToken cancellationToken = default
     )
     {
         var radiusMeters = Math.Max(1, (int)(radiusKm * 1000));
+        var limit = Math.Max(1, candidateLimit);
         var url =
             $"v1/discover" +
             $"?in=circle:{latitude},{longitude};r={radiusMeters}" +
             $"&q={Uri.EscapeDataString(query ?? string.Empty)}" +
-            $"&limit=20" +
+            $"&limit={limit}" +
             $"&apiKey={_apiKey}";
 
         try

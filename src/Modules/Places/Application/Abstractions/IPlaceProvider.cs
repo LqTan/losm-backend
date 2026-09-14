@@ -9,6 +9,7 @@ public interface IPlaceProvider
         double latitude,
         double longitude,
         double radiusKm,
+        int candidateLimit,
         CancellationToken cancellationToken = default
     );
 }
