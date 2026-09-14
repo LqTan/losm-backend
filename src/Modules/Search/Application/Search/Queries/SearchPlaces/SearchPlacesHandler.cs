@@ -26,13 +26,21 @@ public sealed class SearchPlacesHandler
         CancellationToken cancellationToken = default)
     {
         var searchOptions = await _tuning.GetSearchOptionsAsync(cancellationToken);
-        var radiusKm = query.RadiusKm > 0 ? query.RadiusKm : searchOptions.DefaultRadiusKm;
+
+        var radiusKm = query.RadiusKm.HasValue && query.RadiusKm.Value > 0
+            ? query.RadiusKm.Value
+            : searchOptions.DefaultRadiusKm;
+
+        var candidateLimit = query.CandidateLimit.HasValue && query.CandidateLimit.Value > 0
+            ? query.CandidateLimit.Value
+            : searchOptions.CandidateLimit;
 
         var candidates = await _placeSearchService.SearchAsync(
             query.Query,
             query.Latitude,
             query.Longitude,
             radiusKm,
+            candidateLimit,
             cancellationToken
         );
 

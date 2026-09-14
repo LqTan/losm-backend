@@ -25,7 +25,7 @@ public sealed class SearchController : ControllerBase
         [FromQuery] string query,
         [FromQuery] double latitude,
         [FromQuery] double longitude,
-        [FromQuery] double radiusKm = 5,
+        [FromQuery] double? radiusKm = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -64,6 +64,6 @@ public sealed record SearchMeetingPlaceRequest(
 public sealed record SearchMeetingPlacesRequest(
     string Query,
     IReadOnlyList<SearchMeetingPlaceRequest> Origins,
-    double RadiusKm = 5,
-    int TopK = 5
+    double? RadiusKm = null,
+    int? TopK = null
 );

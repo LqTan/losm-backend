@@ -4,5 +4,6 @@ public sealed record SearchPlacesQuery(
     string Query,
     double Latitude,
     double Longitude,
-    double RadiusKm = 5
+    double? RadiusKm = null,
+    int? CandidateLimit = null
 );

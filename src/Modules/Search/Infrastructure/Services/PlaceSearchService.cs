@@ -15,6 +15,7 @@ public sealed class PlaceSearchService : IPlaceSearchService
         double latitude,
         double longitude,
         double radiusKm,
+        int candidateLimit,
         CancellationToken cancellationToken
     )
     {
@@ -23,6 +24,7 @@ public sealed class PlaceSearchService : IPlaceSearchService
             latitude,
             longitude,
             radiusKm,
+            candidateLimit,
             cancellationToken
         );
         return places
@@ -34,6 +36,6 @@ public sealed class PlaceSearchService : IPlaceSearchService
                 place.Latitude,
                 place.Longitude,
                 place.Rating
-            )).ToList();        
+            )).ToList();
     }
 }

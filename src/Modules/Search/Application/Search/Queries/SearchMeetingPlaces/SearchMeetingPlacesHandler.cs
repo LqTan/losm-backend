@@ -35,6 +35,18 @@ public sealed class SearchMeetingPlacesHandler
 
         const string profile = "Meeting";
 
+        var searchOptions = await _tuning.GetSearchOptionsAsync(cancellationToken);
+
+        var radiusKm = query.RadiusKm.HasValue && query.RadiusKm.Value > 0
+            ? query.RadiusKm.Value
+            : searchOptions.DefaultRadiusKm;
+
+        var topK = query.TopK.HasValue && query.TopK.Value > 0
+            ? query.TopK.Value
+            : searchOptions.TopK;
+
+        var candidateLimit = searchOptions.CandidateLimit;
+
         var centroidLat = query.Origins.Average(o => o.Latitude);
         var centroidLon = query.Origins.Average(o => o.Longitude);
 
@@ -43,13 +55,14 @@ public sealed class SearchMeetingPlacesHandler
                 centroidLat, centroidLon,
                 o.Latitude, o.Longitude));
 
-        var searchRadius = query.RadiusKm + maxOriginRadius;
+        var searchRadius = radiusKm + maxOriginRadius;
 
         var candidates = await _placeSearchService.SearchAsync(
             query.Query,
             centroidLat,
             centroidLon,
             searchRadius,
+            candidateLimit,
             cancellationToken
         );
 
@@ -77,7 +90,7 @@ public sealed class SearchMeetingPlacesHandler
             var breakdown = await _rankingService.CalculateBreakdownAsync(
                 relevanceScore,
                 distancesByOrigin.Min(),
-                query.RadiusKm,
+                radiusKm,
                 place.Rating,
                 distancesByOrigin,
                 profile,
@@ -105,7 +118,7 @@ public sealed class SearchMeetingPlacesHandler
 
         var top = results
             .OrderByDescending(x => x.FinalScore)
-            .Take(query.TopK)
+            .Take(topK)
             .ToList();
 
         return new SearchMeetingPlacesResult(

@@ -37,8 +37,11 @@ public sealed class CachedTuningProvider : ITuningProvider
     {
         var scope = $"Search.Ranking.{name}";
         var json = await GetOrLoadAsync(scope, ct);
-        return DeserializeOrDefault<RankingProfile>(json) ??
-               (name == "Default" ? new RankingProfile() : new RankingProfile { Name = name });
+        var profile = DeserializeOrDefault<RankingProfile>(json)
+                      ?? DefaultProfileFor(name);
+
+        ValidateWeights(scope, profile);
+        return profile;
     }
 
     public async Task<AgentCoreRuntimeOptions> GetRuntimeAsync(CancellationToken ct)
@@ -102,6 +105,39 @@ public sealed class CachedTuningProvider : ITuningProvider
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Config version poll failed");
+        }
+    }
+
+    private static RankingProfile DefaultProfileFor(string name)
+    {
+        if (name == "Meeting")
+        {
+            return new RankingProfile
+            {
+                Name = "Meeting",
+                Relevance = 0.5,
+                Distance = 0.2,
+                Fairness = 0.2,
+                Rating = 0.1
+            };
+        }
+
+        return name == "Default"
+            ? new RankingProfile()
+            : new RankingProfile { Name = name };
+    }
+
+    private void ValidateWeights(string scope, RankingProfile profile)
+    {
+        var sum = profile.Relevance + profile.Distance + profile.Fairness + profile.Rating;
+        const double tolerance = 0.001;
+        if (Math.Abs(sum - 1.0) > tolerance)
+        {
+            _logger.LogWarning(
+                "Ranking weights for {Scope} sum to {Sum} (expected 1.0). " +
+                "Relevance={Relevance} Distance={Distance} Fairness={Fairness} Rating={Rating}",
+                scope, sum,
+                profile.Relevance, profile.Distance, profile.Fairness, profile.Rating);
         }
     }
 

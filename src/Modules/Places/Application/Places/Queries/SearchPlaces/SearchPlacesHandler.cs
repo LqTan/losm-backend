@@ -31,6 +31,7 @@ public sealed class SearchPlacesHandler
             query.Latitude,
             query.Longitude,
             query.RadiusKm,
+            query.CandidateLimit,
             cancellationToken
         );
 

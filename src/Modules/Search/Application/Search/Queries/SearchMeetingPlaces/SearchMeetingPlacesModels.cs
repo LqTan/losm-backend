@@ -9,8 +9,8 @@ public sealed record SearchMeetingPlaceOrigin(
 public sealed record SearchMeetingPlacesQuery(
     string Query,
     IReadOnlyList<SearchMeetingPlaceOrigin> Origins,
-    double RadiusKm = 5,
-    int TopK = 5
+    double? RadiusKm = null,
+    int? TopK = null
 );
 
 public sealed record SearchMeetingPlaceResult(
