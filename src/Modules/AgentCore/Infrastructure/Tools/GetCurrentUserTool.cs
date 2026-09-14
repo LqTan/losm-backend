@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Tools;
 using AgentCore.Application.Tools.CurrentUser;
+using Configuration.Application.Abstractions;
 using Users.Application.Users.Queries.GetUserById;
 
 namespace AgentCore.Infrastructure.Tools;
@@ -14,14 +15,17 @@ public sealed class GetCurrentUserTool
 
     private readonly GetUserByIdHandler _getUserByIdHandler;
     private readonly IAgentExecutionContext _executionContext;
+    private readonly Configuration.Application.Abstractions.ITuningProvider _tuning;
 
     public GetCurrentUserTool(
         GetUserByIdHandler getUserByIdHandler,
-        IAgentExecutionContext executionContext
-    )
+        IAgentExecutionContext executionContext,
+        Configuration.Application.Abstractions.ITuningProvider tuning)
+        : base(tuning, "get_current_user")
     {
         _getUserByIdHandler = getUserByIdHandler;
         _executionContext = executionContext;
+        _tuning = tuning;
     }
 
     public override string Name => "get_current_user";
@@ -39,21 +43,17 @@ public sealed class GetCurrentUserTool
         if (!userId.HasValue)
         {
             throw new InvalidOperationException(
-                "Current user is not available."
-            );
+                "Current user is not available.");
         }
 
         var user = await _getUserByIdHandler.HandleAsync(
-            new GetUserByIdQuery(
-                userId.Value
-            )
+            new GetUserByIdQuery(userId.Value)
         );
 
         if (user is null)
         {
             throw new KeyNotFoundException(
-                $"User '{userId.Value}' was not found."
-            );
+                $"User '{userId.Value}' was not found.");
         }
 
         var result = new
@@ -63,9 +63,6 @@ public sealed class GetCurrentUserTool
             user.CreatedAt
         };
 
-        return JsonSerializer.Serialize(
-            result,
-            JsonOptions
-        );
+        return JsonSerializer.Serialize(result, JsonOptions);
     }
 }

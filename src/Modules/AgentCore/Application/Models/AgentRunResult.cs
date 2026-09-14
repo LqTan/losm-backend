@@ -1,4 +1,4 @@
-using AgentCore.Application.Models;
+using AgentCore.Domain.Entities;
 
 namespace AgentCore.Application.Models;
 

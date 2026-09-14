@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Tools;
 using AgentCore.Application.Tools.SearchPlaces;
+using Configuration.Application.Abstractions;
 using Search.Application.Search.Queries.SearchPlaces;
 
 namespace AgentCore.Infrastructure.Tools;
@@ -14,20 +15,25 @@ public sealed class SearchPlacesTool
 
     private readonly SearchPlacesHandler _searchPlacesHandler;
     private readonly IAgentExecutionContext _executionContext;
+    private readonly ITuningProvider _tuning;
 
     public SearchPlacesTool(
         SearchPlacesHandler searchPlacesHandler,
-        IAgentExecutionContext executionContext
-    )
+        IAgentExecutionContext executionContext,
+        ITuningProvider tuning) : base(tuning, "search_places")
     {
         _searchPlacesHandler = searchPlacesHandler;
         _executionContext = executionContext;
+        _tuning = tuning;
     }
 
     public override string Name => "search_places";
 
     public override string Description =>
-        "Search and rank places near the current user's location.";
+        "Search and rank places near the current user's location. " +
+        "Use when the user asks to find places, recommendations, or anything nearby.";
+
+    public override bool SuppliesPlaces => true;
 
     protected override async Task<string> ExecuteAsync(
         SearchPlacesToolArguments arguments,
@@ -36,30 +42,23 @@ public sealed class SearchPlacesTool
     {
         if (string.IsNullOrWhiteSpace(arguments.Query))
         {
-            throw new ArgumentException(
-                "Query is required."
-            );
+            throw new ArgumentException("Query is required.");
         }
 
-        if (arguments.RadiusKm <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(arguments.RadiusKm)
-            );
-        }
+        var opts = await _tuning.GetToolOptionsAsync(Name, cancellationToken);
 
-        if (arguments.Limit is < 1 or > 20)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(arguments.Limit)
-            );
-        }
+        var radiusKm = arguments.RadiusKm > 0
+            ? arguments.RadiusKm
+            : opts.DefaultRadiusKm;
+
+        var limit = arguments.Limit > 0 ? arguments.Limit : opts.DefaultLimit;
+        if (limit > opts.MaxLimit) limit = opts.MaxLimit;
 
         var query = new SearchPlacesQuery(
             arguments.Query,
             _executionContext.Latitude,
             _executionContext.Longitude,
-            arguments.RadiusKm
+            radiusKm
         );
 
         var results = await _searchPlacesHandler.HandleAsync(
@@ -68,7 +67,7 @@ public sealed class SearchPlacesTool
         );
 
         return JsonSerializer.Serialize(
-            results.Take(arguments.Limit),
+            results.Take(limit),
             JsonOptions
         );
     }

@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Modules\AgentCore\AgentCore.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Configuration\Configuration.csproj" />
   </ItemGroup>
 
 </Project>
