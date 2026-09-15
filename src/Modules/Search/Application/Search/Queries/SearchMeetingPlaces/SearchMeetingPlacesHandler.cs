@@ -91,7 +91,6 @@ public sealed class SearchMeetingPlacesHandler
                 relevanceScore,
                 distancesByOrigin.Min(),
                 radiusKm,
-                place.Rating,
                 distancesByOrigin,
                 profile,
                 cancellationToken
@@ -104,6 +103,7 @@ public sealed class SearchMeetingPlacesHandler
                 place.Latitude,
                 place.Longitude,
                 place.Category,
+                place.OpeningHours,
                 distancesByOrigin,
                 distancesByOrigin.Average(),
                 distancesByOrigin.Max(),
@@ -111,7 +111,6 @@ public sealed class SearchMeetingPlacesHandler
                 relevanceScore,
                 breakdown.DistanceScore,
                 breakdown.FairnessScore,
-                breakdown.RatingScore,
                 breakdown.FinalScore
             ));
         }

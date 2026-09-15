@@ -2,42 +2,60 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Models;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentCore.Infrastructure.Meeting;
 
 public sealed class N8nMeetingClient : IMeetingAutomationClient
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
+    private readonly N8nMeetingClientOptions _options;
     private readonly ILogger<N8nMeetingClient> _logger;
 
     public N8nMeetingClient(
         HttpClient httpClient,
-        IConfiguration configuration,
+        IOptions<N8nMeetingClientOptions> options,
         ILogger<N8nMeetingClient> logger)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
+        _options = options.Value;
         _logger = logger;
     }
 
-    public async Task<MeetingAutomationResult> TriggerAsync(
+    public Task<MeetingAutomationResult> TriggerMeetingAsync(
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
-        var baseUrl = _configuration["N8n:BaseUrl"];
-        var path = _configuration["N8n:MeetingWebhookPath"] ?? "/webhook/meeting";
+        return InvokeWebhookAsync(
+            _options.MeetingWebhookPath,
+            payload,
+            cancellationToken);
+    }
 
-        if (string.IsNullOrWhiteSpace(baseUrl))
+    public Task<MeetingAutomationResult> ResendInvitationsAsync(
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        return InvokeWebhookAsync(
+            _options.ResendInvitationsWebhookPath,
+            payload,
+            cancellationToken);
+    }
+
+    private async Task<MeetingAutomationResult> InvokeWebhookAsync(
+        string path,
+        JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
             return new MeetingAutomationResult(
                 false, false, null,
-                "N8n BaseUrl is not configured");
+                "Webhook path is not configured");
         }
 
-        var url = baseUrl.TrimEnd('/') + path;
+        var url = path;
 
         try
         {
@@ -62,7 +80,7 @@ public sealed class N8nMeetingClient : IMeetingAutomationClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "n8n webhook call failed");
+            _logger.LogError(ex, "n8n webhook call failed for path {Path}", path);
             return new MeetingAutomationResult(false, false, null, ex.Message);
         }
     }

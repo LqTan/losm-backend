@@ -9,7 +9,6 @@ using AgentCore.Infrastructure.AgentRuntime;
 using AgentCore.Tests.TestSupport;
 
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 using Moq;
 
@@ -491,12 +490,6 @@ public class AgentRunnerTests
             responseValidator,
             pendingActions,
             lastSearchStore,
-            Options.Create(
-                new AgentRunnerOptions
-                {
-                    MaxSteps = 8
-                }
-            ),
             new ConfigurationStub(),
             NullLogger<AgentRunner>.Instance
         );

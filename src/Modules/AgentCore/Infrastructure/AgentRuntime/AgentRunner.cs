@@ -7,7 +7,6 @@ using AgentCore.Domain.Enums;
 using AgentCore.Infrastructure.Services;
 using Configuration.Application.Abstractions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace AgentCore.Infrastructure.AgentRuntime;
 
@@ -20,7 +19,6 @@ public sealed class AgentRunner : IAgentRunner
     private readonly IAgentResponseValidator _responseValidator;
     private readonly IPendingActionStore _pendingActionStore;
     private readonly ILastSearchContextStore _lastSearchContextStore;
-    private readonly AgentRunnerOptions _options;
     private readonly ITuningProvider _tuning;
     private readonly ILogger<AgentRunner> _logger;
 
@@ -32,7 +30,6 @@ public sealed class AgentRunner : IAgentRunner
         IAgentResponseValidator responseValidator,
         IPendingActionStore pendingActionStore,
         ILastSearchContextStore lastSearchContextStore,
-        IOptions<AgentRunnerOptions> options,
         ITuningProvider tuning,
         ILogger<AgentRunner> logger
     )
@@ -44,7 +41,6 @@ public sealed class AgentRunner : IAgentRunner
         _responseValidator = responseValidator;
         _pendingActionStore = pendingActionStore;
         _lastSearchContextStore = lastSearchContextStore;
-        _options = options.Value;
         _tuning = tuning;
         _logger = logger;
     }
@@ -167,6 +163,9 @@ public sealed class AgentRunner : IAgentRunner
         _executionContext.SetUser(userId);
         _executionContext.SetLocation(latitude, longitude);
 
+        var runtimeOptions = await _tuning.GetRuntimeAsync(cancellationToken);
+        var maxSteps = runtimeOptions.MaxSteps > 0 ? runtimeOptions.MaxSteps : 8;
+
         var session = await GetOrCreateSessionAsync(
             sessionId,
             userId,
@@ -237,7 +236,7 @@ public sealed class AgentRunner : IAgentRunner
         var attachedPlaces = new List<AttachedPlace>();
         var attachedPlaceIds = new HashSet<Guid>();
 
-        for (var step = 0; step < _options.MaxSteps; step++)
+        for (var step = 0; step < maxSteps; step++)
         {
             _logger.LogDebug(
                 "Agent step {Step} started. SessionId: {SessionId}",
@@ -339,11 +338,11 @@ public sealed class AgentRunner : IAgentRunner
         _logger.LogWarning(
             "Agent exceeded maximum steps. SessionId: {SessionId}, MaxSteps: {MaxSteps}",
             session.Id,
-            _options.MaxSteps
+            maxSteps
         );
 
         throw new InvalidOperationException(
-            $"Agent exceeded the maximum number of steps: {_options.MaxSteps}."
+            $"Agent exceeded the maximum number of steps: {maxSteps}."
         );
     }
 

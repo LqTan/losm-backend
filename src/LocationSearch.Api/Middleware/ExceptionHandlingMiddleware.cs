@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using Users.Application.Common.Exceptions;
+using Common.Application.Exceptions;
 
 namespace LocationSearch.Api.Middleware;
 

@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Modules\Common\Common.csproj" />
     <ProjectReference Include="..\Modules\Configuration\Configuration.csproj" />
     <ProjectReference Include="..\Modules\Places\Places.csproj" />
     <ProjectReference Include="..\Modules\Search\Search.csproj" />
