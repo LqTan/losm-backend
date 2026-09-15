@@ -10,12 +10,11 @@ public class Place
     public double Latitude { get; private set; }
     public double Longitude { get; private set; }
 
-    public double? Rating { get; private set; }
     public string? OpeningHours { get; private set; }
     public string? Category { get; private set; }
     public string Source { get; private set; } = null!;
 
-    private Place(){}
+    private Place() { }
 
     public Place(
         string externalId,
@@ -25,9 +24,7 @@ public class Place
         string source,
         string? address = null,
         string? category = null,
-        string? openingHours = null,
-        double? rating = null
-    )
+        string? openingHours = null)
     {
         Id = Guid.NewGuid();
         ExternalId = externalId;
@@ -38,7 +35,6 @@ public class Place
         Address = address;
         Category = category;
         OpeningHours = openingHours;
-        Rating = rating;
     }
 
     public void UpdateDetails(
@@ -47,8 +43,7 @@ public class Place
         string? category,
         string? openingHours,
         double latitude,
-        double longitude
-    )
+        double longitude)
     {
         Name = name;
         Address = address;

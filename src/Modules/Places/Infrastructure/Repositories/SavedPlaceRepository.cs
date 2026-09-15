@@ -21,7 +21,6 @@ public sealed class SavedPlaceRepository : ISavedPlaceRepository
     )
     {
         return await _dbContext.SavedPlaces
-            .AsNoTracking()
             .FirstOrDefaultAsync(
                 x => x.UserId == userId && x.PlaceId == placeId,
                 cancellationToken
@@ -52,6 +51,15 @@ public sealed class SavedPlaceRepository : ISavedPlaceRepository
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateAsync(
+        SavedPlace savedPlace,
+        CancellationToken cancellationToken = default
+    )
+    {
+        _dbContext.SavedPlaces.Update(savedPlace);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task RemoveAsync(
         SavedPlace savedPlace,
         CancellationToken cancellationToken = default
@@ -59,5 +67,21 @@ public sealed class SavedPlaceRepository : ISavedPlaceRepository
     {
         _dbContext.SavedPlaces.Remove(savedPlace);
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Place>> GetPlacesByIdsAsync(
+        IReadOnlyCollection<Guid> placeIds,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (placeIds is null || placeIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await _dbContext.Places
+            .AsNoTracking()
+            .Where(p => placeIds.Contains(p.Id))
+            .ToListAsync(cancellationToken);
     }
 }

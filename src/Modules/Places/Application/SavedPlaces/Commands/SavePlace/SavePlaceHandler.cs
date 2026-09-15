@@ -10,8 +10,7 @@ public sealed class SavePlaceHandler
 
     public SavePlaceHandler(
         ISavedPlaceRepository savedPlaceRepository,
-        IPlaceRepository placeRepository
-    )
+        IPlaceRepository placeRepository)
     {
         _savedPlaceRepository = savedPlaceRepository;
         _placeRepository = placeRepository;
@@ -19,60 +18,52 @@ public sealed class SavePlaceHandler
 
     public async Task<SavePlaceResult> HandleAsync(
         SavePlaceCommand command,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
         var place = await _placeRepository.GetByIdAsync(
             command.PlaceId,
-            cancellationToken
-        );
+            cancellationToken);
 
         if (place is null)
         {
             throw new KeyNotFoundException(
-                $"Place '{command.PlaceId}' was not found."
-            );
+                $"Place '{command.PlaceId}' was not found.");
         }
 
         var existing = await _savedPlaceRepository.GetAsync(
             command.UserId,
             command.PlaceId,
-            cancellationToken
-        );
+            cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateNote(command.Note);
-            await _savedPlaceRepository.AddAsync(
+            await _savedPlaceRepository.UpdateAsync(
                 existing,
-                cancellationToken
-            );
+                cancellationToken);
+
             return new SavePlaceResult(
                 existing.Id,
                 existing.UserId,
                 existing.PlaceId,
                 existing.Note,
-                existing.CreatedAt
-            );
+                existing.CreatedAt);
         }
 
         var savedPlace = new SavedPlace(
             command.UserId,
             command.PlaceId,
-            command.Note
-        );
+            command.Note);
 
         await _savedPlaceRepository.AddAsync(
             savedPlace,
-            cancellationToken
-        );
+            cancellationToken);
 
         return new SavePlaceResult(
             savedPlace.Id,
             savedPlace.UserId,
             savedPlace.PlaceId,
             savedPlace.Note,
-            savedPlace.CreatedAt
-        );
+            savedPlace.CreatedAt);
     }
 }

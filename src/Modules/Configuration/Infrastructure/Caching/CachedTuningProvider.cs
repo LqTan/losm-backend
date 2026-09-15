@@ -115,10 +115,9 @@ public sealed class CachedTuningProvider : ITuningProvider
             return new RankingProfile
             {
                 Name = "Meeting",
-                Relevance = 0.5,
-                Distance = 0.2,
-                Fairness = 0.2,
-                Rating = 0.1
+                Relevance = 5.0 / 9.0,
+                Distance = 2.0 / 9.0,
+                Fairness = 2.0 / 9.0
             };
         }
 
@@ -129,15 +128,15 @@ public sealed class CachedTuningProvider : ITuningProvider
 
     private void ValidateWeights(string scope, RankingProfile profile)
     {
-        var sum = profile.Relevance + profile.Distance + profile.Fairness + profile.Rating;
+        var sum = profile.Relevance + profile.Distance + profile.Fairness;
         const double tolerance = 0.001;
         if (Math.Abs(sum - 1.0) > tolerance)
         {
             _logger.LogWarning(
                 "Ranking weights for {Scope} sum to {Sum} (expected 1.0). " +
-                "Relevance={Relevance} Distance={Distance} Fairness={Fairness} Rating={Rating}",
+                "Relevance={Relevance} Distance={Distance} Fairness={Fairness}",
                 scope, sum,
-                profile.Relevance, profile.Distance, profile.Fairness, profile.Rating);
+                profile.Relevance, profile.Distance, profile.Fairness);
         }
     }
 

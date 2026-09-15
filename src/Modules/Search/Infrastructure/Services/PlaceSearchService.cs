@@ -33,9 +33,10 @@ public sealed class PlaceSearchService : IPlaceSearchService
                 place.Name,
                 place.Address,
                 place.Category,
+                place.OpeningHours,
                 place.Latitude,
-                place.Longitude,
-                place.Rating
-            )).ToList();
+                place.Longitude
+            ))
+            .ToList();
     }
 }

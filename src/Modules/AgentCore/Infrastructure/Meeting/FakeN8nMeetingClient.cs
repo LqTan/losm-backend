@@ -14,12 +14,12 @@ public sealed class FakeN8nMeetingClient : IMeetingAutomationClient
         _logger = logger;
     }
 
-    public async Task<MeetingAutomationResult> TriggerAsync(
+    public async Task<MeetingAutomationResult> TriggerMeetingAsync(
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "FakeN8n triggered with payload: {Payload}",
+        _logger.LogWarning(
+            "FakeN8n is enabled. This client must NEVER be used in production. Payload: {Payload}",
             payload.GetRawText());
 
         await Task.Delay(100, cancellationToken);
@@ -28,6 +28,24 @@ public sealed class FakeN8nMeetingClient : IMeetingAutomationClient
             CalendarCreated: true,
             EmailsSent: true,
             CalendarEventId: $"fake-event-{Guid.NewGuid():N}",
+            ErrorMessage: null
+        );
+    }
+
+    public async Task<MeetingAutomationResult> ResendInvitationsAsync(
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogWarning(
+            "FakeN8n resend-invitations. Payload: {Payload}",
+            payload.GetRawText());
+
+        await Task.Delay(100, cancellationToken);
+
+        return new MeetingAutomationResult(
+            CalendarCreated: true,
+            EmailsSent: true,
+            CalendarEventId: null,
             ErrorMessage: null
         );
     }

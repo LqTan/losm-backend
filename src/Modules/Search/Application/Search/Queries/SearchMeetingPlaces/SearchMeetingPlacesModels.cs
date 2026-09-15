@@ -20,6 +20,7 @@ public sealed record SearchMeetingPlaceResult(
     double Latitude,
     double Longitude,
     string? Category,
+    string? OpeningHours,
     IReadOnlyList<double> DistanceKmByOrigin,
     double AverageDistanceKm,
     double MaxDistanceKm,
@@ -27,7 +28,6 @@ public sealed record SearchMeetingPlaceResult(
     double RelevanceScore,
     double DistanceScore,
     double FairnessScore,
-    double RatingScore,
     double FinalScore
 );
 

@@ -14,9 +14,9 @@ public sealed record PlaceCandidate(
     string Name,
     string? Address,
     string? Category,
+    string? OpeningHours,
     double Latitude,
-    double Longitude,
-    double? Rating
+    double Longitude
 );
 
 public sealed record RelevanceScore(

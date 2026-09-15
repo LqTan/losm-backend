@@ -5,6 +5,7 @@ using Configuration.Application.Admin.Queries.GetConfiguration;
 using Configuration.Application.Admin.Queries.ListConfigurations;
 using Configuration.Application.Abstractions;
 using Configuration.Presentation.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +13,7 @@ namespace Configuration.Presentation.Controllers;
 
 [ApiController]
 [Route("api/admin/configurations")]
+[Authorize(Policy = "AdminOnly")]
 public sealed class ConfigurationAdminController : ControllerBase
 {
     [HttpGet]

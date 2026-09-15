@@ -17,6 +17,7 @@ using AgentCore.Infrastructure.Validation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Places.Application.SavedPlaces.Commands.SavePlace;
 using Reviews.Application.Reviews.Commands.CreateReview;
 
@@ -26,17 +27,14 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddAgentCore(
         this IServiceCollection services,
-        IConfiguration configuration
+        IConfiguration configuration,
+        IHostEnvironment environment
     )
     {
         services.AddDbContext<AgentCoreDbContext>(
             options => options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection")
             )
-        );
-
-        services.Configure<AgentRunnerOptions>(
-            configuration.GetSection("AgentCore")
         );
 
         services.AddScoped<IAgentSessionRepository, AgentSessionRepository>();
@@ -67,11 +65,23 @@ public static class DependencyInjection
         services.AddScoped<IAgentActionDispatcher, SavePlaceDispatcher>();
         services.AddScoped<IAgentActionDispatcher, CreateReviewDispatcher>();
         services.AddScoped<IAgentActionDispatcher, CreateMeetingDispatcher>();
+        services.AddScoped<IAgentActionDispatcher, RetryMeetingEmailsDispatcher>();
         services.AddScoped<IAgentActionDispatcherResolver, AgentActionDispatcherResolver>();
 
         var n8nBaseUrl = configuration["N8n:BaseUrl"];
+        var isProduction = environment.IsProduction();
+
+        services
+            .AddOptions<N8nMeetingClientOptions>()
+            .Bind(configuration.GetSection("N8n"));
+
         if (string.IsNullOrWhiteSpace(n8nBaseUrl))
         {
+            if (isProduction)
+            {
+                throw new InvalidOperationException(
+                    "N8n:BaseUrl is not configured. Production requires a real n8n endpoint; FakeN8nMeetingClient is not allowed.");
+            }
             services.AddSingleton<IMeetingAutomationClient, FakeN8nMeetingClient>();
         }
         else
@@ -83,12 +93,24 @@ public static class DependencyInjection
             });
         }
 
-        services.AddHttpClient<IAgentModelClient, MiniMaxAgentClient>(client =>
+        services
+            .AddOptions<MiniMaxAgentClientOptions>()
+            .Bind(configuration.GetSection("Minimax"));
+
+        services.AddHttpClient<IAgentModelClient, MiniMaxAgentClient>((sp, client) =>
         {
-            client.BaseAddress = new Uri(
-                configuration["Minimax:BaseUrl"]
-                ?? "https://api.minimax.io/v1/"
-            );
+            var opts = sp
+                .GetRequiredService<Microsoft.Extensions.Options.IOptions<MiniMaxAgentClientOptions>>()
+                .Value;
+
+            if (string.IsNullOrWhiteSpace(opts.BaseUrl))
+            {
+                throw new InvalidOperationException(
+                    "Minimax:BaseUrl is not configured.");
+            }
+
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
         });
 
         services.AddControllers()

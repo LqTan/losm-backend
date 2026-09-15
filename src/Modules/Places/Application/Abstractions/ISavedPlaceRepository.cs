@@ -7,21 +7,25 @@ public interface ISavedPlaceRepository
     Task<SavedPlace?> GetAsync(
         Guid userId,
         Guid placeId,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<SavedPlace>> GetByUserAsync(
         Guid userId,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Place>> GetPlacesByIdsAsync(
+        IReadOnlyCollection<Guid> placeIds,
+        CancellationToken cancellationToken = default);
 
     Task AddAsync(
         SavedPlace savedPlace,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
+
+    Task UpdateAsync(
+        SavedPlace savedPlace,
+        CancellationToken cancellationToken = default);
 
     Task RemoveAsync(
         SavedPlace savedPlace,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
 }

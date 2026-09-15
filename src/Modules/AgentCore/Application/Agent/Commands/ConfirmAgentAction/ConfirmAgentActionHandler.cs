@@ -48,19 +48,38 @@ public sealed class ConfirmAgentActionHandler
                 $"Pending action '{command.ActionId}' was cancelled.");
         }
 
-        if (pending.Status == PendingAgentActionStatus.Completed ||
-            pending.Status == PendingAgentActionStatus.Failed ||
-            pending.Status == PendingAgentActionStatus.PartiallyFailed)
+        if (pending.Status == PendingAgentActionStatus.Completed)
         {
-            throw new InvalidOperationException(
-                $"Pending action '{command.ActionId}' has already been processed.");
+            return Replay(
+                pending,
+                "Action already completed; returning previous result.");
+        }
+
+        if (pending.Status == PendingAgentActionStatus.PartiallyFailed)
+        {
+            return Replay(
+                pending,
+                "Action previously partially failed; returning previous result. Use the dedicated retry tool to resume the failed step.");
+        }
+
+        if (pending.Status == PendingAgentActionStatus.Failed)
+        {
+            return Replay(
+                pending,
+                "Action previously failed; returning previous result.");
+        }
+
+        if (pending.Status == PendingAgentActionStatus.Executing)
+        {
+            return Replay(
+                pending,
+                "Action is currently executing; please retry shortly.");
         }
 
         var confirmationId = pending.ConfirmationId ?? Guid.NewGuid();
         pending.Confirm(confirmationId);
         await _pendingActionStore.UpdateAsync(pending, cancellationToken);
 
-        var beforeExecution = pending.Status;
         pending.StartExecution();
         await _pendingActionStore.UpdateAsync(pending, cancellationToken);
 
@@ -97,7 +116,7 @@ public sealed class ConfirmAgentActionHandler
 
         await _pendingActionStore.UpdateAsync(pending, cancellationToken);
 
-        string detail = result.Succeeded
+        var detail = result.Succeeded
             ? $"Action '{pending.ActionType}' applied."
             : (result.Error ?? "Action failed.");
 
@@ -105,7 +124,15 @@ public sealed class ConfirmAgentActionHandler
             pending.Id,
             pending.ActionType,
             pending.Status.ToString(),
-            detail
-        ));
+            detail));
     }
+
+    private static ConfirmAgentActionResult Replay(
+        AgentCore.Domain.Entities.PendingAgentAction pending,
+        string detail) =>
+        new(new ConfirmAgentActionOutcome(
+            pending.Id,
+            pending.ActionType,
+            pending.Status.ToString(),
+            detail));
 }

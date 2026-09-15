@@ -37,19 +37,54 @@ public sealed class RankingService : IRankingService
         return earthRadiusKm * c;
     }
 
-    public async Task<double> CalculateFinalScoreAsync(
+    public Task<double> CalculateFinalScoreAsync(
         double relevanceScore,
         double distanceKm,
         double radiusKm,
-        double? rating,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
+        CancellationToken ct)
+    {
+        return CalculateAsync(
+            relevanceScore,
+            distanceKm,
+            radiusKm,
+            originDistancesKm,
+            profileName,
+            returnBreakdown: false,
+            ct).ContinueWith(t => t.Result.final, ct);
+    }
+
+    public Task<RankingScoreBreakdown> CalculateBreakdownAsync(
+        double relevanceScore,
+        double distanceKm,
+        double radiusKm,
+        IReadOnlyList<double>? originDistancesKm,
+        string profileName,
+        CancellationToken ct)
+    {
+        return CalculateAsync(
+            relevanceScore,
+            distanceKm,
+            radiusKm,
+            originDistancesKm,
+            profileName,
+            returnBreakdown: true,
+            ct).ContinueWith(t => t.Result.breakdown!, ct);
+    }
+
+    private async Task<(double final, RankingScoreBreakdown? breakdown)> CalculateAsync(
+        double relevanceScore,
+        double distanceKm,
+        double radiusKm,
+        IReadOnlyList<double>? originDistancesKm,
+        string profileName,
+        bool returnBreakdown,
         CancellationToken ct)
     {
         var weights = await _tuning.GetRankingProfileAsync(profileName, ct);
 
         var distanceScore = Math.Max(0, 1 - distanceKm / radiusKm);
-        var ratingScore = rating.HasValue ? rating.Value / 5.0 : 0;
 
         double fairnessScore = 0;
         if (originDistancesKm is { Count: > 0 } && weights.Fairness > 0)
@@ -60,46 +95,20 @@ public sealed class RankingService : IRankingService
             fairnessScore = Math.Max(0, 1 - spread / radiusKm);
         }
 
-        return weights.Relevance * relevanceScore
-             + weights.Distance * distanceScore
-             + weights.Fairness * fairnessScore
-             + weights.Rating * ratingScore;
-    }
-
-    public async Task<RankingScoreBreakdown> CalculateBreakdownAsync(
-        double relevanceScore,
-        double distanceKm,
-        double radiusKm,
-        double? rating,
-        IReadOnlyList<double>? originDistancesKm,
-        string profileName,
-        CancellationToken ct)
-    {
-        var weights = await _tuning.GetRankingProfileAsync(profileName, ct);
-
-        var distanceScore = Math.Max(0, 1 - distanceKm / radiusKm);
-        var ratingScore = rating.HasValue ? rating.Value / 5.0 : 0;
-
-        double fairnessScore = 0;
-        if (originDistancesKm is { Count: > 0 })
-        {
-            var maxD = originDistancesKm.Max();
-            var minD = originDistancesKm.Min();
-            var spread = maxD - minD;
-            fairnessScore = Math.Max(0, 1 - spread / radiusKm);
-        }
-
         var final =
             weights.Relevance * relevanceScore
             + weights.Distance * distanceScore
-            + weights.Fairness * fairnessScore
-            + weights.Rating * ratingScore;
+            + weights.Fairness * fairnessScore;
 
-        return new RankingScoreBreakdown(
+        if (!returnBreakdown)
+        {
+            return (final, null);
+        }
+
+        return (final, new RankingScoreBreakdown(
             distanceScore,
-            ratingScore,
             fairnessScore,
-            final);
+            final));
     }
 
     private static double ToRadians(double degrees)

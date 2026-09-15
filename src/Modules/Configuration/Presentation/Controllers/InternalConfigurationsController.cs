@@ -1,4 +1,5 @@
 using Configuration.Application.Admin.Queries.GetConfiguration;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 
@@ -17,7 +18,19 @@ public sealed class InternalConfigurationsController : ControllerBase
         CancellationToken ct)
     {
         var expected = config["Elasticsearch:ServiceToken"];
-        if (!string.IsNullOrWhiteSpace(expected) && serviceToken != expected)
+
+        if (string.IsNullOrWhiteSpace(expected))
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new
+                {
+                    status = 503,
+                    message = "Internal configuration endpoint is not configured. Set Elasticsearch:ServiceToken to enable."
+                });
+        }
+
+        if (!string.Equals(serviceToken, expected, StringComparison.Ordinal))
         {
             return Unauthorized();
         }

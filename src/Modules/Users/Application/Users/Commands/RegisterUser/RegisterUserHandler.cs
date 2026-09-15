@@ -1,5 +1,5 @@
+using Common.Application.Exceptions;
 using Users.Application.Abstractions;
-using Users.Application.Common.Exceptions;
 using Users.Domain.Entities;
 
 namespace Users.Application.Users.Commands.RegisterUser;

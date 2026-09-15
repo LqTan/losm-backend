@@ -13,7 +13,6 @@ using Places.Infrastructure.Persistence;
 using Reviews;
 using Reviews.Infrastructure.Persistence;
 using Sandbox;
-using Sandbox.Infrastructure.Persistence;
 using Scalar.AspNetCore;
 using Search;
 using Users;
@@ -22,10 +21,29 @@ using Users.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+
+if (allowedOrigins.Length > 0)
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(
+            name: "LosmWeb",
+            policy =>
+            {
+                policy
+                    .WithOrigins(allowedOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+    });
+}
+
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, _, _) =>
@@ -61,14 +79,20 @@ builder.Services.AddOpenApi(options =>
         return Task.CompletedTask;
     });
 });
-builder.Services.AddSandbox(
-    builder.Configuration.GetConnectionString("DefaultConnection")!);
+
+if (!builder.Environment.IsProduction())
+{
+    builder.Services.AddSandbox(
+        builder.Configuration.GetConnectionString("DefaultConnection")!);
+}
+
 builder.Services.AddConfigurationModule(builder.Configuration);
 builder.Services.AddPlaces(builder.Configuration);
 builder.Services.AddSearch();
 builder.Services.AddReviews(builder.Configuration);
 builder.Services.AddUsers(builder.Configuration);
-builder.Services.AddAgentCore(builder.Configuration);
+builder.Services.AddAgentCore(builder.Configuration, builder.Environment);
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -101,6 +125,13 @@ builder.Services
         };
     });
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(
+        "AdminOnly",
+        policy => policy.RequireAuthenticatedUser());
+});
+
 var app = builder.Build();
 
 var connectionString =
@@ -128,11 +159,13 @@ using (var scope = app.Services.CreateScope())
     await sp.GetRequiredService<UsersDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<ReviewsDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<PlacesDbContext>().Database.MigrateAsync();
-    await sp.GetRequiredService<SandboxDbContext>().Database.MigrateAsync();
+    if (!app.Environment.IsProduction())
+    {
+        await sp.GetRequiredService<Sandbox.Infrastructure.Persistence.SandboxDbContext>().Database.MigrateAsync();
+    }
     await sp.GetRequiredService<AgentCoreDbContext>().Database.MigrateAsync();
 }
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
@@ -145,6 +178,11 @@ else
 }
 
 app.UseHttpsRedirection();
+
+if (allowedOrigins.Length > 0)
+{
+    app.UseCors("LosmWeb");
+}
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

@@ -11,10 +11,12 @@ public sealed class GetReviewsByPlaceHandler
         _reviewRepository = reviewRepository;
     }
     public async Task<IReadOnlyList<GetReviewsByPlaceResult>> HandleAsync(
-        GetReviewsByPlaceQuery query
-    )
+        GetReviewsByPlaceQuery query,
+        CancellationToken cancellationToken = default)
     {
-        var reviews = await _reviewRepository.GetByPlaceIdAsync(query.PlaceId);
+        var reviews = await _reviewRepository.GetByPlaceIdAsync(
+            query.PlaceId,
+            cancellationToken);
         return reviews
             .Select(review => new GetReviewsByPlaceResult(
                 review.Id,
@@ -23,7 +25,7 @@ public sealed class GetReviewsByPlaceHandler
                 review.Rating,
                 review.Comment,
                 review.CreatedAt,
-                review.UpdatedAt            
+                review.UpdatedAt
             ))
             .ToList();
     }

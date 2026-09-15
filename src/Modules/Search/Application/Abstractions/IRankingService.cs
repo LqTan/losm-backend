@@ -2,7 +2,6 @@ namespace Search.Application.Abstractions;
 
 public sealed record RankingScoreBreakdown(
     double DistanceScore,
-    double RatingScore,
     double FairnessScore,
     double FinalScore
 );
@@ -20,7 +19,6 @@ public interface IRankingService
         double relevanceScore,
         double distanceKm,
         double radiusKm,
-        double? rating,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
         CancellationToken ct
@@ -30,7 +28,6 @@ public interface IRankingService
         double relevanceScore,
         double distanceKm,
         double radiusKm,
-        double? rating,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
         CancellationToken ct

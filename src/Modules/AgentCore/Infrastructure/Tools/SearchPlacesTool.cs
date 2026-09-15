@@ -76,10 +76,13 @@ public sealed class SearchPlacesTool
             cancellationToken
         );
 
+        var filters = BuildFilters(arguments);
+
         await TryUpsertLastSearchContextAsync(
             arguments.Query,
             radiusKm,
             results.Select(r => r.PlaceId),
+            filters,
             cancellationToken);
 
         return JsonSerializer.Serialize(
@@ -88,10 +91,22 @@ public sealed class SearchPlacesTool
         );
     }
 
+    private static SearchFilters BuildFilters(SearchPlacesToolArguments args)
+    {
+        return new SearchFilters(
+            args.PlaceType,
+            args.Purpose,
+            args.TimeOfDay,
+            args.ReferenceLatitude,
+            args.ReferenceLongitude,
+            args.AppliedFilters ?? []);
+    }
+
     private async Task TryUpsertLastSearchContextAsync(
         string query,
         double radiusKm,
         IEnumerable<Guid> resultPlaceIds,
+        SearchFilters filters,
         CancellationToken cancellationToken)
     {
         var sessionId = _executionContext.SessionId;
@@ -100,7 +115,7 @@ public sealed class SearchPlacesTool
         try
         {
             var placeIdsJson = JsonSerializer.Serialize(resultPlaceIds);
-            var filtersJson = "{}";
+            var filtersJson = JsonSerializer.Serialize(filters);
 
             var existing = await _lastSearchContextStore.GetAsync(
                 sessionId.Value, cancellationToken);
@@ -137,4 +152,13 @@ public sealed class SearchPlacesTool
                 sessionId);
         }
     }
+
+    private sealed record SearchFilters(
+        string? PlaceType,
+        string? Purpose,
+        string? TimeOfDay,
+        double? ReferenceLatitude,
+        double? ReferenceLongitude,
+        IReadOnlyList<string> AppliedFilters
+    );
 }

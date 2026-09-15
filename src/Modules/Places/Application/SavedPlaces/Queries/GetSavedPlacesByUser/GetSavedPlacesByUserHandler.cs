@@ -6,26 +6,20 @@ namespace Places.Application.SavedPlaces.Queries.GetSavedPlacesByUser;
 public sealed class GetSavedPlacesByUserHandler
 {
     private readonly ISavedPlaceRepository _savedPlaceRepository;
-    private readonly IPlaceRepository _placeRepository;
 
     public GetSavedPlacesByUserHandler(
-        ISavedPlaceRepository savedPlaceRepository,
-        IPlaceRepository placeRepository
-    )
+        ISavedPlaceRepository savedPlaceRepository)
     {
         _savedPlaceRepository = savedPlaceRepository;
-        _placeRepository = placeRepository;
     }
 
     public async Task<IReadOnlyList<GetSavedPlacesByUserResult>> HandleAsync(
         GetSavedPlacesByUserQuery query,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
         var savedPlaces = await _savedPlaceRepository.GetByUserAsync(
             query.UserId,
-            cancellationToken
-        );
+            cancellationToken);
 
         if (savedPlaces.Count == 0)
         {
@@ -34,17 +28,14 @@ public sealed class GetSavedPlacesByUserHandler
 
         var placeIds = savedPlaces
             .Select(x => x.PlaceId)
-            .ToHashSet();
+            .Distinct()
+            .ToList();
 
-        var places = await Task.WhenAll(
-            placeIds.Select(id =>
-                _placeRepository.GetByIdAsync(id, cancellationToken))
-        );
+        var places = await _savedPlaceRepository.GetPlacesByIdsAsync(
+            placeIds,
+            cancellationToken);
 
-        var placeLookup = places
-            .Where(p => p is not null)
-            .Cast<Place>()
-            .ToDictionary(p => p.Id);
+        var placeLookup = places.ToDictionary(p => p.Id);
 
         return savedPlaces
             .Select(saved => ToResult(saved, placeLookup))
@@ -53,8 +44,7 @@ public sealed class GetSavedPlacesByUserHandler
 
     private static GetSavedPlacesByUserResult ToResult(
         SavedPlace saved,
-        IReadOnlyDictionary<Guid, Place> places
-    )
+        IReadOnlyDictionary<Guid, Place> places)
     {
         places.TryGetValue(saved.PlaceId, out var place);
 
@@ -64,7 +54,6 @@ public sealed class GetSavedPlacesByUserHandler
             place?.Name,
             place?.Address,
             saved.Note,
-            saved.CreatedAt
-        );
+            saved.CreatedAt);
     }
 }

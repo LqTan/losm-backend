@@ -5,22 +5,21 @@ using AgentCore.Application.Abstractions;
 using AgentCore.Application.Enums;
 using AgentCore.Application.Models;
 using AgentCore.Infrastructure.Services;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace AgentCore.Infrastructure.Llm;
 
 public sealed class MiniMaxAgentClient : IAgentModelClient
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
+    private readonly MiniMaxAgentClientOptions _options;
 
     public MiniMaxAgentClient(
         HttpClient httpClient,
-        IConfiguration configuration
-    )
+        IOptions<MiniMaxAgentClientOptions> options)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
+        _options = options.Value;
     }
 
     public async Task<AgentModelResponse> SendAsync(
@@ -29,15 +28,12 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
         CancellationToken cancellationToken = default
     )
     {
-        var apiKey = _configuration["Minimax:ApiKey"];
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             throw new InvalidOperationException(
                 "Minimax API key is not configured."
             );
         }
-
-        var model = _configuration["Minimax:Model"] ?? "Minimax-M3";
 
         var messagesWithSystem = InjectSystemPrompt(messages);
 
@@ -47,12 +43,12 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
         );
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
             "Bearer",
-            apiKey
+            _options.ApiKey
         );
         request.Content = JsonContent.Create(
             new
             {
-                model,
+                model = _options.Model,
                 messages = messagesWithSystem.Select(MapMessage),
                 tools = tools.Select(MapTool)
             }
@@ -85,7 +81,7 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
         {
             content = CleanContent(contentElement.GetString());
         }
-        
+
         var toolCalls = ParseToolCalls(message);
         var assistantMessage = new AgentModelMessage(
             AgentModelRole.Assistant,
@@ -299,7 +295,6 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
         text = Regex.Replace(text, @"\\([\\`*_{}\[\]()#+\-.!])", "$1");
 
         text = Regex.Replace(text, @"\n{3,}", "\n\n");
-
         text = Regex.Replace(text, @"[ \t]+\n", "\n");
 
         return text;

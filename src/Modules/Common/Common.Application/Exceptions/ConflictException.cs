@@ -1,7 +1,7 @@
-namespace Users.Application.Common.Exceptions;
+namespace Common.Application.Exceptions;
 
 public class ConflictException : Exception
 {
     public ConflictException(string message)
-        : base(message){}
+        : base(message) { }
 }
