@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Tools;
 using AgentCore.Application.Tools.CreateMeeting;
@@ -15,6 +16,9 @@ public sealed class CreateMeetingTool
 {
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
+
+    private static readonly Regex EmailRegex =
+        new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
 
     private readonly IPlaceRepository _placeRepository;
     private readonly IPendingActionStore _pendingActionStore;
@@ -75,6 +79,17 @@ public sealed class CreateMeetingTool
         if (arguments.AttendeeEmails is null || arguments.AttendeeEmails.Length == 0)
         {
             throw new ArgumentException("At least one attendee email is required.",
+                nameof(arguments.AttendeeEmails));
+        }
+
+        var invalidEmails = arguments.AttendeeEmails
+            .Where(e => !IsValidEmail(e))
+            .ToList();
+        if (invalidEmails.Count > 0)
+        {
+            throw new ArgumentException(
+                $"Invalid email format: {string.Join(", ", invalidEmails)}. " +
+                "Ask the user to provide valid email addresses before scheduling.",
                 nameof(arguments.AttendeeEmails));
         }
 
@@ -235,5 +250,11 @@ public sealed class CreateMeetingTool
         var raw = $"{userId:N}:create_meeting:{payloadJson}";
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
         return Convert.ToHexString(bytes);
+    }
+
+    private static bool IsValidEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        return EmailRegex.IsMatch(email.Trim());
     }
 }

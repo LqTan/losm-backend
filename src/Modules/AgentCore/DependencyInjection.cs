@@ -50,11 +50,14 @@ public static class DependencyInjection
         services.AddScoped<GetAgentSessionHistoryHandler>();
 
         services.AddScoped<IAgentTool, SearchPlacesTool>();
+        services.AddScoped<IAgentTool, SearchMeetingPlacesTool>();
+        services.AddScoped<IAgentTool, GeocodePlaceTool>();
         services.AddScoped<IAgentTool, PlaceReviewsTool>();
         services.AddScoped<IAgentTool, GetCurrentUserTool>();
         services.AddScoped<IAgentTool, SavePlaceTool>();
         services.AddScoped<IAgentTool, CreateReviewTool>();
         services.AddScoped<IAgentTool, CreateMeetingTool>();
+        services.AddScoped<IAgentTool, RetryMeetingEmailsTool>();
 
         services.AddScoped<IAgentToolRegistry, AgentToolRegistry>();
 
