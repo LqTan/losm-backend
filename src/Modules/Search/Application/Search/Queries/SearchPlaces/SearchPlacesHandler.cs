@@ -71,7 +71,6 @@ public sealed class SearchPlacesHandler
                 relevanceScore,
                 distanceKm,
                 radiusKm,
-                place.Rating,
                 originDistancesKm: null,
                 profileName: "Default",
                 ct: cancellationToken
@@ -84,6 +83,7 @@ public sealed class SearchPlacesHandler
                 place.Latitude,
                 place.Longitude,
                 place.Category,
+                place.OpeningHours,
                 relevanceScore,
                 distanceKm,
                 finalScore

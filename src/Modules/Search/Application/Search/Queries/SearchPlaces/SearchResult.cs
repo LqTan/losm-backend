@@ -7,6 +7,7 @@ public sealed record SearchResult(
     double Latitude,
     double Longitude,
     string? Category,
+    string? OpeningHours,
     double RelevanceScore,
     double DistanceKm,
     double FinalScore

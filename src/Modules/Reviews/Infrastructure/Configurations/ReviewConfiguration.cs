@@ -23,5 +23,8 @@ public sealed class ReviewConfiguration : IEntityTypeConfiguration<Review>
         builder.Property(review => review.UpdatedAt);
         builder.HasIndex(review => review.PlaceId);
         builder.HasIndex(review => review.UserId);
+        builder.HasIndex(review => new { review.UserId, review.PlaceId })
+            .IsUnique()
+            .HasDatabaseName("UX_Reviews_UserId_PlaceId");
     }
 }

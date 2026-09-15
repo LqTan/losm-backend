@@ -49,6 +49,9 @@ public sealed class PendingAgentActionConfiguration
         builder.HasIndex(x => x.SessionId);
         builder.HasIndex(x => new { x.UserId, x.Status });
         builder.HasIndex(x => x.ConfirmationId).IsUnique(false);
-        builder.HasIndex(x => x.IdempotencyKey).IsUnique(false);
+        builder.HasIndex(x => x.IdempotencyKey)
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL")
+            .HasDatabaseName("UX_PendingAgentActions_UserId_IdempotencyKey");
     }
 }

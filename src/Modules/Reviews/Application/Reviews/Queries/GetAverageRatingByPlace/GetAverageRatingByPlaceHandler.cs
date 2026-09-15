@@ -10,10 +10,12 @@ public sealed class GetAverageRatingByPlaceHandler
         _reviewRepository = reviewRepository;
     }
     public async Task<GetAverageRatingByPlaceResult> HandleAsync(
-        GetAverageRatingByPlaceQuery query
-    )
+        GetAverageRatingByPlaceQuery query,
+        CancellationToken cancellationToken = default)
     {
-        var averageRating = await _reviewRepository.GetAverageRatingByPlaceIdAsync(query.PlaceId);
+        var averageRating = await _reviewRepository.GetAverageRatingByPlaceIdAsync(
+            query.PlaceId,
+            cancellationToken);
         return new GetAverageRatingByPlaceResult(
             query.PlaceId,
             averageRating

@@ -31,9 +31,19 @@ public static class DependencyInjection
         services.AddScoped<UnsavePlaceHandler>();
         services.AddScoped<GetSavedPlacesByUserHandler>();
         services.AddScoped<IPlacesSearchContract, PlacesSearchContract>();
-        services.AddHttpClient<IPlaceProvider, HerePlaceProvider>(client =>
+
+        services
+            .AddOptions<HereProviderOptions>()
+            .Bind(configuration.GetSection("Here"));
+
+        services.AddHttpClient<IPlaceProvider, HerePlaceProvider>((sp, client) =>
         {
-            client.BaseAddress = new Uri("https://discover.search.hereapi.com/");
+            var opts = sp
+                .GetRequiredService<Microsoft.Extensions.Options.IOptions<HereProviderOptions>>()
+                .Value;
+
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
         });
 
         services.AddControllers()

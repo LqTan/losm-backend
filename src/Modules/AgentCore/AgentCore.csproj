@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Search\Search.csproj" />
     <ProjectReference Include="..\Configuration\Configuration.csproj" />
+    <ProjectReference Include="..\Common\Common.csproj" />
     <Content Include="Infrastructure/Prompts/*.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
