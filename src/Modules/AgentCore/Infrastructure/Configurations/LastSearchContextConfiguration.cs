@@ -31,6 +31,10 @@ public sealed class LastSearchContextConfiguration
             .HasColumnType("nvarchar(max)")
             .IsRequired();
 
+        builder.Property(x => x.AttachedPlacesJson)
+            .HasColumnType("nvarchar(max)")
+            .IsRequired();
+
         builder.Property(x => x.CreatedAt).IsRequired();
         builder.Property(x => x.UpdatedAt).IsRequired();
 

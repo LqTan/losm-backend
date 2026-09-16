@@ -5,6 +5,7 @@ using Reviews.Application.Abstractions;
 using Reviews.Application.Reviews.Commands.CreateReview;
 using Reviews.Application.Reviews.Queries.GetAverageRatingByPlace;
 using Reviews.Application.Reviews.Queries.GetReviewsByPlace;
+using Reviews.Application.Reviews.Queries.GetReviewsByUser;
 using Reviews.Infrastructure.Persistence;
 using Reviews.Infrastructure.Repositories;
 
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<CreateReviewHandler>();
         services.AddScoped<GetReviewsByPlaceHandler>();
         services.AddScoped<GetAverageRatingByPlaceHandler>();
+        services.AddScoped<GetReviewsByUserHandler>();
         services.AddControllers()
             .AddApplicationPart(typeof(DependencyInjection).Assembly);
         return services;

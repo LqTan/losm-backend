@@ -101,4 +101,15 @@ public sealed class HerePlaceProvider : IPlaceProvider
             return [];
         }
     }
+
+    public Task<IReadOnlyList<Place>> SearchByBoundingBoxAsync(
+        string query,
+        BoundingBox boundingBox,
+        int candidateLimit,
+        string? amenity,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException(
+            "HerePlaceProvider is deprecated; use OverpassPlaceProvider instead.");
+    }
 }

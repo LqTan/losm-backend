@@ -4,7 +4,11 @@ using AgentCore.Application.Agent.Commands.ApproveAgentPlan;
 using AgentCore.Application.Agent.Commands.ConfirmAgentAction;
 using AgentCore.Application.Agent.Commands.CreateAgentPlan;
 using AgentCore.Application.Agent.Commands.ExecuteAgent;
+using AgentCore.Application.Agent.Commands.RetryMeetingEmails;
 using AgentCore.Application.Agent.Queries.GetAgentSessionHistory;
+using AgentCore.Application.Agent.Queries.GetAgentSessionsByUser;
+using AgentCore.Application.Agent.Queries.GetMeetingsForUser;
+using AgentCore.Application.Agent.Queries.GetPendingActionsForUser;
 using AgentCore.Infrastructure.Streaming;
 using AgentCore.Presentation.Contracts;
 using Microsoft.AspNetCore.Authorization;
@@ -203,6 +207,136 @@ public sealed class AgentController : ControllerBase
             ),
             cancellationToken
         );
+
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("sessions")]
+    public async Task<IActionResult> ListSessions(
+        [FromServices] GetAgentSessionsByUserHandler handler,
+        [FromQuery] int? limit,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var effectiveLimit = limit is > 0 and <= 200 ? limit.Value : 50;
+
+        var result = await handler.HandleAsync(
+            new GetAgentSessionsByUserQuery(
+                userId,
+                effectiveLimit
+            ),
+            cancellationToken
+        );
+
+        return Ok(result);
+    }
+
+    [HttpGet("meetings")]
+    public async Task<IActionResult> ListMeetings(
+        [FromServices] GetMeetingsForUserHandler handler,
+        [FromQuery] string? scope,
+        [FromQuery] int? limit,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var normalizedScope = (scope ?? MeetingScope.All).ToLowerInvariant();
+        if (normalizedScope != MeetingScope.All &&
+            normalizedScope != MeetingScope.Upcoming &&
+            normalizedScope != MeetingScope.Past)
+        {
+            normalizedScope = MeetingScope.All;
+        }
+
+        var effectiveLimit = limit is > 0 and <= 200 ? limit.Value : 100;
+
+        var result = await handler.HandleAsync(
+            new GetMeetingsForUserQuery(
+                userId,
+                normalizedScope,
+                effectiveLimit
+            ),
+            cancellationToken
+        );
+
+        return Ok(result);
+    }
+
+    [HttpGet("pending-actions")]
+    public async Task<IActionResult> ListPendingActions(
+        [FromServices] GetPendingActionsForUserHandler handler,
+        [FromQuery] int? limit,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var effectiveLimit = limit is > 0 and <= 200 ? limit.Value : 50;
+
+        var result = await handler.HandleAsync(
+            new GetPendingActionsForUserQuery(
+                userId,
+                effectiveLimit
+            ),
+            cancellationToken
+        );
+
+        return Ok(result);
+    }
+
+    [HttpPost("retry-meeting-emails/{meetingActionId:guid}")]
+    public async Task<IActionResult> RetryMeetingEmails(
+        Guid meetingActionId,
+        [FromServices] RetryMeetingEmailsHandler handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await handler.HandleAsync(
+            new RetryMeetingEmailsCommand(meetingActionId, userId),
+            cancellationToken);
+
+        if (result is null)
+        {
+            return NotFound();
+        }
 
         return Ok(result);
     }

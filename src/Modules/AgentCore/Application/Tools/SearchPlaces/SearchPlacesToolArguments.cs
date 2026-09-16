@@ -1,3 +1,5 @@
+using Places.Application.Abstractions;
+
 namespace AgentCore.Application.Tools.SearchPlaces;
 
 public sealed record SearchPlacesToolArguments(
@@ -9,5 +11,6 @@ public sealed record SearchPlacesToolArguments(
     string? TimeOfDay = null,
     double? ReferenceLatitude = null,
     double? ReferenceLongitude = null,
-    IReadOnlyList<string>? AppliedFilters = null
+    IReadOnlyList<string>? AppliedFilters = null,
+    BoundingBox? Box = null
 );

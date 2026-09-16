@@ -40,6 +40,23 @@ public sealed class ReviewRepository : IReviewRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Review>> GetByUserIdAsync(
+        Guid userId,
+        int? limit = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Reviews
+            .Where(review => review.UserId == userId)
+            .OrderByDescending(review => review.CreatedAt);
+
+        if (limit is > 0)
+        {
+            query = (IOrderedQueryable<Review>)query.Take(limit.Value);
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
     public async Task<double?> GetAverageRatingByPlaceIdAsync(
         Guid placeId,
         CancellationToken cancellationToken = default)

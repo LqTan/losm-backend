@@ -1,3 +1,4 @@
+using Places.Application.Abstractions;
 using Places.Application.Places.Queries.SearchPlaces;
 using Places.Domain.Entities;
 
@@ -21,11 +22,36 @@ public sealed class PlacesSearchContract : IPlacesSearchContract
     )
     {
         var searchQuery = new SearchPlacesQuery(
-            query,
-            latitude,
-            longitude,
-            radiusKm,
-            candidateLimit
+            Query: query,
+            Latitude: latitude,
+            Longitude: longitude,
+            RadiusKm: radiusKm,
+            CandidateLimit: candidateLimit,
+            Box: null,
+            Amenity: null
+        );
+        return await _handler.HandleAsync(
+            searchQuery,
+            cancellationToken
+        );
+    }
+
+    public async Task<IReadOnlyList<Place>> SearchByBoundingBoxAsync(
+        string query,
+        BoundingBox boundingBox,
+        int candidateLimit,
+        string? amenity,
+        CancellationToken cancellationToken
+    )
+    {
+        var searchQuery = new SearchPlacesQuery(
+            Query: query,
+            Latitude: null,
+            Longitude: null,
+            RadiusKm: 0,
+            CandidateLimit: candidateLimit,
+            Box: boundingBox,
+            Amenity: amenity
         );
         return await _handler.HandleAsync(
             searchQuery,

@@ -57,6 +57,16 @@ public sealed class EfPendingActionStore : IPendingActionStore
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PendingAgentAction>> GetByUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _db.PendingAgentActions
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task UpdateAsync(
         PendingAgentAction action,
         CancellationToken cancellationToken = default)

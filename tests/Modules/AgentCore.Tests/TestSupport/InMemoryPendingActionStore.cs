@@ -53,6 +53,17 @@ public sealed class InMemoryPendingActionStore : IPendingActionStore
         return Task.FromResult(result);
     }
 
+    public Task<IReadOnlyList<PendingAgentAction>> GetByUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<PendingAgentAction> result = _actions.Values
+            .Where(a => a.UserId == userId)
+            .OrderByDescending(a => a.CreatedAt)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public Task UpdateAsync(
         PendingAgentAction action,
         CancellationToken cancellationToken = default)

@@ -9,6 +9,7 @@ public sealed class LastSearchContext
     public double RadiusKm { get; private set; }
     public string ResultPlaceIdsJson { get; private set; } = "[]";
     public string FiltersJson { get; private set; } = "{}";
+    public string AttachedPlacesJson { get; private set; } = "[]";
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
@@ -21,7 +22,8 @@ public sealed class LastSearchContext
         double centerLongitude,
         double radiusKm,
         string resultPlaceIdsJson,
-        string filtersJson)
+        string filtersJson,
+        string attachedPlacesJson = "[]")
     {
         SessionId = sessionId;
         Query = query;
@@ -30,6 +32,9 @@ public sealed class LastSearchContext
         RadiusKm = radiusKm;
         ResultPlaceIdsJson = resultPlaceIdsJson;
         FiltersJson = filtersJson;
+        AttachedPlacesJson = string.IsNullOrWhiteSpace(attachedPlacesJson)
+            ? "[]"
+            : attachedPlacesJson;
         CreatedAt = DateTime.UtcNow;
         UpdatedAt = CreatedAt;
     }
@@ -40,7 +45,8 @@ public sealed class LastSearchContext
         double centerLongitude,
         double radiusKm,
         string resultPlaceIdsJson,
-        string filtersJson)
+        string filtersJson,
+        string? attachedPlacesJson = null)
     {
         Query = query;
         CenterLatitude = centerLatitude;
@@ -48,6 +54,12 @@ public sealed class LastSearchContext
         RadiusKm = radiusKm;
         ResultPlaceIdsJson = resultPlaceIdsJson;
         FiltersJson = filtersJson;
+        if (attachedPlacesJson is not null)
+        {
+            AttachedPlacesJson = string.IsNullOrWhiteSpace(attachedPlacesJson)
+                ? "[]"
+                : attachedPlacesJson;
+        }
         UpdatedAt = DateTime.UtcNow;
     }
 }

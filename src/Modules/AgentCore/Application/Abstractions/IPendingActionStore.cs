@@ -24,6 +24,10 @@ public interface IPendingActionStore
         Guid sessionId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<PendingAgentAction>> GetByUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task UpdateAsync(
         PendingAgentAction action,
         CancellationToken cancellationToken = default);

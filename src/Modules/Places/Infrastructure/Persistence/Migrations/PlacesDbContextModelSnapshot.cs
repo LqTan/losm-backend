@@ -55,9 +55,6 @@ namespace Places.Infrastructure.Persistence.Migrations
                     b.Property<string>("OpeningHours")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<double?>("Rating")
-                        .HasColumnType("float");
-
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(50)

@@ -15,5 +15,6 @@ public sealed record GeocodedPlace(
     double Latitude,
     double Longitude,
     string? Category,
-    string? Type
+    string? Type,
+    BoundingBox? Box = null
 );

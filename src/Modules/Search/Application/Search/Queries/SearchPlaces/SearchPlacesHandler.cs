@@ -1,3 +1,4 @@
+using Places.Application.Abstractions;
 using Search.Application.Abstractions;
 
 namespace Search.Application.Search.Queries.SearchPlaces;
@@ -25,6 +26,19 @@ public sealed class SearchPlacesHandler
         SearchPlacesQuery query,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(query.Query))
+        {
+            throw new ArgumentException("Query is required.", nameof(query));
+        }
+
+        if (query.Box is null &&
+            (query.Latitude is null || query.Longitude is null))
+        {
+            throw new ArgumentException(
+                "Either (Latitude, Longitude) or Box must be provided.",
+                nameof(query));
+        }
+
         var searchOptions = await _tuning.GetSearchOptionsAsync(cancellationToken);
 
         var radiusKm = query.RadiusKm.HasValue && query.RadiusKm.Value > 0
@@ -35,14 +49,36 @@ public sealed class SearchPlacesHandler
             ? query.CandidateLimit.Value
             : searchOptions.CandidateLimit;
 
-        var candidates = await _placeSearchService.SearchAsync(
-            query.Query,
-            query.Latitude,
-            query.Longitude,
-            radiusKm,
-            candidateLimit,
-            cancellationToken
-        );
+        IReadOnlyList<PlaceCandidate> candidates;
+        double referenceLat;
+        double referenceLon;
+        BoundingBox? searchBox = query.Box;
+
+        if (searchBox is not null)
+        {
+            candidates = await _placeSearchService.SearchByBoundingBoxAsync(
+                query.Query,
+                searchBox,
+                candidateLimit,
+                query.Amenity,
+                cancellationToken
+            );
+            referenceLat = searchBox.CenterLatitude;
+            referenceLon = searchBox.CenterLongitude;
+        }
+        else
+        {
+            candidates = await _placeSearchService.SearchAsync(
+                query.Query,
+                query.Latitude!.Value,
+                query.Longitude!.Value,
+                radiusKm,
+                candidateLimit,
+                cancellationToken
+            );
+            referenceLat = query.Latitude.Value;
+            referenceLon = query.Longitude.Value;
+        }
 
         var relevanceScores = await _relevanceScorer.ScoreAsync(
             query.Query,
@@ -61,8 +97,8 @@ public sealed class SearchPlacesHandler
         {
             var relevanceScore = scoreByPlaceId.GetValueOrDefault(place.Id);
             var distanceKm = _rankingService.CalculateDistanceKm(
-                query.Latitude,
-                query.Longitude,
+                referenceLat,
+                referenceLon,
                 place.Latitude,
                 place.Longitude
             );

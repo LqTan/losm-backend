@@ -24,6 +24,8 @@ public class AgentCoreDbContext : DbContext
         => Set<PendingAgentAction>();
     public DbSet<LastSearchContext> LastSearchContexts
         => Set<LastSearchContext>();
+    public DbSet<UserGoogleToken> UserGoogleTokens
+        => Set<UserGoogleToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

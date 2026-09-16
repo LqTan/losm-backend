@@ -75,7 +75,14 @@ public sealed class GeocodePlaceTool
             latitude = geocoded.Latitude,
             longitude = geocoded.Longitude,
             category = geocoded.Category,
-            type = geocoded.Type
+            type = geocoded.Type,
+            boundingBox = geocoded.Box is null ? null : new
+            {
+                minLatitude = geocoded.Box.MinLatitude,
+                maxLatitude = geocoded.Box.MaxLatitude,
+                minLongitude = geocoded.Box.MinLongitude,
+                maxLongitude = geocoded.Box.MaxLongitude
+            }
         }, JsonOptions);
     }
 }
