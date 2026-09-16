@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Enums;
 using AgentCore.Application.Models;
@@ -214,7 +215,8 @@ public sealed class AgentRunner : IAgentRunner
                         longitude = lastContext.CenterLongitude
                     },
                     radiusKm = lastContext.RadiusKm,
-                    resultPlaceIds = lastContext.ResultPlaceIdsJson
+                    resultPlaceIds = lastContext.ResultPlaceIdsJson,
+                    filters = ParseFilters(lastContext.FiltersJson)
                 });
 
                 messages.Insert(
@@ -359,8 +361,14 @@ public sealed class AgentRunner : IAgentRunner
 
             if (existingSession is null)
             {
-                throw new KeyNotFoundException(
-                    $"Agent session '{sessionId.Value}' was not found.");
+                _logger.LogWarning(
+                    "Agent session {SessionId} not found; starting a new session for user {UserId}",
+                    sessionId.Value,
+                    userId);
+
+                var newSession = new AgentSession(Guid.NewGuid(), userId);
+                await _sessionRepository.AddAsync(newSession, cancellationToken);
+                return newSession;
             }
 
             if (existingSession.UserId != userId)
@@ -377,6 +385,37 @@ public sealed class AgentRunner : IAgentRunner
         await _sessionRepository.AddAsync(session, cancellationToken);
 
         return session;
+    }
+
+    private static Dictionary<string, object?> ParseFilters(string filtersJson)
+    {
+        if (string.IsNullOrWhiteSpace(filtersJson) ||
+            filtersJson == "{}")
+        {
+            return new Dictionary<string, object?>();
+        }
+
+        try
+        {
+            var node = JsonNode.Parse(filtersJson);
+            if (node is not JsonObject obj)
+            {
+                return new Dictionary<string, object?>();
+            }
+
+            var result = new Dictionary<string, object?>();
+            foreach (var kv in obj)
+            {
+                result[kv.Key] = kv.Value is null
+                    ? null
+                    : JsonSerializer.Deserialize<object?>(kv.Value.ToJsonString());
+            }
+            return result;
+        }
+        catch
+        {
+            return new Dictionary<string, object?>();
+        }
     }
 
     private static List<AgentModelMessage> BuildModelMessages(AgentSession session)

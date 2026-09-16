@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Places.Application.Abstractions;
 using Places.Application.Contracts;
 using Places.Application.Places.Queries.GetPlaceById;
@@ -33,18 +34,46 @@ public static class DependencyInjection
         services.AddScoped<IPlacesSearchContract, PlacesSearchContract>();
 
         services
-            .AddOptions<HereProviderOptions>()
-            .Bind(configuration.GetSection("Here"));
+            .AddOptions<OverpassProviderOptions>()
+            .Bind(configuration.GetSection("Overpass"));
 
-        services.AddHttpClient<IPlaceProvider, HerePlaceProvider>((sp, client) =>
+        services.AddHttpClient(OverpassPlaceProvider.NominatimClientName, (sp, client) =>
         {
             var opts = sp
-                .GetRequiredService<Microsoft.Extensions.Options.IOptions<HereProviderOptions>>()
+                .GetRequiredService<IOptions<OverpassProviderOptions>>()
                 .Value;
 
-            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.BaseAddress = new Uri(opts.NominatimBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(opts.UserAgent);
+        });
+
+        services.AddHttpClient(OverpassPlaceProvider.OverpassClientName, (sp, client) =>
+        {
+            var opts = sp
+                .GetRequiredService<IOptions<OverpassProviderOptions>>()
+                .Value;
+
+            client.BaseAddress = new Uri(opts.OverpassBaseUrl);
             client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
         });
+
+        services.AddHttpClient(OverpassPlaceProvider.PhotonClientName, (sp, client) =>
+        {
+            var opts = sp
+                .GetRequiredService<IOptions<OverpassProviderOptions>>()
+                .Value;
+
+            client.BaseAddress = new Uri(opts.PhotonBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(opts.UserAgent);
+        });
+
+        services.AddScoped<OverpassPlaceProvider>();
+        services.AddScoped<IPlaceProvider>(sp =>
+            sp.GetRequiredService<OverpassPlaceProvider>());
+        services.AddScoped<IGeocodingService>(sp =>
+            sp.GetRequiredService<OverpassPlaceProvider>());
 
         services.AddControllers()
             .AddApplicationPart(typeof(DependencyInjection).Assembly);

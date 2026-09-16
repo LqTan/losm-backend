@@ -9,6 +9,12 @@ public interface IAgentSessionRepository
         CancellationToken cancellationToken = default
     );
 
+    Task<IReadOnlyList<AgentSession>> GetListByUserAsync(
+        Guid userId,
+        int limit,
+        CancellationToken cancellationToken = default
+    );
+
     Task AddAsync(
         AgentSession session,
         CancellationToken cancellationToken = default

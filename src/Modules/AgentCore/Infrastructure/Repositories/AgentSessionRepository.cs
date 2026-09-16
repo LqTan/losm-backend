@@ -30,6 +30,23 @@ public class AgentSessionRepository : IAgentSessionRepository
             );
     }
 
+    public async Task<IReadOnlyList<AgentSession>> GetListByUserAsync(
+        Guid userId,
+        int limit,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (userId == Guid.Empty) return [];
+
+        return await _dbContext.AgentSessions
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.UpdatedAt)
+            .Take(limit)
+            .Include(x => x.Messages)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(
         AgentSession session,
         CancellationToken cancellationToken = default
@@ -48,7 +65,7 @@ public class AgentSessionRepository : IAgentSessionRepository
         AgentSession session,
         CancellationToken cancellationToken = default
     )
-    {        
+    {
         await _dbContext.SaveChangesAsync(
             cancellationToken
         );

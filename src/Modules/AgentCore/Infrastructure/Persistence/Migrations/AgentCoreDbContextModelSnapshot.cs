@@ -165,6 +165,10 @@ namespace AgentCore.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AttachedPlacesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<double>("CenterLatitude")
                         .HasColumnType("float");
 
@@ -269,6 +273,49 @@ namespace AgentCore.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("PendingAgentActions", (string)null);
+                });
+
+            modelBuilder.Entity("AgentCore.Domain.Entities.UserGoogleToken", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccessToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("AccessTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GoogleEmail")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<string>("GoogleSub")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("RefreshToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("GoogleSub")
+                        .IsUnique()
+                        .HasDatabaseName("UX_UserGoogleTokens_GoogleSub");
+
+                    b.ToTable("UserGoogleTokens", (string)null);
                 });
 
             modelBuilder.Entity("AgentCore.Domain.Entities.AgentMessage", b =>

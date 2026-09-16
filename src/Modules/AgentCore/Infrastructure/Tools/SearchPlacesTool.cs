@@ -65,10 +65,12 @@ public sealed class SearchPlacesTool
 
         var query = new SearchPlacesQuery(
             arguments.Query,
-            _executionContext.Latitude,
-            _executionContext.Longitude,
+            arguments.Box is null ? _executionContext.Latitude : null,
+            arguments.Box is null ? _executionContext.Longitude : null,
             radiusKm,
-            searchOptions.CandidateLimit
+            searchOptions.CandidateLimit,
+            arguments.Box,
+            arguments.PlaceType
         );
 
         var results = await _searchPlacesHandler.HandleAsync(
@@ -77,16 +79,18 @@ public sealed class SearchPlacesTool
         );
 
         var filters = BuildFilters(arguments);
+        var topResults = results.Take(limit).ToList();
 
         await TryUpsertLastSearchContextAsync(
             arguments.Query,
             radiusKm,
-            results.Select(r => r.PlaceId),
+            topResults.Select(r => r.PlaceId),
+            topResults,
             filters,
             cancellationToken);
 
         return JsonSerializer.Serialize(
-            results.Take(limit),
+            topResults,
             JsonOptions
         );
     }
@@ -106,6 +110,7 @@ public sealed class SearchPlacesTool
         string query,
         double radiusKm,
         IEnumerable<Guid> resultPlaceIds,
+        IEnumerable<SearchResult> results,
         SearchFilters filters,
         CancellationToken cancellationToken)
     {
@@ -116,6 +121,7 @@ public sealed class SearchPlacesTool
         {
             var placeIdsJson = JsonSerializer.Serialize(resultPlaceIds);
             var filtersJson = JsonSerializer.Serialize(filters);
+            var placesJson = JsonSerializer.Serialize(results, JsonOptions);
 
             var existing = await _lastSearchContextStore.GetAsync(
                 sessionId.Value, cancellationToken);
@@ -129,7 +135,8 @@ public sealed class SearchPlacesTool
                     _executionContext.Longitude,
                     radiusKm,
                     placeIdsJson,
-                    filtersJson);
+                    filtersJson,
+                    placesJson);
 
                 await _lastSearchContextStore.UpsertAsync(context, cancellationToken);
             }
@@ -141,7 +148,8 @@ public sealed class SearchPlacesTool
                     _executionContext.Longitude,
                     radiusKm,
                     placeIdsJson,
-                    filtersJson);
+                    filtersJson,
+                    placesJson);
                 await _lastSearchContextStore.UpsertAsync(existing, cancellationToken);
             }
         }

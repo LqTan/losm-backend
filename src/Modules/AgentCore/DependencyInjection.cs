@@ -3,9 +3,15 @@ using AgentCore.Application.Agent.Commands.ApproveAgentPlan;
 using AgentCore.Application.Agent.Commands.ConfirmAgentAction;
 using AgentCore.Application.Agent.Commands.CreateAgentPlan;
 using AgentCore.Application.Agent.Commands.ExecuteAgent;
+using AgentCore.Application.Agent.Commands.RetryMeetingEmails;
 using AgentCore.Application.Agent.Queries.GetAgentSessionHistory;
+using AgentCore.Application.Agent.Queries.GetAgentSessionsByUser;
+using AgentCore.Application.Agent.Queries.GetMeetingsForUser;
+using AgentCore.Application.Agent.Queries.GetPendingActionsForUser;
 using AgentCore.Infrastructure.AgentRuntime;
 using AgentCore.Infrastructure.Dispatchers;
+using AgentCore.Infrastructure.Email;
+using AgentCore.Infrastructure.Google;
 using AgentCore.Infrastructure.Llm;
 using AgentCore.Infrastructure.Meeting;
 using AgentCore.Infrastructure.Persistence;
@@ -42,19 +48,27 @@ public static class DependencyInjection
         services.AddScoped<IAgentPlanRepository, AgentPlanRepository>();
         services.AddScoped<ILastSearchContextStore, LastSearchContextStore>();
         services.AddScoped<IPendingActionStore, EfPendingActionStore>();
+        services.AddScoped<IUserGoogleTokenRepository, UserGoogleTokenRepository>();
 
         services.AddScoped<CreateAgentPlanHandler>();
         services.AddScoped<ApproveAgentPlanHandler>();
         services.AddScoped<ConfirmAgentActionHandler>();
         services.AddScoped<ExecuteAgentHandler>();
         services.AddScoped<GetAgentSessionHistoryHandler>();
+        services.AddScoped<GetAgentSessionsByUserHandler>();
+        services.AddScoped<GetMeetingsForUserHandler>();
+        services.AddScoped<GetPendingActionsForUserHandler>();
+        services.AddScoped<RetryMeetingEmailsHandler>();
 
         services.AddScoped<IAgentTool, SearchPlacesTool>();
+        services.AddScoped<IAgentTool, SearchMeetingPlacesTool>();
+        services.AddScoped<IAgentTool, GeocodePlaceTool>();
         services.AddScoped<IAgentTool, PlaceReviewsTool>();
         services.AddScoped<IAgentTool, GetCurrentUserTool>();
         services.AddScoped<IAgentTool, SavePlaceTool>();
         services.AddScoped<IAgentTool, CreateReviewTool>();
         services.AddScoped<IAgentTool, CreateMeetingTool>();
+        services.AddScoped<IAgentTool, RetryMeetingEmailsTool>();
 
         services.AddScoped<IAgentToolRegistry, AgentToolRegistry>();
 
@@ -69,28 +83,49 @@ public static class DependencyInjection
         services.AddScoped<IAgentActionDispatcherResolver, AgentActionDispatcherResolver>();
 
         var n8nBaseUrl = configuration["N8n:BaseUrl"];
+        var googleClientId = configuration["Google:ClientId"];
         var isProduction = environment.IsProduction();
 
         services
             .AddOptions<N8nMeetingClientOptions>()
             .Bind(configuration.GetSection("N8n"));
 
-        if (string.IsNullOrWhiteSpace(n8nBaseUrl))
-        {
-            if (isProduction)
-            {
-                throw new InvalidOperationException(
-                    "N8n:BaseUrl is not configured. Production requires a real n8n endpoint; FakeN8nMeetingClient is not allowed.");
-            }
-            services.AddSingleton<IMeetingAutomationClient, FakeN8nMeetingClient>();
-        }
-        else
+        services
+            .AddOptions<GoogleOptions>()
+            .Bind(configuration.GetSection("Google"));
+
+        services
+            .AddOptions<SmtpOptions>()
+            .Bind(configuration.GetSection("Smtp"));
+
+        services
+            .AddOptions<MeetingOptions>()
+            .Bind(configuration.GetSection("Meeting"));
+
+        services.AddScoped<IGoogleCalendarClient, GoogleCalendarClient>();
+        services.AddScoped<IGoogleOAuthService, GoogleOAuthService>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+        if (!string.IsNullOrWhiteSpace(n8nBaseUrl))
         {
             services.AddHttpClient<IMeetingAutomationClient, N8nMeetingClient>(client =>
             {
                 client.BaseAddress = new Uri(n8nBaseUrl);
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
+        }
+        else if (!string.IsNullOrWhiteSpace(googleClientId))
+        {
+            services.AddScoped<IMeetingAutomationClient, GoogleMeetingAutomationClient>();
+        }
+        else
+        {
+            if (isProduction)
+            {
+                throw new InvalidOperationException(
+                    "Không có N8n:BaseUrl hoặc Google:ClientId nào được cấu hình. Production phải có ít nhất 1 trong hai.");
+            }
+            services.AddSingleton<IMeetingAutomationClient, FakeN8nMeetingClient>();
         }
 
         services
