@@ -9,6 +9,10 @@ public interface IReviewRepository
     Task<IReadOnlyList<Review>> GetByPlaceIdAsync(
         Guid placeId,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Review>> GetByUserIdAsync(
+        Guid userId,
+        int? limit = null,
+        CancellationToken cancellationToken = default);
     Task<double?> GetAverageRatingByPlaceIdAsync(
         Guid placeId,
         CancellationToken cancellationToken = default);

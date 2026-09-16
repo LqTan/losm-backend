@@ -1,3 +1,4 @@
+using Places.Application.Abstractions;
 using Places.Application.Contracts;
 using Search.Application.Abstractions;
 
@@ -27,6 +28,29 @@ public sealed class PlaceSearchService : IPlaceSearchService
             candidateLimit,
             cancellationToken
         );
+        return MapToCandidates(places);
+    }
+
+    public async Task<IReadOnlyList<PlaceCandidate>> SearchByBoundingBoxAsync(
+        string query,
+        BoundingBox boundingBox,
+        int candidateLimit,
+        string? amenity,
+        CancellationToken cancellationToken
+    )
+    {
+        var places = await _places.SearchByBoundingBoxAsync(
+            query,
+            boundingBox,
+            candidateLimit,
+            amenity,
+            cancellationToken
+        );
+        return MapToCandidates(places);
+    }
+
+    private static IReadOnlyList<PlaceCandidate> MapToCandidates(IReadOnlyList<Places.Domain.Entities.Place> places)
+    {
         return places
             .Select(place => new PlaceCandidate(
                 place.Id,

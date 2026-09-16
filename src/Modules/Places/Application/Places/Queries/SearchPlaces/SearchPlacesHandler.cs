@@ -26,14 +26,20 @@ public sealed class SearchPlacesHandler
         CancellationToken cancellationToken = default
     )
     {
-        var places = await _placeProvider.SearchAsync(
-            query.Query,
-            query.Latitude,
-            query.Longitude,
-            query.RadiusKm,
-            query.CandidateLimit,
-            cancellationToken
-        );
+        IReadOnlyList<Place> places = query.Box is not null
+            ? await _placeProvider.SearchByBoundingBoxAsync(
+                query.Query,
+                query.Box,
+                query.CandidateLimit,
+                query.Amenity,
+                cancellationToken)
+            : await _placeProvider.SearchAsync(
+                query.Query,
+                query.Latitude ?? 0.0,
+                query.Longitude ?? 0.0,
+                query.RadiusKm,
+                query.CandidateLimit,
+                cancellationToken);
 
         if (places.Count == 0)
         {

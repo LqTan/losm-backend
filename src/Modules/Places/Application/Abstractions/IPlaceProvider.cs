@@ -12,4 +12,12 @@ public interface IPlaceProvider
         int candidateLimit,
         CancellationToken cancellationToken = default
     );
+
+    Task<IReadOnlyList<Place>> SearchByBoundingBoxAsync(
+        string query,
+        BoundingBox boundingBox,
+        int candidateLimit,
+        string? amenity,
+        CancellationToken cancellationToken = default
+    );
 }

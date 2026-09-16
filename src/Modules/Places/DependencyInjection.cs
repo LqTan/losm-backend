@@ -58,6 +58,17 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
         });
 
+        services.AddHttpClient(OverpassPlaceProvider.PhotonClientName, (sp, client) =>
+        {
+            var opts = sp
+                .GetRequiredService<IOptions<OverpassProviderOptions>>()
+                .Value;
+
+            client.BaseAddress = new Uri(opts.PhotonBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, opts.TimeoutSeconds));
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(opts.UserAgent);
+        });
+
         services.AddScoped<OverpassPlaceProvider>();
         services.AddScoped<IPlaceProvider>(sp =>
             sp.GetRequiredService<OverpassPlaceProvider>());
