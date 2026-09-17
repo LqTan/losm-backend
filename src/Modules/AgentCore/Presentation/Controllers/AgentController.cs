@@ -8,6 +8,7 @@ using AgentCore.Application.Agent.Commands.RetryMeetingEmails;
 using AgentCore.Application.Agent.Queries.GetAgentSessionHistory;
 using AgentCore.Application.Agent.Queries.GetAgentSessionsByUser;
 using AgentCore.Application.Agent.Queries.GetMeetingsForUser;
+using AgentCore.Application.Agent.Queries.GetPendingActionById;
 using AgentCore.Application.Agent.Queries.GetPendingActionsForUser;
 using AgentCore.Infrastructure.Streaming;
 using AgentCore.Presentation.Contracts;
@@ -309,6 +310,35 @@ public sealed class AgentController : ControllerBase
             ),
             cancellationToken
         );
+
+        return Ok(result);
+    }
+
+    [HttpGet("pending-actions/{actionId:guid}")]
+    public async Task<IActionResult> GetPendingAction(
+        Guid actionId,
+        [FromServices] GetPendingActionByIdHandler handler,
+        CancellationToken cancellationToken
+    )
+    {
+        var userIdClaim = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (!Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await handler.HandleAsync(
+            new GetPendingActionByIdQuery(actionId, userId),
+            cancellationToken
+        );
+
+        if (result is null)
+        {
+            return NotFound();
+        }
 
         return Ok(result);
     }
