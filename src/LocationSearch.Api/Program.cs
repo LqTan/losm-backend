@@ -86,12 +86,12 @@ if (!builder.Environment.IsProduction())
         builder.Configuration.GetConnectionString("DefaultConnection")!);
 }
 
+builder.Services.AddAgentCore(builder.Configuration, builder.Environment);
 builder.Services.AddConfigurationModule(builder.Configuration);
 builder.Services.AddPlaces(builder.Configuration);
-builder.Services.AddSearch();
 builder.Services.AddReviews(builder.Configuration);
 builder.Services.AddUsers(builder.Configuration);
-builder.Services.AddAgentCore(builder.Configuration, builder.Environment);
+builder.Services.AddSearch();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
