@@ -12,8 +12,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      Elasticsearch__Url: http://elasticsearch:9200
     depends_on:
       sqlserver:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks:
       - location-search-network
@@ -37,8 +40,32 @@ services:
     networks:
       - location-search-network
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: location-search-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - location-search-es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health | grep -E 'green|yellow' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - location-search-network
+
 networks:
   location-search-network:
 
 volumes:
   location-search-sql-data:
+  location-search-es-data:
