@@ -18,6 +18,8 @@ public sealed class OverpassPlaceProvider : IPlaceProvider, IGeocodingService
     public const string OverpassClientName = "Overpass";
     public const string PhotonClientName = "Photon";
 
+    private const double MaxPhotonBiasScale = 3.0;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly OverpassProviderOptions _options;
     private readonly ILogger<OverpassPlaceProvider> _logger;
@@ -67,7 +69,7 @@ public sealed class OverpassPlaceProvider : IPlaceProvider, IGeocodingService
         {
             hits = await FetchPhotonAsync(
                 query, includeLocationBias: true,
-                latitude, longitude, radiusKm, limit, cancellationToken);
+                latitude, longitude, limit, cancellationToken);
         }
 
         if (hits is null || hits.Count == 0)
@@ -193,7 +195,7 @@ public sealed class OverpassPlaceProvider : IPlaceProvider, IGeocodingService
         {
             var photonHits = await FetchPhotonAsync(
                 query, includeLocationBias: false, latitude: 0, longitude: 0,
-                radiusKm: 0, limit: 1, cancellationToken);
+                limit: 1, cancellationToken);
 
             var photonFirst = photonHits?.FirstOrDefault();
             if (photonFirst is not null)
@@ -393,21 +395,20 @@ public sealed class OverpassPlaceProvider : IPlaceProvider, IGeocodingService
         bool includeLocationBias,
         double latitude,
         double longitude,
-        double radiusKm,
         int limit,
         CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         sb.Append("?q=").Append(Uri.EscapeDataString(query?.Trim() ?? string.Empty));
         sb.Append("&limit=").Append(limit);
-        if (includeLocationBias && radiusKm > 0)
+        if (includeLocationBias)
         {
             sb.Append("&lat=").AppendFormat(
                 CultureInfo.InvariantCulture, "{0:F6}", latitude);
             sb.Append("&lon=").AppendFormat(
                 CultureInfo.InvariantCulture, "{0:F6}", longitude);
-            sb.Append("&radius_km=").AppendFormat(
-                CultureInfo.InvariantCulture, "{0:F2}", radiusKm);
+            sb.Append("&location_bias_scale=").AppendFormat(
+                CultureInfo.InvariantCulture, "{0:F2}", MaxPhotonBiasScale);
         }
 
         var url = sb.ToString();
