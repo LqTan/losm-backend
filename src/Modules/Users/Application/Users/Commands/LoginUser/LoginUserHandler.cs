@@ -1,5 +1,6 @@
 using Common.Application.Exceptions;
 using Users.Application.Abstractions;
+using Users.Domain.Enums;
 
 namespace Users.Application.Users.Commands.LoginUser;
 
@@ -36,6 +37,13 @@ public class LoginUserHandler
             throw new UnauthorizedException(
                 "Invalid email or password.");
         }
+        if (user.Status == UserStatus.Blocked)
+        {
+            throw new ForbiddenException(
+                "This account has been blocked.");
+        }
+        user.RecordLogin();
+        await _userRepository.UpdateAsync(user);
         var token = _tokenProvider.Create(user);
         return new LoginUserResult(
             user.Id,

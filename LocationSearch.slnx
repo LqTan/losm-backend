@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/AgentCore/AgentCore.csproj" />
+    <Project Path="src/Modules/Common/Common.csproj" />
     <Project Path="src/Modules/Places/Places.csproj" />
     <Project Path="src/Modules/Reviews/Reviews.csproj" />
     <Project Path="src/Modules/Sandbox/Sandbox.csproj" />

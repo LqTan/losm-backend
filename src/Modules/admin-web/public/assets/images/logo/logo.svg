@@ -1,0 +1,25 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="150"
+  height="24"
+  viewBox="0 0 150 24"
+  role="img"
+  aria-label="LocationSearch"
+>
+  <g fill="none" fill-rule="evenodd">
+    <path
+      d="M12 1.5a8.5 8.5 0 0 0-8.5 8.5c0 5.99 7.6 12.24 7.93 12.5a.85.85 0 0 0 1.14 0c.33-.26 7.93-6.51 7.93-12.5A8.5 8.5 0 0 0 12 1.5Z"
+      fill="#435ebe"
+    />
+    <circle cx="12" cy="10" r="3.1" fill="#fff" />
+  </g>
+  <text
+    x="27"
+    y="17.5"
+    font-family="Nunito, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-size="15"
+    font-weight="800"
+    letter-spacing="-0.2"
+    fill="#25396f"
+  >Location<tspan fill="#435ebe">Search</tspan></text>
+</svg>

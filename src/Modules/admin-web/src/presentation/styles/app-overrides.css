@@ -1,0 +1,491 @@
+/**
+ * Supplementary CSS for the Mazer template.
+ *
+ * Mazer already ships the layout, typography, sidebar and forms; this file
+ * only patches what the template does not cover or what the admin panel needs.
+ * Every selector targets a Mazer class, so swapping templates means editing
+ * this file only, never the components.
+ */
+
+:root {
+  --ls-primary: #435ebe;
+  --ls-primary-soft: #f0f1f5;
+  --ls-sidebar-width: 300px;
+  --ls-transition: 0.2s ease;
+}
+
+body {
+  font-family: var(--font-nunito), system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.text-muted {
+  color: #adb5bd !important;
+}
+
+.text-danger {
+  color: #e03131 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Logo
+   Mazer pins the logo height to 1.2rem in .sidebar-header; our SVG needs a
+   matching width, so both dimensions are declared here.
+--------------------------------------------------------------------------- */
+.sidebar-header img,
+.auth-logo img {
+  height: 1.5rem;
+  width: auto;
+}
+
+.auth-logo img {
+  height: 1.75rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Header
+--------------------------------------------------------------------------- */
+.user-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  color: #25396f;
+  font-weight: 600;
+  transition: background-color var(--ls-transition),
+    border-color var(--ls-transition);
+}
+
+.user-menu-btn:hover,
+.user-menu-btn[aria-expanded="true"] {
+  background-color: var(--ls-primary-soft);
+  border-color: #e3e6f0;
+}
+
+.user-menu-btn::after {
+  color: #7c8db5;
+}
+
+.user-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--ls-primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.burger-btn {
+  border: 0;
+  line-height: 1;
+  padding: 0 0.25rem;
+  color: #25396f;
+}
+
+/* ---------------------------------------------------------------------------
+   Sidebar submenu
+   The group header is a <button>, so the browser's default button styling has
+   to be reset or it renders differently from the plain link items. The icon
+   also needs an explicit `display` because the bundled bootstrap-icons CSS only
+   declares `::before` rules while Mazer's `.bi { width; height }` alone is
+   ignored on inline elements.
+
+   NOTE: the group <li> intentionally never gets Mazer's `active` class — that
+   class paints the label and icon white (see app-sidebar.tsx).
+--------------------------------------------------------------------------- */
+.sidebar-wrapper .menu .sidebar-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.sidebar-wrapper .menu .sidebar-link > .bi {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: #7c8db5;
+}
+
+.sidebar-wrapper .menu .sidebar-link > span {
+  margin-left: 1rem;
+}
+
+.sidebar-group-toggle {
+  border: 0;
+  background: transparent;
+  padding: 0.7rem 1rem;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+  color: #25396f;
+  border-radius: 0.5rem;
+  transition: background-color var(--ls-transition),
+    color var(--ls-transition);
+}
+
+.sidebar-group-toggle:hover {
+  background-color: #f0f1f5;
+}
+
+.sidebar-group-toggle[aria-expanded="true"] > .bi,
+.sidebar-group-toggle[aria-expanded="true"] > span {
+  color: var(--ls-primary);
+}
+
+/*
+  Mazer hides the collapsed submenu with `display: none`, which makes a
+  max-height slide impossible. `display: block` is restored here and
+  visibility is toggled instead: it keeps the closed group out of the
+  accessibility tree and non-interactive while still allowing the height to
+  animate.
+*/
+.sidebar-wrapper .menu .submenu {
+  display: block;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  max-height: 0;
+  visibility: hidden;
+  transition: max-height 0.25s ease, visibility 0.25s ease;
+}
+
+.sidebar-wrapper .menu .submenu.active {
+  max-height: 20rem;
+  visibility: visible;
+}
+
+.sidebar-wrapper .menu .submenu .submenu-item {
+  list-style: none;
+}
+
+.sidebar-wrapper .menu .submenu .submenu-item a {
+  display: block;
+  padding: 0.55rem 2rem;
+  color: #5c6c9a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color var(--ls-transition),
+    background-color var(--ls-transition);
+}
+
+.sidebar-wrapper .menu .submenu .submenu-item a:hover {
+  background-color: var(--ls-primary-soft);
+  color: var(--ls-primary);
+}
+
+.sidebar-wrapper .menu .submenu .submenu-item.active > a {
+  color: var(--ls-primary);
+  font-weight: 700;
+  background-color: var(--ls-primary-soft);
+}
+
+/* ---------------------------------------------------------------------------
+   Grid
+   Used by the dashboard instead of Bootstrap's col-* classes, see ui/grid.tsx.
+--------------------------------------------------------------------------- */
+.ls-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ls-grid-cols-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ls-grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ls-grid-cols-3 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ls-grid-cols-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ls-grid-item {
+  /* min-width: 0 lets long content (emails, numbers) shrink instead of stretching the grid. */
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .ls-grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ls-grid-cols-4 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1400px) {
+  .ls-grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/*
+  Six columns are only allowed on very wide screens: at 2100px the #main area
+  is still about 1740px, leaving roughly 270px per card — enough for the icon
+  and the label. Below that we keep three columns so the six cards form two
+  balanced rows instead of 4 + 2.
+*/
+@media (min-width: 2100px) {
+  .ls-grid-cols-3 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Stat cards: minimum width so labels are never clipped. */
+.ls-grid-auto {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+/* ---------------------------------------------------------------------------
+   Stat card
+   Mazer sets .stats-icon { float: right } and only ships four tones. The
+   float is removed so the icon stays aligned with the text, and the tone the
+   dashboard needs is added.
+--------------------------------------------------------------------------- */
+.stats-icon {
+  float: none !important;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stats-icon i {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.stats-icon.orange {
+  background-color: #ff922b;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Biểu mẫu
+   Drop the default .mb-3 bottom margin inside the filter card so fields
+   sharing a `row g-3` do not stack up extra spacing.
+--------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Form grid
+   Inside a `row g-3` the gutter already provides the spacing, so the default
+   bottom margin of a Field must be neutralised or the vertical rhythm doubles.
+--------------------------------------------------------------------------- */
+.filter-grid .mb-3,
+.form-grid .mb-3 {
+  margin-bottom: 0 !important;
+}
+
+.filter-grid .form-label,
+.form-grid .form-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.35rem;
+}
+
+.filter-grid .form-text,
+.form-grid .form-text {
+  font-size: 0.75rem;
+  color: #adb5bd;
+}
+
+/*
+  Trailing options block of the user form (the "Notify" switch). It sits
+  outside the field grid so it always renders last, full width.
+*/
+.form-options .form-check-label {
+  font-size: 0.9rem;
+}
+
+.form-options .form-check-input {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+/*
+  Read-only stand-in for a select, used when the active scope pins the value
+  (e.g. the role inside the customer scope). Styled like a disabled control so
+  the form grid keeps its rhythm.
+*/
+.form-control-plain {
+  min-height: calc(1.5em + 0.75rem + 2px);
+  padding: 0.375rem 0.75rem;
+  background-color: #f8f9fa;
+  border: 1px dashed #ced4da;
+  border-radius: 0.25rem;
+  color: #495057;
+}
+
+/* Firefox draws its own chrome for input[type=date]; align it with Bootstrap */
+input[type="date"] {
+  min-height: calc(1.5em + 0.75rem + 2px);
+}
+
+.form-control,
+.form-select {
+  transition: border-color var(--ls-transition),
+    box-shadow var(--ls-transition);
+}
+
+/* ---------------------------------------------------------------------------
+   Bảng
+   Keep cells on one line; only the first and the email column may shrink.
+--------------------------------------------------------------------------- */
+.table td,
+.table th {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.table td:first-child,
+.table th:first-child {
+  white-space: normal;
+  min-width: 12rem;
+}
+
+.table .cell-truncate {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-actions {
+  width: 1%;
+}
+
+/* ---------------------------------------------------------------------------
+   Modal
+   Compensations for Bootstrap 5.0.0-beta1 (the build Mazer bundles):
+   - .modal-dialog sets pointer-events: none but .modal-content never turns it
+     back on, so nothing inside the dialog is clickable.
+   - .modal-backdrop must be a sibling of .modal so it paints underneath.
+--------------------------------------------------------------------------- */
+.modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.ls-modal .modal-dialog {
+  pointer-events: none;
+}
+
+.ls-modal .modal-content {
+  pointer-events: auto;
+}
+
+.ls-modal-backdrop {
+  z-index: 1040;
+}
+
+.ls-modal {
+  z-index: 1055;
+}
+
+/* body.modal-open: locks background scroll while scrolling inside the dialog still works. */
+body.modal-open {
+  overflow: hidden;
+}
+
+.modal .modal-header,
+.modal .modal-footer {
+  border-color: #f1f3f9;
+}
+
+.modal .modal-title {
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   Toast
+--------------------------------------------------------------------------- */
+.toast-container .toast {
+  min-width: 18rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Trải nghiệm mượt
+   Neutralise the template's global transitions (Mazer applies 0.5s to nearly
+   everything, which feels laggy) and replace them with short, controlled ones.
+--------------------------------------------------------------------------- */
+.sidebar-link,
+.btn,
+.form-control,
+.form-select,
+.dropdown-item,
+.badge,
+.nav-pills .nav-link,
+.page-link {
+  transition: color var(--ls-transition), background-color var(--ls-transition),
+    border-color var(--ls-transition), box-shadow var(--ls-transition),
+    opacity var(--ls-transition), transform var(--ls-transition) !important;
+}
+
+.sidebar-wrapper {
+  /* Mazer puts a .5s transition on `left`; shorten it to .25s to feel snappier. */
+  transition: left 0.25s ease-out;
+}
+
+.dropdown-menu {
+  animation: ls-dropdown-in 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes ls-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast {
+  animation: ls-toast-in 0.18s ease-out;
+}
+
+@keyframes ls-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

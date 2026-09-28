@@ -33,6 +33,22 @@ public class ExceptionHandlingMiddleware
                 ex.Message
             );
         }
+        catch (ForbiddenException ex)
+        {
+            await WriteResponse(
+                context,
+                HttpStatusCode.Forbidden,
+                ex.Message
+            );
+        }
+        catch (ValidationException ex)
+        {
+            await WriteResponse(
+                context,
+                HttpStatusCode.BadRequest,
+                ex.Message
+            );
+        }
         catch (KeyNotFoundException ex)
         {
             await WriteResponse(
@@ -53,8 +69,7 @@ public class ExceptionHandlingMiddleware
     private static async Task WriteResponse(
         HttpContext context,
         HttpStatusCode statusCode,
-        string message
-    )
+        string message)
     {
         context.Response.StatusCode = (int)statusCode;
         context.Response.ContentType = "application/json";

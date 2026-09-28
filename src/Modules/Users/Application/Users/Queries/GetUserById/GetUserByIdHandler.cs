@@ -1,5 +1,4 @@
 using Users.Application.Abstractions;
-using Users.Domain.Entities;
 
 namespace Users.Application.Users.Queries.GetUserById;
 
@@ -19,6 +18,11 @@ public class GetUserByIdHandler
             user.Id,
             user.Username,
             user.Email,
+            user.FullName,
+            user.Phone,
+            user.Gender,
+            user.Role,
+            user.Status,
             user.CreatedAt
         );
     }
