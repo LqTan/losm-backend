@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Users.Application.Abstractions;
 using Users.Domain.Entities;
+using Users.Domain.Enums;
 
 namespace Users.Infrastructure.Authentication;
 
@@ -27,7 +28,7 @@ public class JwtTokenProvider : ITokenProvider
             ),
             SecurityAlgorithms.HmacSha256
         );
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(
                 ClaimTypes.NameIdentifier,
@@ -40,16 +41,35 @@ public class JwtTokenProvider : ITokenProvider
             new Claim(
                 ClaimTypes.Name,
                 user.Username
+            ),
+            new Claim(
+                ClaimTypes.Role,
+                user.Role.ToString()
             )
         };
+        if (!string.IsNullOrWhiteSpace(user.FullName))
+        {
+            claims.Add(new Claim(
+                "full_name",
+                user.FullName
+            ));
+        }
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"],
             audience: _configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(24),
+            expires: DateTime.UtcNow.AddHours(
+                GetTokenLifetimeHours()),
             signingCredentials: credentials
         );
         return new JwtSecurityTokenHandler()
             .WriteToken(token);
+    }
+    private int GetTokenLifetimeHours()
+    {
+        var configured = _configuration.GetValue(
+            "Jwt:TokenLifetimeHours",
+            24);
+        return configured > 0 ? configured : 24;
     }
 }

@@ -129,7 +129,9 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(
         "AdminOnly",
-        policy => policy.RequireAuthenticatedUser());
+        policy => policy
+            .RequireAuthenticatedUser()
+            .RequireRole("Administrator"));
 });
 
 var app = builder.Build();
@@ -164,6 +166,9 @@ using (var scope = app.Services.CreateScope())
         await sp.GetRequiredService<Sandbox.Infrastructure.Persistence.SandboxDbContext>().Database.MigrateAsync();
     }
     await sp.GetRequiredService<AgentCoreDbContext>().Database.MigrateAsync();
+    await Users.DependencyInjection.SeedAdministratorAsync(
+        sp,
+        builder.Configuration);
 }
 
 if (app.Environment.IsDevelopment())

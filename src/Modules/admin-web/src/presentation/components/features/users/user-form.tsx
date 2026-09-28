@@ -1,0 +1,312 @@
+"use client";
+
+import { useState } from "react";
+import type {
+  UserGender,
+  UserRole,
+  UserStatus,
+} from "@/domain/enums/user.enum";
+import {
+  USER_GENDERS,
+  USER_ROLES,
+  USER_STATUSES,
+} from "@/domain/enums/user.enum";
+import {
+  Button,
+  Field,
+  Input,
+  Select,
+  Switch,
+} from "@/presentation/components/ui";
+import { PASSWORD_HINT } from "@/shared/utils/validation";
+
+export interface UserFormValues {
+  username: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  gender: UserGender | null;
+  role: UserRole;
+  status: UserStatus;
+  password: string;
+  notify: boolean;
+}
+
+export function createEmptyUserFormValues(): UserFormValues {
+  return {
+    username: "",
+    email: "",
+    fullName: "",
+    phone: "",
+    gender: null,
+    role: "Customer",
+    status: "Active",
+    password: "",
+    notify: true,
+  };
+}
+
+export function toUserFormValues(user: {
+  username: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  gender: UserGender | null;
+  role: UserRole;
+  status: UserStatus;
+  notifyOnAccountCreation: boolean;
+}): UserFormValues {
+  return {
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName,
+    phone: user.phone ?? "",
+    gender: user.gender,
+    role: user.role,
+    status: user.status,
+    password: "",
+    notify: user.notifyOnAccountCreation,
+  };
+}
+
+const ROLE_OPTIONS = USER_ROLES.map((role) => ({
+  value: role,
+  label: role,
+}));
+
+const STATUS_OPTIONS = USER_STATUSES.map((status) => ({
+  value: status,
+  label: status,
+}));
+
+const GENDER_OPTIONS = USER_GENDERS.map((gender) => ({
+  value: gender,
+  label: gender,
+}));
+
+export interface UserFormProps {
+  mode: "create" | "edit";
+  values: UserFormValues;
+  isSubmitting: boolean;
+  onChange: (values: UserFormValues) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}
+
+/**
+ * Form shared by the create and edit flows.
+ * The parent owns the state (controlled) so a single form serves both
+ * the create and the edit screen.
+ */
+export function UserForm({
+  mode,
+  values,
+  isSubmitting,
+  onChange,
+  onSubmit,
+  onCancel,
+}: UserFormProps) {
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof UserFormValues, string>>
+  >({});
+
+  function update<K extends keyof UserFormValues>(
+    key: K,
+    value: UserFormValues[K],
+  ) {
+    onChange({ ...values, [key]: value });
+    setFieldErrors((current) => ({ ...current, [key]: undefined }));
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit();
+  }
+
+  const isCreate = mode === "create";
+
+  return (
+    <form onSubmit={handleSubmit} noValidate>
+      <div className="card mb-4">
+        <div className="card-body">
+          <div className="row g-3 form-grid">
+            <div className="col-md-6">
+              <Field
+                label="Full name"
+                htmlFor="fullName"
+                required
+                error={fieldErrors.fullName}
+              >
+                <Input
+                  id="fullName"
+                  value={values.fullName}
+                  maxLength={255}
+                  placeholder="Nguyen Van A"
+                  invalid={Boolean(fieldErrors.fullName)}
+                  onChange={(event) => update("fullName", event.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+
+            <div className="col-md-6">
+              <Field
+                label="Username"
+                htmlFor="username"
+                required
+                error={fieldErrors.username}
+              >
+                <Input
+                  id="username"
+                  value={values.username}
+                  maxLength={100}
+                  placeholder="nguyenvana"
+                  invalid={Boolean(fieldErrors.username)}
+                  onChange={(event) => update("username", event.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+
+            <div className="col-md-6">
+              <Field
+                label="Email"
+                htmlFor="email"
+                required
+                error={fieldErrors.email}
+              >
+                <Input
+                  id="email"
+                  type="email"
+                  value={values.email}
+                  placeholder="user@example.com"
+                  invalid={Boolean(fieldErrors.email)}
+                  onChange={(event) => update("email", event.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+
+            <div className="col-md-6">
+              <Field
+                label="Phone"
+                htmlFor="phone"
+                hint="Digits only, 9–15 characters."
+                error={fieldErrors.phone}
+              >
+                <Input
+                  id="phone"
+                  inputMode="numeric"
+                  value={values.phone}
+                  maxLength={15}
+                  placeholder="84377000000"
+                  invalid={Boolean(fieldErrors.phone)}
+                  onChange={(event) =>
+                    update("phone", event.target.value.replace(/\D/g, ""))
+                  }
+                />
+              </Field>
+            </div>
+
+            <div className="col-md-4">
+              <Field label="Gender" htmlFor="gender">
+                <Select
+                  id="gender"
+                  options={GENDER_OPTIONS}
+                  placeholder="Not specified"
+                  value={values.gender ?? ""}
+                  onValueChange={(next) =>
+                    update("gender", (next as UserGender | null) ?? null)
+                  }
+                />
+              </Field>
+            </div>
+
+            <div className="col-md-4">
+              <Field label="Role" htmlFor="role" required>
+                <Select
+                  id="role"
+                  options={ROLE_OPTIONS}
+                  value={values.role}
+                  onValueChange={(next) => update("role", next as UserRole)}
+                />
+              </Field>
+            </div>
+
+            <div className="col-md-4">
+              <Field label="Status" htmlFor="status" required>
+                <Select
+                  id="status"
+                  options={STATUS_OPTIONS}
+                  value={values.status}
+                  onValueChange={(next) =>
+                    update("status", next as UserStatus)
+                  }
+                />
+              </Field>
+            </div>
+
+            {/*
+              The "Notify" switch is shown on the create form only: PUT
+              /api/admin/users/{id} accepts `notify` but sends no email today,
+              so rendering it in edit mode would be a control that does
+              nothing. Changing the password (the key action in the user
+              list) is the flow that actually emails the user.
+            */}
+            {isCreate ? (
+              <div className="col-md-6">
+                <Field
+                  label="Password"
+                  htmlFor="password"
+                  required
+                  hint={PASSWORD_HINT}
+                  error={fieldErrors.password}
+                >
+                  <Input
+                    id="password"
+                    type="password"
+                    iconLeft="bi-shield-lock"
+                    autoComplete="new-password"
+                    value={values.password}
+                    invalid={Boolean(fieldErrors.password)}
+                    onChange={(event) =>
+                      update("password", event.target.value)
+                    }
+                    required
+                  />
+                </Field>
+              </div>
+            ) : null}
+          </div>
+
+          {/*
+            Options block, always the last element in the form. It used to sit
+            inside the grid before the password field, which pushed the
+            password into the right half of its own row and left the layout
+            ragged.
+          */}
+          {isCreate ? (
+            <div className="form-options mt-4 pt-3 border-top">
+              <Switch
+                id="notify"
+                checked={values.notify}
+                onCheckedChange={(checked) => update("notify", checked)}
+                label="Notify user of new account"
+                description="Send an email with the username and password once the account is created."
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="d-flex justify-content-end gap-2">
+        <Button variant="light" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={isSubmitting}>
+          {isCreate ? "Create user" : "Save changes"}
+        </Button>
+      </div>
+    </form>
+  );
+}
