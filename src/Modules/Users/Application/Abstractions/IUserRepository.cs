@@ -35,6 +35,10 @@ public interface IUserRepository
         string username,
         Guid? excludeId = null,
         CancellationToken cancellationToken = default);
+    Task<bool> ExistsByPhoneAsync(
+        string phone,
+        Guid? excludeId = null,
+        CancellationToken cancellationToken = default);
     Task<bool> ExistsAdministratorAsync(
         CancellationToken cancellationToken = default);
     Task<(

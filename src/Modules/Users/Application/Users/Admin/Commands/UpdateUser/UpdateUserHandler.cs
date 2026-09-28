@@ -38,8 +38,7 @@ public sealed class UpdateUserHandler
         var username = UserInputRules.RequireText(
             command.Username, "Username", 100);
         var email = UserInputRules.RequireEmail(command.Email);
-        var fullName = UserInputRules.RequireText(
-            command.FullName, "Full name", 255);
+        var fullName = UserInputRules.RequireFullName(command.FullName);
         var phone = UserInputRules.NormalizePhone(command.Phone);
         var gender = UserInputRules.ParseGender(command.Gender);
         var role = UserInputRules.ParseRole(command.Role);
@@ -55,6 +54,13 @@ public sealed class UpdateUserHandler
             username, id, cancellationToken))
         {
             throw new ConflictException("Username already exists.");
+        }
+
+        if (phone is not null
+            && await _userRepository.ExistsByPhoneAsync(
+                phone, id, cancellationToken))
+        {
+            throw new ConflictException("Phone number already exists.");
         }
 
         if (user.Role == UserRole.Administrator

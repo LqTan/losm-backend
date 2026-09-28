@@ -82,6 +82,18 @@ public sealed class UserRepository : IUserRepository
                 cancellationToken);
     }
 
+    public Task<bool> ExistsByPhoneAsync(
+        string phone,
+        Guid? excludeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Users
+            .AnyAsync(
+                x => x.Phone == phone
+                    && (excludeId == null || x.Id != excludeId),
+                cancellationToken);
+    }
+
     public Task<bool> ExistsAdministratorAsync(
         CancellationToken cancellationToken = default)
     {

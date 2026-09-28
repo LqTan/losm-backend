@@ -22,7 +22,15 @@ import {
   isRolePinnedByScope,
   userScopeRoles,
 } from "@/domain/value-objects/user-scope.vo";
-import { PASSWORD_HINT } from "@/shared/utils/validation";
+import {
+  PASSWORD_HINT,
+  PHONE_HINT,
+  validateEmail,
+  validateFullName,
+  validatePassword,
+  validatePhone,
+  validateUsername,
+} from "@/shared/utils/validation";
 import { cn } from "@/shared/utils/classnames";
 
 export interface UserFormValues {
@@ -125,8 +133,38 @@ export function UserForm({
     setFieldErrors((current) => ({ ...current, [key]: undefined }));
   }
 
+  /**
+   * Runs the shared validators before hitting the API so the messages land on
+   * the offending field instead of in a toast. The backend re-runs the exact
+   * same rules, so nothing is trusted to the client.
+   */
+  function validate(): boolean {
+    const next: Partial<Record<keyof UserFormValues, string>> = {};
+
+    const fullNameError = validateFullName(values.fullName);
+    if (fullNameError) next.fullName = fullNameError;
+
+    const usernameError = validateUsername(values.username);
+    if (usernameError) next.username = usernameError;
+
+    const emailError = validateEmail(values.email);
+    if (emailError) next.email = emailError;
+
+    const phoneError = validatePhone(values.phone);
+    if (phoneError) next.phone = phoneError;
+
+    if (isCreate || values.password.length > 0) {
+      const passwordError = validatePassword(values.password);
+      if (passwordError) next.password = passwordError;
+    }
+
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!validate()) return;
     onSubmit();
   }
 
@@ -213,7 +251,7 @@ export function UserForm({
               <Field
                 label="Phone"
                 htmlFor="phone"
-                hint="Digits only, 9–15 characters."
+                hint={PHONE_HINT}
                 error={fieldErrors.phone}
               >
                 <Input

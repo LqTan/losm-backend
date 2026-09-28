@@ -6,8 +6,10 @@ import { ValidationError } from "@/domain/errors/app-error";
 import { normalizePagination } from "@/domain/value-objects/pagination.vo";
 import {
   validateEmail,
+  validateFullName,
   validatePassword,
   validatePhone,
+  validateUsername,
 } from "@/shared/utils/validation";
 
 export interface ListUsersUseCase {
@@ -48,12 +50,11 @@ function assertUserInput(
 ) {
   const errors: string[] = [];
 
-  if (input.fullName.trim().length === 0) {
-    errors.push("Full name is required.");
-  }
-  if (input.username.trim().length === 0) {
-    errors.push("Username is required.");
-  }
+  const fullNameError = validateFullName(input.fullName);
+  if (fullNameError) errors.push(fullNameError);
+
+  const usernameError = validateUsername(input.username);
+  if (usernameError) errors.push(usernameError);
 
   const emailError = validateEmail(input.email);
   if (emailError) errors.push(emailError);

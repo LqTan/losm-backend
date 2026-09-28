@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Common.Application.Exceptions;
 using Users.Domain.Enums;
 
@@ -7,6 +8,7 @@ public static class UserInputRules
 {
     public const int MinimumPasswordLength = 8;
     public const int MaximumPasswordLength = 128;
+    public const int MaxFullNameLength = 255;
 
     public static void ValidatePassword(string? password)
     {
@@ -25,15 +27,13 @@ public static class UserInputRules
                 + MaximumPasswordLength
                 + " characters long.");
 
-        if (!System.Text.RegularExpressions.Regex.IsMatch(
-            password, "[A-Z]"))
+        if (!Regex.IsMatch(password, "[A-Z]"))
         {
             throw new ValidationException(
                 "Password must contain at least 1 uppercase letter.");
         }
 
-        if (!System.Text.RegularExpressions.Regex.IsMatch(
-            password, "[0-9]"))
+        if (!Regex.IsMatch(password, "[0-9]"))
         {
             throw new ValidationException(
                 "Password must contain at least 1 number.");
@@ -47,11 +47,7 @@ public static class UserInputRules
 
         var trimmed = email.Trim();
         if (trimmed.Length > 255
-            || !System.Text.RegularExpressions.Regex.IsMatch(
-                trimmed,
-                @"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$",
-                System.Text.RegularExpressions.RegexOptions.None,
-                TimeSpan.FromSeconds(1)))
+            || !Regex.IsMatch(trimmed, @"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$"))
         {
             throw new ValidationException(
                 $"{field} is not a valid email address.");
@@ -76,22 +72,45 @@ public static class UserInputRules
         return trimmed;
     }
 
+    /// <summary>
+    /// Vietnamese phone number: the country/local prefix (84 or 0) followed by
+    /// 9 digits, e.g. 84397444937 or 0397444937.
+    /// </summary>
+    private const string PhonePattern = @"^(84|0)\d{9}$";
+
     public static string? NormalizePhone(string? phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
             return null;
 
         var trimmed = phone.Trim();
-        if (!System.Text.RegularExpressions.Regex.IsMatch(
-            trimmed, @"^\d+$"))
+        if (!Regex.IsMatch(trimmed, PhonePattern))
         {
             throw new ValidationException(
-                "Phone number must contain digits only.");
+                "Phone number must be a Vietnamese number: 84 or 0 "
+                + "followed by 9 digits (e.g. 84397444937 or 0397444937).");
         }
 
-        if (trimmed.Length is < 9 or > 15)
+        return trimmed;
+    }
+
+    /// <summary>
+    /// Personal name: letters of any script (so Vietnamese diacritics and
+    /// minority names are accepted) plus the apostrophe used in names such as
+    /// "A-Ma". Digits and other punctuation are rejected.
+    /// </summary>
+    private const string FullNamePattern = @"^[\p{L}']+(?: [\p{L}']+)*$";
+
+    public static string RequireFullName(string? value)
+    {
+        var trimmed = RequireText(value, "Full name", MaxFullNameLength);
+
+        if (!Regex.IsMatch(trimmed, FullNamePattern))
+        {
             throw new ValidationException(
-                "Phone number must be between 9 and 15 digits.");
+                "Full name must not contain digits or special characters. "
+                + "Only letters and the apostrophe are allowed.");
+        }
 
         return trimmed;
     }
