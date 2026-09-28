@@ -1,4 +1,5 @@
 export * from "./create-user-view";
+export * from "./edit-user-page";
 export * from "./edit-user-view";
 export * from "./reset-password-dialog";
 export * from "./user-detail-dialog";

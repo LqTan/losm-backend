@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toDisplayMessage } from "@/domain/errors/app-error";
+import { userScopePath, type UserListScope } from "@/domain/value-objects/user-scope.vo";
 import { getContainer } from "@/infrastructure/container";
 import { PageHeading } from "@/presentation/components/global";
 import { Alert, Button, Spinner } from "@/presentation/components/ui";
@@ -14,7 +15,14 @@ import {
 import { useAsync, useToast } from "@/presentation/hooks";
 import { formatDateTime } from "@/shared/utils/date";
 
-export function EditUserView({ userId }: { userId: string }) {
+export function EditUserView({
+  userId,
+  scope = "staff",
+}: {
+  userId: string;
+  /** List the admin came from, used for the post-save redirect. */
+  scope?: UserListScope;
+}) {
   const router = useRouter();
   const toast = useToast();
 
@@ -57,7 +65,7 @@ export function EditUserView({ userId }: { userId: string }) {
       });
 
       toast.success("User updated.", formValues.fullName);
-      router.push("/admin/users");
+      router.push(userScopePath(scope));
     } catch (error) {
       toast.error("Unable to update user.", toDisplayMessage(error));
     } finally {
@@ -80,7 +88,7 @@ export function EditUserView({ userId }: { userId: string }) {
           <Button
             variant="light"
             icon="bi-arrow-left"
-            onClick={() => router.push("/admin/users")}
+            onClick={() => router.push(userScopePath(scope))}
           >
             Back to users
           </Button>
@@ -105,7 +113,7 @@ export function EditUserView({ userId }: { userId: string }) {
             <Button
               variant="light"
               icon="bi-arrow-left"
-              onClick={() => router.push("/admin/users")}
+              onClick={() => router.push(userScopePath(scope))}
             >
               Back to users
             </Button>
@@ -120,7 +128,7 @@ export function EditUserView({ userId }: { userId: string }) {
           isSubmitting={isSubmitting}
           onChange={setValues}
           onSubmit={() => void handleSubmit()}
-          onCancel={() => router.push("/admin/users")}
+          onCancel={() => router.push(userScopePath(scope))}
         />
       </div>
     </>

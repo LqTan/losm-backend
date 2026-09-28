@@ -112,7 +112,7 @@ export function UsersListView({ scope }: { scope: UserListScope }) {
             />
             <Button
               icon="bi-plus"
-              onClick={() => router.push("/admin/users/new")}
+              onClick={() => router.push(`/admin/users/new?scope=${scope}`)}
             >
               New user
             </Button>
@@ -152,7 +152,11 @@ export function UsersListView({ scope }: { scope: UserListScope }) {
               emptyMessage={copy.empty}
               currentUserId={currentUser?.id}
               onView={(user) => void handleView(user)}
-              onEdit={(user) => router.push(`/admin/users/${user.id}`)}
+              onEdit={(user) =>
+                router.push(
+                  `/admin/users/${user.id}?scope=${scope}`,
+                )
+              }
               onChanged={reload}
             />
 
@@ -177,7 +181,7 @@ export function UsersListView({ scope }: { scope: UserListScope }) {
         onClose={() => setDetailUser(null)}
         onEdit={(user) => {
           setDetailUser(null);
-          router.push(`/admin/users/${user.id}`);
+          router.push(`/admin/users/${user.id}?scope=${scope}`);
         }}
       />
     </>

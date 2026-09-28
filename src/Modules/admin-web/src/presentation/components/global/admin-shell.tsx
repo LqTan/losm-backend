@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import {
   ADMIN_NAV_ITEMS,
   AppHeader,
@@ -25,12 +25,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div id="app">
-      <AppSidebar
-        items={ADMIN_NAV_ITEMS}
-        pathname={pathname}
-        isOpen={isSidebarVisible}
-        onClose={() => setIsSidebarOpen(false)}
-      />
+      {/*
+        AppSidebar reads useSearchParams (so the active list stays highlighted
+        on its sub-routes), which needs a Suspense boundary on a statically
+        prerendered route.
+      */}
+      <Suspense fallback={null}>
+        <AppSidebar
+          items={ADMIN_NAV_ITEMS}
+          pathname={pathname}
+          isOpen={isSidebarVisible}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+      </Suspense>
 
       <div id="main">
         <header className="mb-3 d-flex align-items-center">

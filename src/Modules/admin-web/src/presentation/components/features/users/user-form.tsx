@@ -8,7 +8,6 @@ import type {
 } from "@/domain/enums/user.enum";
 import {
   USER_GENDERS,
-  USER_ROLES,
   USER_STATUSES,
 } from "@/domain/enums/user.enum";
 import {
@@ -18,7 +17,13 @@ import {
   Select,
   Switch,
 } from "@/presentation/components/ui";
+import type { UserListScope } from "@/domain/value-objects/user-scope.vo";
+import {
+  isRolePinnedByScope,
+  userScopeRoles,
+} from "@/domain/value-objects/user-scope.vo";
 import { PASSWORD_HINT } from "@/shared/utils/validation";
+import { cn } from "@/shared/utils/classnames";
 
 export interface UserFormValues {
   username: string;
@@ -69,11 +74,6 @@ export function toUserFormValues(user: {
   };
 }
 
-const ROLE_OPTIONS = USER_ROLES.map((role) => ({
-  value: role,
-  label: role,
-}));
-
 const STATUS_OPTIONS = USER_STATUSES.map((status) => ({
   value: status,
   label: status,
@@ -86,6 +86,12 @@ const GENDER_OPTIONS = USER_GENDERS.map((gender) => ({
 
 export interface UserFormProps {
   mode: "create" | "edit";
+  /**
+   * List the form is being used from. It decides which roles may be picked:
+   * when the scope pins a single role there is nothing to choose, so the
+   * dropdown is replaced by a read-only value.
+   */
+  scope?: UserListScope;
   values: UserFormValues;
   isSubmitting: boolean;
   onChange: (values: UserFormValues) => void;
@@ -100,6 +106,7 @@ export interface UserFormProps {
  */
 export function UserForm({
   mode,
+  scope = "staff",
   values,
   isSubmitting,
   onChange,
@@ -124,6 +131,21 @@ export function UserForm({
   }
 
   const isCreate = mode === "create";
+
+  /**
+   * The role picker always offers exactly the roles valid in this scope, so
+   * the staff form never lets the admin pick Customer (an account created
+   * that way would not appear in the list it was created from).
+   *
+   * Only a scope that pins one exact role (customer) has nothing left to
+   * choose, so the picker becomes a read-only value there. Gender and Status
+   * widen to half the row when it does, keeping the grid even.
+   */
+  const isRoleFixed = isRolePinnedByScope(scope);
+  const roleOptions = userScopeRoles(scope).map((role) => ({
+    value: role,
+    label: role,
+  }));
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -208,7 +230,7 @@ export function UserForm({
               </Field>
             </div>
 
-            <div className="col-md-4">
+            <div className={cn(isRoleFixed ? "col-md-6" : "col-md-4")}>
               <Field label="Gender" htmlFor="gender">
                 <Select
                   id="gender"
@@ -222,18 +244,35 @@ export function UserForm({
               </Field>
             </div>
 
-            <div className="col-md-4">
-              <Field label="Role" htmlFor="role" required>
-                <Select
-                  id="role"
-                  options={ROLE_OPTIONS}
-                  value={values.role}
-                  onValueChange={(next) => update("role", next as UserRole)}
-                />
-              </Field>
-            </div>
+            {/*
+              When the scope pins a single role there is nothing to pick, so
+              the value is shown read-only instead of as a one-option
+              dropdown. The role itself is still submitted by the parent view.
+            */}
+            {isRoleFixed ? (
+              <div className={cn(isRoleFixed ? "col-md-6" : "col-md-4")}>
+                <Field label="Role" htmlFor="role" required>
+                  <div className="form-control-plain" id="role">
+                    {values.role}
+                  </div>
+                </Field>
+              </div>
+            ) : (
+              <div className="col-md-4">
+                <Field label="Role" htmlFor="role" required>
+                  <Select
+                    id="role"
+                    options={roleOptions}
+                    value={values.role}
+                    onValueChange={(next) =>
+                      update("role", next as UserRole)
+                    }
+                  />
+                </Field>
+              </div>
+            )}
 
-            <div className="col-md-4">
+            <div className={cn(isRoleFixed ? "col-md-6" : "col-md-4")}>
               <Field label="Status" htmlFor="status" required>
                 <Select
                   id="status"

@@ -1,14 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/shared/utils/classnames";
 import type { UserListScope } from "@/domain/value-objects/user-scope.vo";
+import {
+  parseUserScope,
+  userScopePath,
+} from "@/domain/value-objects/user-scope.vo";
 
 export interface NavChildItem {
-  readonly href: string;
   readonly label: string;
-  readonly scope?: UserListScope;
+  /**
+   * The list this entry opens. The href is derived from it via
+   * userScopePath so the sidebar, the "New user" button and the post-save
+   * redirect can never point at different URLs.
+   */
+  readonly scope: UserListScope;
 }
 
 export interface NavItem {
@@ -31,16 +39,8 @@ export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
     label: "Users",
     icon: "bi-people",
     children: [
-      {
-        href: "/admin/users/administrators",
-        label: "User management",
-        scope: "staff",
-      },
-      {
-        href: "/admin/users/customers",
-        label: "Customers",
-        scope: "customer",
-      },
+      { label: "User management", scope: "staff" },
+      { label: "Customers", scope: "customer" },
     ],
   },
 ];
@@ -78,6 +78,7 @@ export function AppSidebar({
   onClose,
 }: AppSidebarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   /**
    * Groups the user explicitly opened or closed. Absent means "follow the
    * route" (auto-open the group that owns the current page). Storing only the
@@ -151,9 +152,22 @@ export function AppSidebar({
                 );
               }
 
-              const hasActiveChild = item.children.some((child) =>
-                isActive(pathname, child.href),
+              /*
+                Auxiliary routes of a list — "New user" and the edit page —
+                are not children, so no child path matches and the group would
+                collapse while the admin is still working inside that list.
+                They carry the originating scope in `?scope=`, which is used
+                here to keep the right child highlighted.
+              */
+              const matchedChild = item.children.find((child) =>
+                isActive(pathname, userScopePath(child.scope)),
               );
+              const hasActiveChild = matchedChild !== undefined;
+              const activeChildScope =
+                matchedChild?.scope ??
+                (pathname.startsWith(`${item.href}/`)
+                  ? parseUserScope(searchParams.get("scope"))
+                  : null);
               const isOpenGroup =
                 groupOverrides[item.href] ?? hasActiveChild;
 
@@ -176,21 +190,25 @@ export function AppSidebar({
 
                   <ul className={cn("submenu", isOpenGroup && "active")}>
                     {item.children.map((child) => {
-                      const childActive = pathname === child.href;
+                      const childPath = userScopePath(child.scope);
+                      const childActive =
+                        pathname === childPath ||
+                        (activeChildScope === child.scope &&
+                          pathname.startsWith(`${item.href}/`));
                       return (
                         <li
-                          key={child.href}
+                          key={child.scope}
                           className={cn(
                             "submenu-item",
                             childActive && "active",
                           )}
                         >
                           <a
-                            href={child.href}
+                            href={childPath}
                             aria-current={childActive ? "page" : undefined}
                             onClick={(event) => {
                               event.preventDefault();
-                              navigate(child.href);
+                              navigate(childPath);
                             }}
                           >
                             {child.label}
