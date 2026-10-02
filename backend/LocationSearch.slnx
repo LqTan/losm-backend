@@ -3,14 +3,14 @@
     <Project Path="src/LocationSearch.Api/LocationSearch.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/">
-    <Project Path="backend/src/Modules/AgentCore/AgentCore.csproj" />
-    <Project Path="backend/src/Modules/Common/Common.csproj" />
-    <Project Path="backend/src/Modules/Configuration/Configuration.csproj" />
-    <Project Path="backend/src/Modules/Places/Places.csproj" />
-    <Project Path="backend/src/Modules/Reviews/Reviews.csproj" />
-    <Project Path="backend/src/Modules/Sandbox/Sandbox.csproj" />
-    <Project Path="backend/src/Modules/Search/Search.csproj" />
-    <Project Path="backend/src/Modules/Users/Users.csproj" />
+    <Project Path="src/Modules/AgentCore/AgentCore.csproj" />
+    <Project Path="src/Modules/Common/Common.csproj" />
+    <Project Path="src/Modules/Configuration/Configuration.csproj" />
+    <Project Path="src/Modules/Places/Places.csproj" />
+    <Project Path="src/Modules/Reviews/Reviews.csproj" />
+    <Project Path="src/Modules/Sandbox/Sandbox.csproj" />
+    <Project Path="src/Modules/Search/Search.csproj" />
+    <Project Path="src/Modules/Users/Users.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Modules/">
