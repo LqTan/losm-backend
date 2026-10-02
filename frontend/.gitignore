@@ -23,6 +23,22 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+
+# editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# caches / build artifacts
+.eslintcache
+.cache/
+*.log
+
+# turbo / nx
+.turbo
 
 # debug
 npm-debug.log*
