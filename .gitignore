@@ -1,10 +1,19 @@
-bin/
-obj/
+**/bin/
+**/obj/
 
 .vscode/
+**.vs/
+**.idea/
+*.user
+*.suo
 
 docker/dev/.env
 docker/production/.env.production
 
-src/LocationSearch.Api/appsettings.Development.json
-src/LocationSearch.Api/appsettings.json
+backend/src/LocationSearch.Api/appsettings.Development.json
+backend/src/LocationSearch.Api/appsettings.json
+
+# dotnet test output
+**/TestResults/
+**/.coverage
+**/*.coverage

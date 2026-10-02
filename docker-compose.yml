@@ -1,14 +1,14 @@
 services:
   api:
     build:
-      context: ../../backend
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: location-search-api
+    image: location-search-api:latest
     restart: unless-stopped
     ports:
       - "8082:8080"
     env_file:
-      - .env.production
+      - ./docker/production/.env.production
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -23,9 +23,9 @@ services:
 
   web:
     build:
-      context: ../../frontend
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: location-search-web
+    image: location-search-web:latest
     restart: unless-stopped
     ports:
       - "3000:3000"

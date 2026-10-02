@@ -55,7 +55,50 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  api:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: location-search-api-dev
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      Elasticsearch__Url: http://elasticsearch:9200
+    depends_on:
+      sqlserver:
+        condition: service_started
+    networks:
+      - location-search-dev-network
+
+  web:
+    image: node:20-alpine
+    container_name: location-search-web-dev
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_BASE_URL: http://api:8080
+    volumes:
+      - ../../frontend:/app
+      - web-node-modules:/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    depends_on:
+      - api
+    networks:
+      - location-search-dev-network
+
+networks:
+  location-search-dev-network:
+
 volumes:
   sqlserver-data:
   es-data:
   n8n-data:
+  web-node-modules:
