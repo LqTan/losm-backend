@@ -5,7 +5,6 @@ COPY LocationSearch.slnx ./
 COPY global.json ./
 COPY src/ ./src/
 COPY tests/ ./tests/
-COPY docs/ ./docs/
 
 RUN dotnet restore LocationSearch.slnx
 RUN dotnet publish src/LocationSearch.Api/LocationSearch.Api.csproj \
