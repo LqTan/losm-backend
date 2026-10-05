@@ -1,8 +1,8 @@
-// import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 // const AUTH_COOKIE = "scalar_token";
 
-// export function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
 //   const { pathname } = request.nextUrl;
 //   const token = request.cookies.get(AUTH_COOKIE)?.value;
 
@@ -24,7 +24,7 @@
 //   }
 
 //   return NextResponse.next();
-// }
+}
 
 // export const config = {
 //   matcher: ["/", "/assistant/:path*", "/profile/:path*", "/login", "/register"],

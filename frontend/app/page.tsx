@@ -1,3 +1,5 @@
+import HomeMap from "@/components/map/HomeMap";
+
 export default function Home() {
-  return null;
+  return <HomeMap />;
 }
