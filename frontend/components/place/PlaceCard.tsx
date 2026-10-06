@@ -1,12 +1,5 @@
 "use client"
-
-type Place = {
-    id: number;
-    name: string;
-    category: string;
-    latitude: number;
-    longitude: number;
-};
+import type { Place } from "@/types/place";
 
 type Props = {
     place: Place;

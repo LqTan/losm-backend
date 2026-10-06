@@ -5,6 +5,8 @@ import SearchBar from '@/components/search/SearchBar';
 import { useState } from 'react';
 import { mockPlaces } from '@/data/mockPlaces';
 import PlaceCard from '../place/PlaceCard';
+import SearchResults from '../search/SearchResults';
+import type { Place } from '@/types/place';
 
 const MapView = dynamic(() => import("./MapView"), {
     ssr: false,
@@ -14,8 +16,9 @@ const MapView = dynamic(() => import("./MapView"), {
 });
 
 export default function HomeMap() {
-    const [places, setPlaces] = useState(mockPlaces);
-    const [selectedPlace, setSelectedPlace] = useState<(typeof mockPlaces)[number] | null>(null);
+    const [places, setPlaces] = useState<Place[]>([]);
+    const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+    const [hasSearched, setHasSearched] = useState(false);
 
     function handleSearch(query: string) {
         const keyword = query.toLowerCase();
@@ -26,6 +29,7 @@ export default function HomeMap() {
         );
         setPlaces(result);
         setSelectedPlace(null);
+        setHasSearched(true);
     }
     return (
         <main className='fixed inset-0'>
@@ -36,14 +40,14 @@ export default function HomeMap() {
 
             <div className='absolute left-4 right-4 top-4 z-[1000] mx-auto max-w-xl'>
                 <SearchBar onSearch={handleSearch} />
-            </div>
 
-            {selectedPlace && (
-                <PlaceCard
-                    place={selectedPlace}
-                    onClose={() => setSelectedPlace(null)}
-                />
-            )}
+                {hasSearched && (
+                    <SearchResults
+                        places={places}
+                        onSelectPlace={setSelectedPlace}
+                    />
+                )}
+            </div>            
         </main>
     );
 }
