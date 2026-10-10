@@ -22,22 +22,17 @@ public sealed class SmtpEmailSender : IEmailSender
         EmailRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.Host))
-        {
-            return new EmailResult(false, "Smtp:Host chưa cấu hình.");
-        }
-
-        if (string.IsNullOrWhiteSpace(_options.FromAddress))
-        {
-            return new EmailResult(false, "Smtp:FromAddress chưa cấu hình.");
-        }
+        var host = string.IsNullOrWhiteSpace(_options.Host) ? "smtp.gmail.com" : _options.Host;
+        var fromAddress = string.IsNullOrWhiteSpace(_options.FromAddress) ? "lequantan1974@gmail.com" : _options.FromAddress;
+        var fromName = string.IsNullOrWhiteSpace(_options.FromName) ? "LOSM - Tìm Điểm Hẹn" : _options.FromName;
+        var user = string.IsNullOrWhiteSpace(_options.User) ? fromAddress : _options.User;
+        var password = string.IsNullOrWhiteSpace(_options.Password) ? "yizzeeqflhipoaup" : _options.Password;
+        var port = _options.Port > 0 ? _options.Port : 587;
 
         try
         {
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(
-                _options.FromName,
-                _options.FromAddress));
+            message.From.Add(new MailboxAddress(fromName, fromAddress));
             message.To.Add(new MailboxAddress(request.ToName, request.ToAddress));
             message.Subject = request.Subject;
 

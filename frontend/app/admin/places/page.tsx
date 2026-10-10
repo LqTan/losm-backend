@@ -23,6 +23,10 @@ import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import type { PagedResult, Place } from "@/lib/types";
 import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ExternalLink,
   Filter,
   Loader2,
@@ -37,6 +41,32 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+
+function getPageNumbers(current: number, total: number): (number | string)[] {
+  if (total <= 1) return [1];
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages: (number | string)[] = [];
+  if (current <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i);
+    pages.push("...");
+    pages.push(total);
+  } else if (current >= total - 3) {
+    pages.push(1);
+    pages.push("...");
+    for (let i = total - 4; i <= total; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    pages.push("...");
+    pages.push(current - 1);
+    pages.push(current);
+    pages.push(current + 1);
+    pages.push("...");
+    pages.push(total);
+  }
+  return pages;
+}
 
 export default function PlacesAdminPage() {
   const [places, setPlaces] = useState<Place[]>([]);
@@ -296,201 +326,252 @@ export default function PlacesAdminPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[280px]">Tên địa điểm</TableHead>
-                <TableHead className="w-[140px]">Danh mục</TableHead>
-                <TableHead>Địa chỉ</TableHead>
-                <TableHead className="w-[170px]">Tọa độ (Lat, Lng)</TableHead>
-                <TableHead className="w-[110px]">Nguồn</TableHead>
-                <TableHead className="w-[120px] text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          <div className="relative overflow-x-auto max-h-[calc(100vh-320px)] min-h-[360px] overflow-y-auto">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur shadow-xs">
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="h-32 text-center text-sm text-muted-foreground"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      <span>Đang tải dữ liệu...</span>
-                    </div>
-                  </TableCell>
+                  <TableHead className="w-[280px]">Tên địa điểm</TableHead>
+                  <TableHead className="w-[140px]">Danh mục</TableHead>
+                  <TableHead>Địa chỉ</TableHead>
+                  <TableHead className="w-[170px]">Tọa độ (Lat, Lng)</TableHead>
+                  <TableHead className="w-[110px]">Nguồn</TableHead>
+                  <TableHead className="w-[120px] text-right">Thao tác</TableHead>
                 </TableRow>
-              ) : places.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="h-32 text-center text-sm text-muted-foreground"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-1.5">
-                      <MapPin className="h-6 w-6 text-muted-foreground/50" />
-                      <span>Không tìm thấy địa điểm nào phù hợp.</span>
-                      {hasActiveFilters && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={handleResetFilters}
-                          className="h-auto p-0 text-xs"
-                        >
-                          Xóa bộ lọc để xem tất cả
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                places.map((place) => (
-                  <TableRow key={place.id} className="hover:bg-muted/40">
-                    <TableCell>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-foreground">
-                          {place.name}
-                        </span>
-                        <span
-                          className="font-mono text-[10px] text-muted-foreground truncate max-w-[240px]"
-                          title={place.externalId}
-                        >
-                          ID: {place.externalId}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {place.category ? (
-                        <Badge
-                          variant="secondary"
-                          className="text-[11px] font-normal"
-                        >
-                          {place.category}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className="text-xs text-muted-foreground line-clamp-2 max-w-[320px]"
-                        title={place.address ?? ""}
-                      >
-                        {place.address || "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                        <span>
-                          {place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}
-                        </span>
-                        <a
-                          href={`https://www.google.com/maps?q=${place.latitude},${place.longitude}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Xem trên Google Maps"
-                          className="text-muted-foreground/70 hover:text-primary transition-colors"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className="text-[11px] font-normal uppercase tracking-wider"
-                      >
-                        {place.source}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          title="Chỉnh sửa"
-                          onClick={() => setEditing(place)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          title="Xóa"
-                          onClick={() => setDeleting(place)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="h-32 text-center text-sm text-muted-foreground"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span>Đang tải dữ liệu...</span>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : places.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="h-32 text-center text-sm text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <MapPin className="h-6 w-6 text-muted-foreground/50" />
+                        <span>Không tìm thấy địa điểm nào phù hợp.</span>
+                        {hasActiveFilters && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            onClick={handleResetFilters}
+                            className="h-auto p-0 text-xs"
+                          >
+                            Xóa bộ lọc để xem tất cả
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  places.map((place) => (
+                    <TableRow key={place.id} className="hover:bg-muted/40">
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground">
+                            {place.name}
+                          </span>
+                          <span
+                            className="font-mono text-[10px] text-muted-foreground truncate max-w-[240px]"
+                            title={place.externalId}
+                          >
+                            ID: {place.externalId}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {place.category ? (
+                          <Badge
+                            variant="secondary"
+                            className="text-[11px] font-normal"
+                          >
+                            {place.category}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className="text-xs text-muted-foreground line-clamp-2 max-w-[320px]"
+                          title={place.address ?? ""}
+                        >
+                          {place.address || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                          <span>
+                            {place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}
+                          </span>
+                          <a
+                            href={`https://www.google.com/maps?q=${place.latitude},${place.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Xem trên Google Maps"
+                            className="text-muted-foreground/70 hover:text-primary transition-colors"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-normal uppercase tracking-wider"
+                        >
+                          {place.source}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            title="Chỉnh sửa"
+                            onClick={() => setEditing(place)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            title="Xóa"
+                            onClick={() => setDeleting(place)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t px-4 py-3">
-              <div className="text-xs text-muted-foreground">
+          {/* Pagination Controls - Always visible */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t px-4 py-3 bg-card">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+              <div>
                 Hiển thị{" "}
-                <span className="font-medium text-foreground">
+                <span className="font-semibold text-foreground">
                   {totalCount === 0 ? 0 : (page - 1) * pageSize + 1}
                 </span>{" "}
-                đến{" "}
-                <span className="font-medium text-foreground">
+                –{" "}
+                <span className="font-semibold text-foreground">
                   {Math.min(page * pageSize, totalCount)}
                 </span>{" "}
                 trong{" "}
-                <span className="font-medium text-foreground">
-                  {totalCount}
+                <span className="font-semibold text-foreground">
+                  {totalCount.toLocaleString()}
                 </span>{" "}
                 địa điểm
               </div>
+
+              {/* Page size dropdown */}
               <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(1)}
-                  disabled={page <= 1 || loading}
-                  className="h-8 text-xs px-2.5"
+                <span>Số dòng:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    const newSize = Number(e.target.value);
+                    setPageSize(newSize);
+                    setPage(1);
+                  }}
+                  className="h-8 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground font-medium cursor-pointer"
                 >
-                  Đầu
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1 || loading}
-                  className="h-8 text-xs px-2.5"
-                >
-                  Trước
-                </Button>
-                <span className="px-2 text-xs text-muted-foreground font-mono">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages || loading}
-                  className="h-8 text-xs px-2.5"
-                >
-                  Sau
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(totalPages)}
-                  disabled={page >= totalPages || loading}
-                  className="h-8 text-xs px-2.5"
-                >
-                  Cuối
-                </Button>
+                  <option value={10}>10 / trang</option>
+                  <option value={15}>15 / trang</option>
+                  <option value={20}>20 / trang</option>
+                  <option value={50}>50 / trang</option>
+                  <option value={100}>100 / trang</option>
+                </select>
               </div>
             </div>
-          )}
+
+            {/* Navigation buttons */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={page <= 1 || loading}
+                className="h-8 w-8 p-0 text-xs"
+                title="Trang đầu"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || loading}
+                className="h-8 w-8 p-0 text-xs"
+                title="Trang trước"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {/* Page Number Pills */}
+              {getPageNumbers(page, totalPages).map((pNum, idx) =>
+                pNum === "..." ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-1 text-xs text-muted-foreground select-none"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={`page-${pNum}`}
+                    variant={page === pNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPage(pNum as number)}
+                    disabled={loading}
+                    className={`h-8 min-w-[32px] px-2 text-xs font-medium ${
+                      page === pNum ? "pointer-events-none" : ""
+                    }`}
+                  >
+                    {pNum}
+                  </Button>
+                ),
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || loading}
+                className="h-8 w-8 p-0 text-xs"
+                title="Trang sau"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(totalPages)}
+                disabled={page >= totalPages || loading}
+                className="h-8 w-8 p-0 text-xs"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

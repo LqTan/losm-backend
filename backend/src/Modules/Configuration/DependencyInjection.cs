@@ -20,14 +20,25 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.Configure<ElasticsearchOptions>(
-            configuration.GetSection("Elasticsearch"));
+        var esSection = configuration.GetSection("Elasticsearch");
+        services.Configure<ElasticsearchOptions>(esSection);
+        var esOptions = esSection.Get<ElasticsearchOptions>() ?? new ElasticsearchOptions();
 
-        services.AddHttpClient<EsConfigurationStore>();
-        services.AddSingleton<Application.Abstractions.IConfigurationStore>(
-            sp => sp.GetRequiredService<EsConfigurationStore>());
+        if (esOptions.Enabled)
+        {
+            services.AddHttpClient<EsConfigurationStore>();
+            services.AddSingleton<Application.Abstractions.IConfigurationStore>(
+                sp => sp.GetRequiredService<EsConfigurationStore>());
 
-        services.AddHttpClient<ConfigurationIndexBootstrapper>();
+            services.AddHttpClient<ConfigurationIndexBootstrapper>();
+            services.AddHostedService<ConfigurationBootstrapHostedService>();
+            services.AddHostedService<ConfigurationChangeWatcher>();
+        }
+        else
+        {
+            services.AddSingleton<Application.Abstractions.IConfigurationStore, InMemoryConfigurationStore>();
+        }
+
         services.AddScoped<CachedTuningProvider>();
         services.AddScoped<ITuningProvider>(
             sp => sp.GetRequiredService<CachedTuningProvider>());
@@ -36,9 +47,6 @@ public static class DependencyInjection
         services.AddScoped<DeleteConfigurationHandler>();
         services.AddScoped<GetConfigurationHandler>();
         services.AddScoped<ListConfigurationsHandler>();
-
-        services.AddHostedService<ConfigurationBootstrapHostedService>();
-        services.AddHostedService<ConfigurationChangeWatcher>();
 
         services.AddControllers()
             .AddApplicationPart(typeof(DependencyInjection).Assembly);

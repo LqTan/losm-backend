@@ -26,11 +26,12 @@ public sealed class SearchController : ControllerBase
         [FromQuery] double latitude,
         [FromQuery] double longitude,
         [FromQuery] double? radiusKm = null,
+        [FromQuery] int limit = 20,
         CancellationToken cancellationToken = default
     )
     {
         var result = await _handler.HandleAsync(
-            new SearchPlacesQuery(query, latitude, longitude, radiusKm),
+            new SearchPlacesQuery(query, latitude, longitude, radiusKm, CandidateLimit: Math.Clamp(limit, 1, 100)),
             cancellationToken
         );
         return Ok(result);

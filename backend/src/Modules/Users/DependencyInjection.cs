@@ -40,6 +40,9 @@ public static class DependencyInjection
         // Queries.
         services.AddScoped<GetUserByIdHandler>();
 
+        // Seeder.
+        services.AddScoped<Users.Infrastructure.Seed.UsersSeeder>();
+
         services.AddControllers()
             .AddApplicationPart(typeof(DependencyInjection).Assembly);
         return services;

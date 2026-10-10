@@ -72,7 +72,7 @@ export default function AdminLayout({
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
       <Sidebar>
         <SidebarHeader>
           <div className="px-2 py-1.5 text-sm font-semibold">
@@ -122,8 +122,8 @@ export default function AdminLayout({
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <header className="flex h-14 items-center justify-between border-b px-4">
+      <SidebarInset className="h-svh overflow-y-auto flex flex-col min-w-0">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-base font-semibold">Admin Dashboard</h1>
@@ -136,7 +136,7 @@ export default function AdminLayout({
             <span aria-hidden="true">&rarr;</span>
           </Link>
         </header>
-        <div className="p-6">{children}</div>
+        <div className="flex-1 p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

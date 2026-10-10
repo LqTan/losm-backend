@@ -277,7 +277,36 @@ public sealed class OvertureItemStreamer : IOvertureItemStreamer
 
     private static string? ExtractCategory(JsonElement root, JsonElement props)
     {
-        // 1. properties.categories.main
+        // 1. properties.taxonomy.primary (Current Overture schema)
+        if (props.ValueKind == JsonValueKind.Object &&
+            props.TryGetProperty("taxonomy", out var tax) &&
+            tax.ValueKind == JsonValueKind.Object)
+        {
+            if (tax.TryGetProperty("primary", out var prim) && prim.ValueKind == JsonValueKind.String)
+            {
+                var s = prim.GetString();
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
+
+            if (tax.TryGetProperty("alternates", out var alt) &&
+                alt.ValueKind == JsonValueKind.Array &&
+                alt.GetArrayLength() > 0)
+            {
+                var s = alt[0].GetString();
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
+        }
+
+        // 2. properties.basic_category
+        if (props.ValueKind == JsonValueKind.Object &&
+            props.TryGetProperty("basic_category", out var bCat) &&
+            bCat.ValueKind == JsonValueKind.String)
+        {
+            var s = bCat.GetString();
+            if (!string.IsNullOrWhiteSpace(s)) return s;
+        }
+
+        // 3. properties.categories.main (Legacy Overture schema)
         if (props.ValueKind == JsonValueKind.Object &&
             props.TryGetProperty("categories", out var cats) &&
             cats.ValueKind == JsonValueKind.Object)
@@ -297,7 +326,7 @@ public sealed class OvertureItemStreamer : IOvertureItemStreamer
             }
         }
 
-        // 2. properties.category
+        // 4. properties.category
         if (props.ValueKind == JsonValueKind.Object &&
             props.TryGetProperty("category", out var pCat) &&
             pCat.ValueKind == JsonValueKind.String)
@@ -306,7 +335,7 @@ public sealed class OvertureItemStreamer : IOvertureItemStreamer
             if (!string.IsNullOrWhiteSpace(s)) return s;
         }
 
-        // 3. root.category
+        // 5. root.category
         if (root.TryGetProperty("category", out var rCat) && rCat.ValueKind == JsonValueKind.String)
         {
             var s = rCat.GetString();

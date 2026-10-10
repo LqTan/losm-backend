@@ -126,9 +126,10 @@ public sealed class SearchPlacesHandler
             ));
         }
 
+        var topK = query.CandidateLimit ?? searchOptions.TopK;
         return results
             .OrderByDescending(x => x.FinalScore)
-            .Take(searchOptions.TopK > 0 ? searchOptions.TopK : results.Count)
+            .Take(topK > 0 ? topK : results.Count)
             .ToList();
     }
 }

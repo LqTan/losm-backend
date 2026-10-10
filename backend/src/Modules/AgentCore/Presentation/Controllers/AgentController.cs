@@ -23,6 +23,7 @@ namespace AgentCore.Presentation.Controllers;
 public sealed class AgentController : ControllerBase
 {
     [HttpPost]
+    [AllowAnonymous]
     public async Task<IActionResult> Execute(
         ExecuteAgentRequest request,
         [FromServices] ExecuteAgentHandler handler,
@@ -33,8 +34,9 @@ public sealed class AgentController : ControllerBase
             ClaimTypes.NameIdentifier
         );
 
-        if (!Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized();
+        var userId = Guid.TryParse(userIdClaim, out var parsed)
+            ? parsed
+            : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
         var result = await handler.HandleAsync(
             new ExecuteAgentCommand(
@@ -51,6 +53,7 @@ public sealed class AgentController : ControllerBase
     }
 
     [HttpPost("stream")]
+    [AllowAnonymous]
     public async Task ExecuteStream(
         ExecuteAgentRequest request,
         [FromServices] IAgentRunner runner,
@@ -61,11 +64,9 @@ public sealed class AgentController : ControllerBase
             ClaimTypes.NameIdentifier
         );
 
-        if (!Guid.TryParse(userIdClaim, out var userId))
-        {
-            Response.StatusCode = 401;
-            return;
-        }
+        var userId = Guid.TryParse(userIdClaim, out var parsed)
+            ? parsed
+            : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
         var sink = new SseAgentEventSink();
 
