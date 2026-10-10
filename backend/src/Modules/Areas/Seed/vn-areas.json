@@ -1,0 +1,92 @@
+[
+  {
+    "name": "TP. Hồ Chí Minh",
+    "level": 1,
+    "parentExternalCode": null,
+    "externalCode": "HCM",
+    "bboxMinLat": 10.3489,
+    "bboxMinLng": 106.3550,
+    "bboxMaxLat": 11.1590,
+    "bboxMaxLng": 107.0275
+  },
+  {
+    "name": "Quận 1",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-Q1",
+    "bboxMinLat": 10.7540,
+    "bboxMinLng": 106.6480,
+    "bboxMaxLat": 10.7760,
+    "bboxMaxLng": 106.7050
+  },
+  {
+    "name": "Quận 3",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-Q3",
+    "bboxMinLat": 10.7700,
+    "bboxMinLng": 106.6640,
+    "bboxMaxLat": 10.7920,
+    "bboxMaxLng": 106.6940
+  },
+  {
+    "name": "Quận 4",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-Q4",
+    "bboxMinLat": 10.7530,
+    "bboxMinLng": 106.6950,
+    "bboxMaxLat": 10.7700,
+    "bboxMaxLng": 106.7220
+  },
+  {
+    "name": "Quận 5",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-Q5",
+    "bboxMinLat": 10.7520,
+    "bboxMinLng": 106.6580,
+    "bboxMaxLat": 10.7710,
+    "bboxMaxLng": 106.6820
+  },
+  {
+    "name": "Quận 10",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-Q10",
+    "bboxMinLat": 10.7700,
+    "bboxMinLng": 106.6650,
+    "bboxMaxLat": 10.7880,
+    "bboxMaxLng": 106.6890
+  },
+  {
+    "name": "Quận Bình Thạnh",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-BTH",
+    "bboxMinLat": 10.7920,
+    "bboxMinLng": 106.6900,
+    "bboxMaxLat": 10.8300,
+    "bboxMaxLng": 106.7520
+  },
+  {
+    "name": "Quận Phú Nhuận",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-PN",
+    "bboxMinLat": 10.7880,
+    "bboxMinLng": 106.6750,
+    "bboxMaxLat": 10.8080,
+    "bboxMaxLng": 106.7000
+  },
+  {
+    "name": "Quận Tân Bình",
+    "level": 2,
+    "parentExternalCode": "HCM",
+    "externalCode": "HCM-TB",
+    "bboxMinLat": 10.7920,
+    "bboxMinLng": 106.6420,
+    "bboxMaxLat": 10.8280,
+    "bboxMaxLng": 106.6800
+  }
+]

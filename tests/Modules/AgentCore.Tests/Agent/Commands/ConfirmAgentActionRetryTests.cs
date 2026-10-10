@@ -23,6 +23,8 @@ public class ConfirmAgentActionRetryTests
             payloadJson: "{}",
             description: "Meeting",
             confirmationId: Guid.NewGuid());
+        original.Confirm(Guid.NewGuid());
+        original.StartExecution();
         original.PartiallyFail("{}", "calendar ok, email failed");
         await store.UpdateAsync(original);
 
@@ -55,6 +57,8 @@ public class ConfirmAgentActionRetryTests
             payloadJson: "{}",
             description: "Meeting",
             confirmationId: Guid.NewGuid());
+        original.Confirm(Guid.NewGuid());
+        original.StartExecution();
         original.Complete("{\"ok\":true}");
         await store.UpdateAsync(original);
 

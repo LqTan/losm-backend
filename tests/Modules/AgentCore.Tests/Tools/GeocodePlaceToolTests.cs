@@ -19,15 +19,14 @@ public class GeocodePlaceToolTests
             .Setup(x => x.GeocodeAsync(
                 "Quận 1",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GeocodedPlace(
-                "relation",
-                2216341,
+            .ReturnsAsync(new GeocodeResult(
                 "Quận 1",
                 "Quận 1, Hồ Chí Minh, Việt Nam",
                 10.7769,
                 106.7009,
                 "boundary",
-                "administrative"));
+                "administrative",
+                null));
 
         var tool = new GeocodePlaceTool(
             geocoder.Object,
@@ -55,7 +54,7 @@ public class GeocodePlaceToolTests
             .Setup(x => x.GeocodeAsync(
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((GeocodedPlace?)null);
+            .ReturnsAsync((GeocodeResult?)null);
 
         var tool = new GeocodePlaceTool(
             geocoder.Object,

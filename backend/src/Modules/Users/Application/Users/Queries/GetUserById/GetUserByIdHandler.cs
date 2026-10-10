@@ -19,7 +19,8 @@ public class GetUserByIdHandler
             user.Id,
             user.Username,
             user.Email,
-            user.CreatedAt
+            user.CreatedAt,
+            user.Role.ToString()
         );
     }
 }

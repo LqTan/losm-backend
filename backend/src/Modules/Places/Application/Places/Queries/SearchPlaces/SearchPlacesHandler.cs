@@ -6,59 +6,60 @@ namespace Places.Application.Places.Queries.SearchPlaces;
 
 public sealed class SearchPlacesHandler
 {
-    private readonly IPlaceProvider _placeProvider;
+    private readonly IPlaceSpatialSearchService _search;
     private readonly IPlaceRepository _placeRepository;
     private readonly ILogger<SearchPlacesHandler> _logger;
 
     public SearchPlacesHandler(
-        IPlaceProvider placeProvider,
+        IPlaceSpatialSearchService search,
         IPlaceRepository placeRepository,
-        ILogger<SearchPlacesHandler> logger
-    )
+        ILogger<SearchPlacesHandler> logger)
     {
-        _placeProvider = placeProvider;
+        _search = search;
         _placeRepository = placeRepository;
         _logger = logger;
     }
 
     public async Task<IReadOnlyList<Place>> HandleAsync(
         SearchPlacesQuery query,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Place> places = query.Box is not null
-            ? await _placeProvider.SearchByBoundingBoxAsync(
+        var latitude = query.Latitude ?? 0.0;
+        var longitude = query.Longitude ?? 0.0;
+
+        try
+        {
+            var hits = await _search.SearchAsync(
                 query.Query,
-                query.Box,
-                query.CandidateLimit,
-                query.Amenity,
-                cancellationToken)
-            : await _placeProvider.SearchAsync(
-                query.Query,
-                query.Latitude ?? 0.0,
-                query.Longitude ?? 0.0,
+                latitude,
+                longitude,
                 query.RadiusKm,
                 query.CandidateLimit,
                 cancellationToken);
 
-        if (places.Count == 0)
-        {
-            return [];
-        }
+            if (hits.Count == 0) return [];
 
-        try
-        {
-            return await _placeRepository.UpsertRangeAsync(
-                places,
-                cancellationToken
-            );
+            var ids = hits.Select(h => h.Id).ToHashSet();
+            var places = new List<Place>();
+            foreach (var id in ids)
+            {
+                var place = await _placeRepository.GetByIdAsync(id, cancellationToken);
+                if (place is not null) places.Add(place);
+            }
+
+            var orderedIds = hits.Select(h => h.Id).ToList();
+            places = places
+                .OrderBy(p => orderedIds.IndexOf(p.Id))
+                .ToList();
+
+            return places;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Failed to upsert {Count} places; returning provider results without persisting",
-                places.Count);
-            return places;
+                "Place search failed for query={Query} at ({Lat},{Lon})",
+                query.Query, latitude, longitude);
+            return [];
         }
     }
 }

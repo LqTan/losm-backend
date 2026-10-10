@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Places.Domain.Entities;
 
-namespace Places.Infrastructure.Persistence.Configurations;
+namespace Places.Infrastructure.Configurations;
 
 public sealed class PlaceConfiguration : IEntityTypeConfiguration<Place>
 {
@@ -29,5 +29,9 @@ public sealed class PlaceConfiguration : IEntityTypeConfiguration<Place>
 
         builder.Property(x => x.Category)
             .HasMaxLength(100);
+
+        builder.HasIndex(x => x.Source);
+        builder.HasIndex(x => x.ExternalId);
+        builder.HasIndex(x => new { x.Latitude, x.Longitude });
     }
 }

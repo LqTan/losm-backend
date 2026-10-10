@@ -5,11 +5,11 @@ services:
     container_name: location-search-sqlserver-dev
     ports:
       - "1433:1433"
+    env_file:
+      - .env
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
-
     volumes:
       - sqlserver-data:/var/opt/mssql
 
@@ -54,6 +54,14 @@ services:
       elasticsearch:
         condition: service_healthy
     restart: unless-stopped
+
+  overture-tools:
+    build:
+      context: ./overture
+    image: overture-tools:latest
+    container_name: location-search-overture-tools-dev
+    command: ["--help"]
+    restart: "no"
 
 volumes:
   sqlserver-data:

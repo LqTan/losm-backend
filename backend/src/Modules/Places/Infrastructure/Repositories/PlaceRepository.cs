@@ -61,31 +61,44 @@ public sealed class PlaceRepository : IPlaceRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Place>> UpsertRangeAsync(
+    public async Task<UpsertResult> UpsertRangeAsync(
         IReadOnlyList<Place> places,
         CancellationToken cancellationToken = default
     )
     {
         if (places.Count == 0)
         {
-            return [];
+            return new UpsertResult([], 0, 0);
         }
 
-        var externalIds = places
+        // Deduplicate input list by ExternalId (keeping latest)
+        var deduplicated = places
+            .GroupBy(p => p.ExternalId)
+            .Select(g => g.Last())
+            .ToList();
+
+        var externalIds = deduplicated
             .Select(p => p.ExternalId)
             .Distinct()
             .ToList();
 
-        var existing = await _dbContext.Places
-            .Where(p => externalIds.Contains(p.ExternalId))
-            .ToListAsync(cancellationToken);
+        // Chunk externalIds to avoid SQL Server's 2100 parameter limit
+        var existing = new List<Place>();
+        foreach (var chunk in externalIds.Chunk(1000))
+        {
+            var chunkExisting = await _dbContext.Places
+                .Where(p => chunk.Contains(p.ExternalId))
+                .ToListAsync(cancellationToken);
+            existing.AddRange(chunkExisting);
+        }
 
         var byExternalId = existing.ToDictionary(p => p.ExternalId);
 
         var toInsert = new List<Place>();
-        var canonical = new List<Place>(places.Count);
+        var canonical = new List<Place>(deduplicated.Count);
+        var updated = 0;
 
-        foreach (var place in places)
+        foreach (var place in deduplicated)
         {
             if (byExternalId.TryGetValue(place.ExternalId, out var matched))
             {
@@ -98,6 +111,7 @@ public sealed class PlaceRepository : IPlaceRepository
                     place.Longitude
                 );
                 canonical.Add(matched);
+                updated++;
             }
             else
             {
@@ -116,6 +130,94 @@ public sealed class PlaceRepository : IPlaceRepository
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return canonical;
+        return new UpsertResult(canonical, toInsert.Count, updated);
+    }
+
+    public async Task<(IReadOnlyList<Place> Items, int TotalCount)> GetPagedAsync(
+        string? search,
+        string? category,
+        string? source,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var query = _dbContext.Places.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(x =>
+                EF.Functions.Like(x.Name, pattern) ||
+                (x.Address != null && EF.Functions.Like(x.Address, pattern)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            query = query.Where(x => x.Category == category.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            query = query.Where(x => x.Source == source.Trim());
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(x => x.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
+    public async Task<IReadOnlyList<string>> GetDistinctSourcesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Places
+            .AsNoTracking()
+            .Select(x => x.Source)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> GetDistinctCategoriesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Places
+            .AsNoTracking()
+            .Where(x => x.Category != null && x.Category != "")
+            .Select(x => x.Category!)
+            .Distinct()
+            .OrderBy(x => x)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task AddAsync(Place place, CancellationToken cancellationToken = default)
+    {
+        await _dbContext.Places.AddAsync(place, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateAsync(Place place, CancellationToken cancellationToken = default)
+    {
+        _dbContext.Places.Update(place);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(Place place, CancellationToken cancellationToken = default)
+    {
+        var savedPlaces = await _dbContext.SavedPlaces
+            .Where(x => x.PlaceId == place.Id)
+            .ToListAsync(cancellationToken);
+        if (savedPlaces.Count > 0)
+        {
+            _dbContext.SavedPlaces.RemoveRange(savedPlaces);
+        }
+
+        _dbContext.Places.Entry(place).State = EntityState.Deleted;
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

@@ -43,7 +43,8 @@ public class Place
         string? category,
         string? openingHours,
         double latitude,
-        double longitude)
+        double longitude,
+        string? source = null)
     {
         Name = name;
         Address = address;
@@ -51,5 +52,9 @@ public class Place
         OpeningHours = openingHours;
         Latitude = latitude;
         Longitude = longitude;
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            Source = source;
+        }
     }
 }

@@ -1,34 +1,38 @@
 using Places.Application.Abstractions;
-using Places.Application.Contracts;
 using Search.Application.Abstractions;
 
 namespace Search.Infrastructure.Services;
 
 public sealed class PlaceSearchService : IPlaceSearchService
 {
-    private readonly IPlacesSearchContract _places;
-    public PlaceSearchService(IPlacesSearchContract places)
+    private readonly IPlaceSpatialSearchService _places;
+
+    public PlaceSearchService(IPlaceSpatialSearchService places)
     {
         _places = places;
     }
+
     public async Task<IReadOnlyList<PlaceCandidate>> SearchAsync(
         string query,
         double latitude,
         double longitude,
         double radiusKm,
         int candidateLimit,
-        CancellationToken cancellationToken
-    )
+        CancellationToken cancellationToken)
     {
-        var places = await _places.SearchAsync(
-            query,
-            latitude,
-            longitude,
-            radiusKm,
-            candidateLimit,
-            cancellationToken
-        );
-        return MapToCandidates(places);
+        var hits = await _places.SearchAsync(
+            query, latitude, longitude, radiusKm, candidateLimit, cancellationToken);
+
+        return hits
+            .Select(h => new PlaceCandidate(
+                h.Id,
+                h.Name,
+                h.Address,
+                h.Category,
+                h.OpeningHours,
+                h.Latitude,
+                h.Longitude))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<PlaceCandidate>> SearchByBoundingBoxAsync(
@@ -36,31 +40,16 @@ public sealed class PlaceSearchService : IPlaceSearchService
         BoundingBox boundingBox,
         int candidateLimit,
         string? amenity,
-        CancellationToken cancellationToken
-    )
+        CancellationToken cancellationToken)
     {
-        var places = await _places.SearchByBoundingBoxAsync(
-            query,
-            boundingBox,
-            candidateLimit,
-            amenity,
-            cancellationToken
-        );
-        return MapToCandidates(places);
-    }
+        var centerLat = boundingBox.CenterLatitude;
+        var centerLng = boundingBox.CenterLongitude;
+        var radiusKm = Math.Sqrt(
+            Math.Pow((boundingBox.MaxLat - boundingBox.MinLat) * 111.0, 2) +
+            Math.Pow((boundingBox.MaxLng - boundingBox.MinLng) * 111.0 *
+                     Math.Cos(centerLat * Math.PI / 180.0), 2));
 
-    private static IReadOnlyList<PlaceCandidate> MapToCandidates(IReadOnlyList<Places.Domain.Entities.Place> places)
-    {
-        return places
-            .Select(place => new PlaceCandidate(
-                place.Id,
-                place.Name,
-                place.Address,
-                place.Category,
-                place.OpeningHours,
-                place.Latitude,
-                place.Longitude
-            ))
-            .ToList();
+        return await SearchAsync(
+            query, centerLat, centerLng, radiusKm, candidateLimit, cancellationToken);
     }
 }

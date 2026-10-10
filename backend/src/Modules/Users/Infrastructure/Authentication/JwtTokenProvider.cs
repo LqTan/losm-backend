@@ -40,6 +40,10 @@ public class JwtTokenProvider : ITokenProvider
             new Claim(
                 ClaimTypes.Name,
                 user.Username
+            ),
+            new Claim(
+                ClaimTypes.Role,
+                user.Role.ToString()
             )
         };
         var token = new JwtSecurityToken(

@@ -1,7 +1,11 @@
 using System.Text;
 using AgentCore;
 using AgentCore.Infrastructure.Persistence;
+using Areas;
+using Areas.Infrastructure.Persistence;
 using Configuration;
+using Hangfire;
+using Hangfire.SqlServer;
 using LocationSearch.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
@@ -9,6 +13,9 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Overture;
+using Overture.Infrastructure.Persistence;
+using Places;
 using Places.Infrastructure.Persistence;
 using Reviews;
 using Reviews.Infrastructure.Persistence;
@@ -92,6 +99,8 @@ builder.Services.AddPlaces(builder.Configuration);
 builder.Services.AddReviews(builder.Configuration);
 builder.Services.AddUsers(builder.Configuration);
 builder.Services.AddSearch();
+builder.Services.AddAreas(builder.Configuration);
+builder.Services.AddOverture(builder.Configuration);
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -129,15 +138,36 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(
         "AdminOnly",
-        policy => policy.RequireAuthenticatedUser());
+        policy => policy
+            .RequireAuthenticatedUser()
+            .RequireRole("Admin"));
 });
-
-var app = builder.Build();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException(
         "ConnectionStrings:DefaultConnection is not configured");
+
+builder.Services.AddHttpClient("hangfire-internal", client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(2);
+    client.DefaultRequestHeaders.Add("X-Forwarded-For", "internal-proxy");
+});
+
+builder.Services.AddHangfire(config =>
+    config.UseSqlServerStorage(
+        connectionString,
+        new SqlServerStorageOptions
+        {
+            CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+            UseRecommendedIsolationLevel = true,
+            DisableGlobalLocks = true,
+        })
+        .WithJobExpirationTimeout(TimeSpan.FromDays(7)));
+builder.Services.AddHangfireServer();
+
+var app = builder.Build();
 
 var dbName = new SqlConnectionStringBuilder(connectionString).InitialCatalog;
 {
@@ -159,11 +189,18 @@ using (var scope = app.Services.CreateScope())
     await sp.GetRequiredService<UsersDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<ReviewsDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<PlacesDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<AreasDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<OvertureDbContext>().Database.MigrateAsync();
     if (!app.Environment.IsProduction())
     {
         await sp.GetRequiredService<Sandbox.Infrastructure.Persistence.SandboxDbContext>().Database.MigrateAsync();
     }
     await sp.GetRequiredService<AgentCoreDbContext>().Database.MigrateAsync();
+
+    // await sp.GetRequiredService<Areas.Infrastructure.Seed.AreasSeeder>().SeedAsync();
+
+    await sp.GetRequiredService<Overture.Infrastructure.OvertureRecurringJobBootstrap>()
+        .EnsureScheduledAsync(sp);
 }
 
 if (app.Environment.IsDevelopment())
@@ -189,6 +226,11 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new LocationSearch.Api.HangfireAuthorizationFilter() }
+});
 
 app.MapStaticAssets();
 

@@ -1,20 +1,17 @@
 namespace Places.Application.Abstractions;
 
-public interface IGeocodingService
-{
-    Task<GeocodedPlace?> GeocodeAsync(
-        string query,
-        CancellationToken cancellationToken = default);
-}
-
-public sealed record GeocodedPlace(
-    string OsmType,
-    long OsmId,
+public sealed record GeocodeResult(
     string Name,
     string DisplayName,
     double Latitude,
     double Longitude,
     string? Category,
     string? Type,
-    BoundingBox? Box = null
-);
+    BoundingBox? Box);
+
+public interface IGeocodingService
+{
+    Task<GeocodeResult?> GeocodeAsync(
+        string query,
+        CancellationToken cancellationToken = default);
+}

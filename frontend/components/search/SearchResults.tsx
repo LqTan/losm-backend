@@ -11,7 +11,7 @@ export default function SearchResults({
 }: Props) {
     if (places.length === 0) {
         return (
-            <div className="mt-2 rounded-2xl bg-white px-5 py-4 shadow-xl">
+            <div className="px-1 py-4">
                 <p className="text-sm text-gray-500">
                     Không tìm thấy địa điểm phù hợp.
                 </p>
@@ -20,7 +20,7 @@ export default function SearchResults({
     }
 
     return (
-        <div className="mt-2 max-h-[560px] overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div>
             {places.map((place) => (
                 <button
                     key={place.id}

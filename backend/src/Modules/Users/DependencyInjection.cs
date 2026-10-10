@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Users.Application.Abstractions;
 using Users.Application.Users.Commands.LoginUser;
 using Users.Application.Users.Commands.RegisterUser;
+using Users.Application.Users.Commands.SetUserRole;
 using Users.Application.Users.Commands.UpdateProfile;
 using Users.Application.Users.Queries.GetUserById;
 using Users.Infrastructure.Authentication;
@@ -34,10 +35,11 @@ public static class DependencyInjection
         services.AddScoped<RegisterUserHandler>();
         services.AddScoped<LoginUserHandler>();
         services.AddScoped<UpdateProfileHandler>();
+        services.AddScoped<SetUserRoleHandler>();
 
         // Queries.
         services.AddScoped<GetUserByIdHandler>();
-        
+
         services.AddControllers()
             .AddApplicationPart(typeof(DependencyInjection).Assembly);
         return services;

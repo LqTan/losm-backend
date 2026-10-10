@@ -13,6 +13,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Elasticsearch__Url: http://elasticsearch:9200
+      Overture__DockerBin: "/usr/bin/docker"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -34,6 +37,16 @@ services:
       NEXT_PUBLIC_API_BASE_URL: http://api:8080
     depends_on:
       - api
+    networks:
+      - location-search-network
+
+  overture-tools:
+    build:
+      context: ./overture
+    image: overture-tools:latest
+    container_name: location-search-overture-tools
+    command: ["--help"]
+    restart: "no"
     networks:
       - location-search-network
 

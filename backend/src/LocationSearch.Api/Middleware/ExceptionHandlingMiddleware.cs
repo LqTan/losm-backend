@@ -41,6 +41,22 @@ public class ExceptionHandlingMiddleware
                 ex.Message
             );
         }
+        catch (NotFoundException ex)
+        {
+            await WriteResponse(
+                context,
+                HttpStatusCode.NotFound,
+                ex.Message
+            );
+        }
+        catch (ValidationException ex)
+        {
+            await WriteResponse(
+                context,
+                HttpStatusCode.BadRequest,
+                ex.Message
+            );
+        }
         catch (Exception)
         {
             await WriteResponse(

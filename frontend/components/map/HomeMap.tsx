@@ -2,11 +2,11 @@
 
 import dynamic from 'next/dynamic'
 import SearchBar from '@/components/search/SearchBar';
+import ResultsSidebar from '@/components/search/ResultsSidebar';
 import { useState } from 'react';
 import { mockPlaces } from '@/data/mockPlaces';
 import PlaceCard from '../place/PlaceCard';
-import SearchResults from '../search/SearchResults';
-import type { Place } from '@/types/place';
+import type { Place as PlaceType } from '@/types/place';
 
 const MapView = dynamic(() => import("./MapView"), {
     ssr: false,
@@ -16,14 +16,14 @@ const MapView = dynamic(() => import("./MapView"), {
 });
 
 export default function HomeMap() {
-    const [places, setPlaces] = useState<Place[]>([]);
-    const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+    const [places, setPlaces] = useState<PlaceType[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [selectedPlace, setSelectedPlace] = useState<PlaceType | null>(null);
 
     function handleSearch(query: string) {
         const keyword = query.toLowerCase();
         const result = mockPlaces.filter(
-            (place) => 
+            (place) =>
                 place.name.toLowerCase().includes(keyword) ||
                 place.category.toLowerCase().includes(keyword)
         );
@@ -31,6 +31,7 @@ export default function HomeMap() {
         setSelectedPlace(null);
         setHasSearched(true);
     }
+
     return (
         <main className='fixed inset-0'>
             <MapView
@@ -40,14 +41,21 @@ export default function HomeMap() {
 
             <div className='absolute left-4 right-4 top-4 z-[1000] mx-auto max-w-xl'>
                 <SearchBar onSearch={handleSearch} />
+            </div>
 
-                {hasSearched && (
-                    <SearchResults
-                        places={places}
-                        onSelectPlace={setSelectedPlace}
-                    />
-                )}
-            </div>            
+            {hasSearched && (
+                <ResultsSidebar
+                    places={places}
+                    onSelectPlace={setSelectedPlace}
+                />
+            )}
+
+            {selectedPlace && (
+                <PlaceCard
+                    place={selectedPlace}
+                    onClose={() => setSelectedPlace(null)}
+                />
+            )}
         </main>
     );
 }

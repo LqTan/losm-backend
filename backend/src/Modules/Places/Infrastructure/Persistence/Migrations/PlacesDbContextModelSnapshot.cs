@@ -62,6 +62,12 @@ namespace Places.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExternalId");
+
+                    b.HasIndex("Source");
+
+                    b.HasIndex("Latitude", "Longitude");
+
                     b.ToTable("Places", (string)null);
                 });
 

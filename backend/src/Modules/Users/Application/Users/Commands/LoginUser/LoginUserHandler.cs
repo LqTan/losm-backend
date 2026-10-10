@@ -41,7 +41,8 @@ public class LoginUserHandler
             user.Id,
             user.Username,
             user.Email,
-            token
+            token,
+            user.Role.ToString()
         );
     }
 }
