@@ -68,7 +68,7 @@ export default function AiChatWidget({
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId] = useState(() => `session_${Math.random().toString(36).substring(2, 9)}`);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -100,17 +100,30 @@ export default function AiChatWidget({
       const lat = userLocation?.lat ?? 10.7769;
       const lng = userLocation?.lng ?? 106.7009;
 
-      const body = {
+      const body: {
+        message: string;
+        latitude: number;
+        longitude: number;
+        sessionId?: string;
+      } = {
         message: text,
         latitude: lat,
         longitude: lng,
-        sessionId,
       };
 
+      if (sessionId) {
+        body.sessionId = sessionId;
+      }
+
       const res = await api.post<{
+        sessionId?: string;
         answer: string;
         attachedPlaces?: AttachedPlace[];
       }>("/api/agent", body, getToken());
+
+      if (res?.sessionId) {
+        setSessionId(res.sessionId);
+      }
 
       const aiMsg: ChatMessage = {
         id: `ai_${Date.now()}`,

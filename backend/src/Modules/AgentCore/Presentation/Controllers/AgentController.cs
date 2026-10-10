@@ -38,12 +38,16 @@ public sealed class AgentController : ControllerBase
             ? parsed
             : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
+        var sessionId = Guid.TryParse(request.SessionId, out var parsedSession)
+            ? parsedSession
+            : (Guid?)null;
+
         var result = await handler.HandleAsync(
             new ExecuteAgentCommand(
                 request.Message,
                 request.Latitude,
                 request.Longitude,
-                request.SessionId,
+                sessionId,
                 userId
             ),
             cancellationToken
@@ -68,13 +72,17 @@ public sealed class AgentController : ControllerBase
             ? parsed
             : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
+        var sessionId = Guid.TryParse(request.SessionId, out var parsedSession)
+            ? parsedSession
+            : (Guid?)null;
+
         var sink = new SseAgentEventSink();
 
         var runnerTask = runner.RunStreamedAsync(
             request.Message,
             request.Latitude,
             request.Longitude,
-            request.SessionId,
+            sessionId,
             userId,
             sink,
             cancellationToken
@@ -118,12 +126,16 @@ public sealed class AgentController : ControllerBase
             return Unauthorized();
         }
 
+        var sessionId = Guid.TryParse(request.SessionId, out var parsedSession)
+            ? parsedSession
+            : (Guid?)null;
+
         var result = await handler.HandleAsync(
             new CreateAgentPlanCommand(
                 request.Message,
                 request.Latitude,
                 request.Longitude,
-                request.SessionId,
+                sessionId,
                 userId
             ),
             cancellationToken

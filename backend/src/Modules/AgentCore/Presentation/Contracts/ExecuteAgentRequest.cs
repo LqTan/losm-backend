@@ -4,5 +4,5 @@ public sealed record ExecuteAgentRequest(
     string Message,
     double Latitude,
     double Longitude,
-    Guid? SessionId
+    string? SessionId = null
 );
