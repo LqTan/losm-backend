@@ -14,6 +14,7 @@ import {
 import type { Place, MeetingPlace } from "@/types/place";
 import { Fragment, useEffect } from "react";
 import "leaflet/dist/leaflet.css";
+import AppTileLayer from "@/components/map/AppTileLayer";
 
 const DEFAULT_CENTER: [number, number] = [10.7769, 106.7009];
 const ORIGIN_COLORS = ["#0284c7", "#f97316", "#a855f7", "#10b981", "#ef4444"];
@@ -156,10 +157,7 @@ export default function MapView({
       zoomControl={false}
       className="h-full w-full"
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <AppTileLayer />
 
       <MapViewController target={activeTarget} />
 

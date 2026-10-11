@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GeoJSON, MapContainer, Rectangle, TileLayer, useMap } from "react-leaflet";
+import { GeoJSON, MapContainer, Rectangle, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import AppTileLayer from "@/components/map/AppTileLayer";
 
 export type Bbox = {
   minLat: number;
@@ -60,10 +61,7 @@ export default function BboxPickerMap({ value, geoJson }: Props) {
         className="h-[380px] w-full"
         scrollWheelZoom
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <AppTileLayer />
 
         {/* Auto fit bounds when coordinates update */}
         <MapBoundsUpdater bounds={bounds} />
