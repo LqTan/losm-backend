@@ -39,12 +39,11 @@ public sealed class FriendsController : ControllerBase
         [FromBody] InviteFriendDto dto,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(dto.Email) || !EmailRegex.IsMatch(dto.Email.Trim()))
+        var targetEmail = dto.TargetEmail.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(targetEmail) || !EmailRegex.IsMatch(targetEmail))
         {
             return BadRequest(new { message = "Vui lòng nhập địa chỉ email hợp lệ." });
         }
-
-        var targetEmail = dto.Email.Trim().ToLowerInvariant();
         if (!TryGetUserId(out var senderId))
         {
             return Unauthorized();
@@ -222,7 +221,7 @@ public sealed class FriendsController : ControllerBase
             return Forbid();
         }
 
-        if (dto.Accept)
+        if (dto.IsAccepted)
         {
             friendship.Accept(currentUserId);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -389,6 +388,26 @@ public sealed class FriendsController : ControllerBase
     }
 }
 
-public sealed record InviteFriendDto(string Email);
+public sealed class InviteFriendDto
+{
+    public string? Email { get; set; }
+    public string? ReceiverEmail { get; set; }
+    public string? Message { get; set; }
 
-public sealed record RespondFriendDto(Guid? FriendshipId, string? Token, bool Accept);
+    public string TargetEmail =>
+        !string.IsNullOrWhiteSpace(ReceiverEmail) ? ReceiverEmail :
+        !string.IsNullOrWhiteSpace(Email) ? Email : string.Empty;
+}
+
+public sealed class RespondFriendDto
+{
+    public Guid? FriendshipId { get; set; }
+    public string? Token { get; set; }
+    public bool? Accept { get; set; }
+    public string? Action { get; set; }
+
+    public bool IsAccepted =>
+        Accept == true ||
+        string.Equals(Action, "accept", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Action, "accepted", StringComparison.OrdinalIgnoreCase);
+}

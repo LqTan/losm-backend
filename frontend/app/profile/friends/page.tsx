@@ -120,6 +120,7 @@ export default function ProfileFriendsPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          email,
           receiverEmail: email,
           message: inviteMessage.trim() || undefined,
         }),

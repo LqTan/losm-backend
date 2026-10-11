@@ -6,6 +6,7 @@ const apiBase =
   "http://localhost:5232";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async rewrites() {
     return [
       {
