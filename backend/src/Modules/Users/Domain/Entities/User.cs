@@ -13,6 +13,7 @@ public class User
     public string Email { get; private set; } = null!;
     public string PasswordHash { get; private set; } = null!;
     public UserRole Role { get; private set; } = UserRole.User;
+    public string? AvatarUrl { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     private User(){}
@@ -22,7 +23,8 @@ public class User
         string username,
         string email,
         string passwordHash,
-        UserRole role = UserRole.User
+        UserRole role = UserRole.User,
+        string? avatarUrl = null
     )
     {
         Id = id;
@@ -30,12 +32,18 @@ public class User
         Email = email;
         PasswordHash = passwordHash;
         Role = role;
+        AvatarUrl = avatarUrl;
         CreatedAt = DateTime.UtcNow;
     }
 
     public void UpdateProfile(string username)
     {
         Username = username;
+    }
+
+    public void UpdateAvatar(string? avatarUrl)
+    {
+        AvatarUrl = avatarUrl;
     }
 
     public void SetRole(UserRole role)

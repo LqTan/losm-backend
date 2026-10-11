@@ -171,7 +171,7 @@ public sealed class FriendsController : ControllerBase
             senderName = friendship.Sender.Username,
             senderUsername = friendship.Sender.Username,
             senderEmail = friendship.Sender.Email,
-            senderAvatarUrl = (string?)null,
+            senderAvatarUrl = friendship.Sender.AvatarUrl,
             receiverEmail = friendship.ReceiverEmail,
             status = friendship.Status.ToString(),
             userExists,
@@ -277,7 +277,7 @@ public sealed class FriendsController : ControllerBase
             var friendId = friendUser?.Id ?? (isSender ? f.ReceiverId ?? Guid.Empty : f.SenderId);
             var username = friendUser?.Username ?? (isSender ? f.ReceiverEmail.Split('@')[0] : f.Sender.Username);
             var email = friendUser?.Email ?? (isSender ? f.ReceiverEmail : f.Sender.Email);
-            var avatarUrl = (string?)null;
+            var avatarUrl = friendUser?.AvatarUrl;
 
             return new
             {
@@ -331,7 +331,7 @@ public sealed class FriendsController : ControllerBase
                 senderName = f.Sender.Username,
                 senderUsername = f.Sender.Username,
                 senderEmail = f.Sender.Email,
-                senderAvatarUrl = (string?)null,
+                senderAvatarUrl = f.Sender.AvatarUrl,
                 receiverEmail = f.ReceiverEmail,
                 createdAt = f.CreatedAt
             })

@@ -30,5 +30,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
 
         builder.HasIndex(x => x.Role);
+
+        builder.Property(x => x.AvatarUrl)
+            .HasMaxLength(1000)
+            .IsRequired(false);
     }
 }

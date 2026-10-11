@@ -36,6 +36,7 @@ export interface FriendWithLocation {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string;
   addressName: string;
   lat: number;
   lng: number;
@@ -130,20 +131,15 @@ export default function GroupMeetingFinder({
             item.email?.split("@")[0] ||
             "Bạn";
           const friendEmail = friendObj.email || item.email || "";
+          const friendAvatar = friendObj.avatarUrl || item.avatarUrl;
 
-          let savedArea = COMMON_AREAS[idx % COMMON_AREAS.length];
-          try {
-            const rawArea = localStorage.getItem(`losm_user_loc_${friendId}`);
-            if (rawArea) {
-              const parsed = JSON.parse(rawArea);
-              if (parsed?.name && parsed?.lat && parsed?.lng) savedArea = parsed;
-            }
-          } catch {}
+          const savedArea = COMMON_AREAS[idx % COMMON_AREAS.length];
 
           return {
             id: friendId,
             name: friendName,
             email: friendEmail,
+            avatarUrl: friendAvatar,
             addressName: savedArea.name,
             lat: savedArea.lat,
             lng: savedArea.lng,
@@ -176,28 +172,6 @@ export default function GroupMeetingFinder({
   function toggleFriend(id: string) {
     setFriends((prev) =>
       prev.map((f) => (f.id === id ? { ...f, selected: !f.selected } : f))
-    );
-  }
-
-  function handleLocationChange(friendId: string, areaName: string) {
-    const area = COMMON_AREAS.find((a) => a.name === areaName);
-    if (!area) return;
-
-    setFriends((prev) =>
-      prev.map((f) => {
-        if (f.id === friendId) {
-          try {
-            localStorage.setItem(`losm_user_loc_${friendId}`, JSON.stringify(area));
-          } catch {}
-          return {
-            ...f,
-            addressName: area.name,
-            lat: area.lat,
-            lng: area.lng,
-          };
-        }
-        return f;
-      })
     );
   }
 
@@ -234,6 +208,7 @@ export default function GroupMeetingFinder({
         address: f.addressName,
         lat: f.lat,
         lng: f.lng,
+        avatarUrl: f.avatarUrl,
       })),
     ];
 
@@ -372,7 +347,7 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                 Chọn thành viên tham gia ({selectedFriends.length + 1} người)
               </label>
               <span className="text-[11px] text-muted-foreground">
-                Đã lưu tọa độ GPS lần cuối
+                Chọn bạn bè để tìm điểm hẹn
               </span>
             </div>
 
@@ -439,44 +414,42 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                       onClick={() => toggleFriend(friend.id)}
                       className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between gap-3 cursor-pointer ${
                         friend.selected
-                          ? "border-primary bg-primary/10 shadow-sm"
+                          ? "border-primary/50 bg-primary/5 shadow-xs"
                           : "border-border bg-card hover:bg-muted/50"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
-                          {friend.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold text-foreground flex items-center gap-1.5 truncate">
-                            <span>{friend.name}</span>
-                            <span className="text-[10px] text-muted-foreground font-normal truncate">
-                              ({friend.email})
-                            </span>
+                        {friend.avatarUrl ? (
+                          <img
+                            src={
+                              friend.avatarUrl.startsWith("http")
+                                ? `/api/avatar?url=${encodeURIComponent(friend.avatarUrl)}`
+                                : friend.avatarUrl
+                            }
+                            alt={friend.name}
+                            className="h-8 w-8 rounded-full object-cover border border-border shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
+                            {friend.name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-[11px] text-muted-foreground shrink-0">📍 Vị trí:</span>
-                            <select
-                              value={friend.addressName}
-                              onChange={(e) => handleLocationChange(friend.id, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-[11px] font-medium bg-background hover:bg-muted border border-border/80 rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer truncate max-w-[210px]"
-                            >
-                              {COMMON_AREAS.map((area) => (
-                                <option key={area.name} value={area.name}>
-                                  {area.name}
-                                </option>
-                              ))}
-                            </select>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-semibold text-foreground truncate">
+                            {friend.name}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {friend.email}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <div
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] transition ${
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold transition shadow-xs ${
                             friend.selected
-                              ? "bg-primary border-primary text-primary-foreground font-bold"
-                              : "border-border text-transparent"
+                              ? "bg-black border-black text-white"
+                              : "border-border bg-background text-transparent hover:border-foreground/40"
                           }`}
                         >
                           ✓
@@ -546,7 +519,7 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
             ) : (
               <>
                 <Bot className="h-4 w-4 mr-2" />
-                Tìm Điểm Hẹn Công Bằng Cho Nhóm
+                Tìm điểm hẹn
               </>
             )}
           </Button>

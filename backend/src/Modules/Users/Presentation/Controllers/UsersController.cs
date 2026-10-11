@@ -92,14 +92,28 @@ public class UsersController : ControllerBase
                 username,
                 email,
                 hash,
-                Users.Domain.Entities.UserRole.User
+                Users.Domain.Entities.UserRole.User,
+                request.AvatarUrl
             );
             await repo.AddAsync(user);
         }
-        else if (!string.IsNullOrWhiteSpace(request.Name) && (string.IsNullOrWhiteSpace(user.Username) || user.Username.StartsWith("google.user", StringComparison.OrdinalIgnoreCase)))
+        else
         {
-            user.UpdateProfile(request.Name.Trim());
-            await repo.UpdateAsync(user);
+            var updated = false;
+            if (!string.IsNullOrWhiteSpace(request.Name) && (string.IsNullOrWhiteSpace(user.Username) || user.Username.StartsWith("google.user", StringComparison.OrdinalIgnoreCase)))
+            {
+                user.UpdateProfile(request.Name.Trim());
+                updated = true;
+            }
+            if (!string.IsNullOrWhiteSpace(request.AvatarUrl) && user.AvatarUrl != request.AvatarUrl)
+            {
+                user.UpdateAvatar(request.AvatarUrl);
+                updated = true;
+            }
+            if (updated)
+            {
+                await repo.UpdateAsync(user);
+            }
         }
 
         var token = tokenProvider.Create(user);
@@ -238,14 +252,28 @@ public class UsersController : ControllerBase
                     username,
                     email,
                     hash,
-                    Users.Domain.Entities.UserRole.User
+                    Users.Domain.Entities.UserRole.User,
+                    googlePicture
                 );
                 await repo.AddAsync(user);
             }
-            else if (!string.IsNullOrWhiteSpace(googleName) && (string.IsNullOrWhiteSpace(user.Username) || user.Username.StartsWith("google.user", StringComparison.OrdinalIgnoreCase)))
+            else
             {
-                user.UpdateProfile(googleName.Trim());
-                await repo.UpdateAsync(user);
+                var updated = false;
+                if (!string.IsNullOrWhiteSpace(googleName) && (string.IsNullOrWhiteSpace(user.Username) || user.Username.StartsWith("google.user", StringComparison.OrdinalIgnoreCase)))
+                {
+                    user.UpdateProfile(googleName.Trim());
+                    updated = true;
+                }
+                if (!string.IsNullOrWhiteSpace(googlePicture) && user.AvatarUrl != googlePicture)
+                {
+                    user.UpdateAvatar(googlePicture);
+                    updated = true;
+                }
+                if (updated)
+                {
+                    await repo.UpdateAsync(user);
+                }
             }
 
             // 3. Cấp JWT token và chuyển hướng về frontend callback
