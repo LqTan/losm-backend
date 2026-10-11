@@ -15,6 +15,7 @@ services:
       Overture__DockerBin: "/usr/bin/docker"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
     depends_on:
       sqlserver:
         condition: service_healthy
