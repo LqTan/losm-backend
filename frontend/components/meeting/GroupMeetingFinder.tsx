@@ -120,10 +120,20 @@ export default function GroupMeetingFinder({
           }>
         >("/api/friends", token);
 
-        const realFriends: FriendWithLocation[] = (res ?? []).map((item, idx) => {
+        const realFriends: FriendWithLocation[] = (res ?? []).map((item: any, idx) => {
+          const friendObj = item.friend || item;
+          const friendId = friendObj.id || item.friendId || item.id;
+          const friendName =
+            friendObj.username ||
+            item.username ||
+            friendObj.email?.split("@")[0] ||
+            item.email?.split("@")[0] ||
+            "Bạn";
+          const friendEmail = friendObj.email || item.email || "";
+
           let savedArea = COMMON_AREAS[idx % COMMON_AREAS.length];
           try {
-            const rawArea = localStorage.getItem(`losm_user_loc_${item.friend.id}`);
+            const rawArea = localStorage.getItem(`losm_user_loc_${friendId}`);
             if (rawArea) {
               const parsed = JSON.parse(rawArea);
               if (parsed?.name && parsed?.lat && parsed?.lng) savedArea = parsed;
@@ -131,9 +141,9 @@ export default function GroupMeetingFinder({
           } catch {}
 
           return {
-            id: item.friend.id,
-            name: item.friend.username || item.friend.email.split("@")[0],
-            email: item.friend.email,
+            id: friendId,
+            name: friendName,
+            email: friendEmail,
             addressName: savedArea.name,
             lat: savedArea.lat,
             lng: savedArea.lng,

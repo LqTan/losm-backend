@@ -145,11 +145,11 @@ export default function FriendRequestsModal({
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-xs shrink-0">
-                      {req.senderName.charAt(0).toUpperCase()}
+                      {(req.senderName || req.senderEmail || "U").charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-foreground truncate">
-                        {req.senderName}
+                        {req.senderName || req.senderEmail?.split("@")[0] || "Người dùng"}
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate">
                         {req.senderEmail}

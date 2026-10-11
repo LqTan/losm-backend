@@ -23,13 +23,19 @@ import { toast } from "sonner";
 
 interface InviteInfo {
   id: string;
-  senderUsername: string;
+  senderName?: string;
+  senderUsername?: string;
   senderEmail: string;
   senderAvatarUrl?: string;
   receiverEmail: string;
   userExists: boolean;
   status: string;
   createdAt: string;
+}
+
+function getInviteSenderName(info: InviteInfo | null): string {
+  if (!info) return "Người dùng";
+  return info.senderUsername || info.senderName || info.senderEmail?.split("@")[0] || "Người dùng";
 }
 
 function InviteContent() {
@@ -45,6 +51,7 @@ function InviteContent() {
 
   const isLoggedIn = !!getToken();
   const currentUser = getUser();
+  const senderName = getInviteSenderName(inviteInfo);
 
   useEffect(() => {
     if (!token) {
@@ -170,10 +177,10 @@ function InviteContent() {
 
           <div className="space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">
-              Lời mời kết bạn từ {inviteInfo.senderUsername}
+              Lời mời kết bạn từ {senderName}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {inviteInfo.senderUsername} ({inviteInfo.senderEmail}) muốn kết nối cùng bạn trên LOSM để cùng tìm kiếm điểm hẹn lý tưởng.
+              {senderName} ({inviteInfo.senderEmail}) muốn kết nối cùng bạn trên LOSM để cùng tìm kiếm điểm hẹn lý tưởng.
             </p>
           </div>
 
@@ -232,7 +239,7 @@ function InviteContent() {
               Đã trở thành bạn bè!
             </h2>
             <p className="text-sm text-muted-foreground">
-              Bạn và <strong className="text-foreground">{inviteInfo.senderUsername}</strong> đã kết nối thành công. Giờ đây hai bạn có thể chọn nhau khi tìm điểm hẹn chung công bằng.
+              Bạn và <strong className="text-foreground">{senderName}</strong> đã kết nối thành công. Giờ đây hai bạn có thể chọn nhau khi tìm điểm hẹn chung công bằng.
             </p>
           </div>
 
@@ -265,7 +272,7 @@ function InviteContent() {
           </div>
           <h2 className="text-lg font-bold text-foreground">Đã từ chối lời mời</h2>
           <p className="text-sm text-muted-foreground">
-            Bạn đã từ chối lời mời kết bạn từ {inviteInfo.senderUsername}.
+            Bạn đã từ chối lời mời kết bạn từ {senderName}.
           </p>
           <div className="pt-2">
             <Link href="/">
@@ -291,12 +298,12 @@ function InviteContent() {
                   ? `/api/avatar?url=${encodeURIComponent(inviteInfo.senderAvatarUrl)}`
                   : inviteInfo.senderAvatarUrl
               }
-              alt={inviteInfo.senderUsername}
+              alt={senderName}
               className="h-20 w-20 rounded-full object-cover border-4 border-background shadow-md mb-3"
             />
           ) : (
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-2xl border-4 border-background shadow-md mb-3">
-              {inviteInfo.senderUsername.slice(0, 2).toUpperCase()}
+              {senderName.slice(0, 2).toUpperCase()}
             </div>
           )}
 
@@ -306,7 +313,7 @@ function InviteContent() {
           </span>
 
           <h2 className="text-xl font-bold text-foreground">
-            {inviteInfo.senderUsername}
+            {senderName}
           </h2>
           <p className="text-xs text-muted-foreground">
             {inviteInfo.senderEmail}
@@ -315,7 +322,7 @@ function InviteContent() {
 
         <div className="rounded-xl bg-muted/40 p-4 text-xs text-muted-foreground text-center border border-border/50">
           <p>
-            {inviteInfo.senderUsername} muốn kết bạn cùng bạn trên LOSM để cùng nhau lập kế hoạch gặp mặt và tìm điểm hẹn tối ưu khoảng cách di chuyển.
+            {senderName} muốn kết bạn cùng bạn trên LOSM để cùng nhau lập kế hoạch gặp mặt và tìm điểm hẹn tối ưu khoảng cách di chuyển.
           </p>
         </div>
 

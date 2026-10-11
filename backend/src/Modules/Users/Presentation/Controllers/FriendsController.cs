@@ -169,7 +169,9 @@ public sealed class FriendsController : ControllerBase
             id = friendship.Id,
             senderId = friendship.SenderId,
             senderName = friendship.Sender.Username,
+            senderUsername = friendship.Sender.Username,
             senderEmail = friendship.Sender.Email,
+            senderAvatarUrl = (string?)null,
             receiverEmail = friendship.ReceiverEmail,
             status = friendship.Status.ToString(),
             userExists,
@@ -272,14 +274,29 @@ public sealed class FriendsController : ControllerBase
         {
             var isSender = f.SenderId == currentUserId;
             var friendUser = isSender ? f.Receiver : f.Sender;
+            var friendId = friendUser?.Id ?? (isSender ? f.ReceiverId ?? Guid.Empty : f.SenderId);
+            var username = friendUser?.Username ?? (isSender ? f.ReceiverEmail.Split('@')[0] : f.Sender.Username);
+            var email = friendUser?.Email ?? (isSender ? f.ReceiverEmail : f.Sender.Email);
+            var avatarUrl = (string?)null;
+
             return new
             {
-                id = friendUser?.Id ?? (isSender ? f.ReceiverId ?? Guid.Empty : f.SenderId),
-                username = friendUser?.Username ?? (isSender ? f.ReceiverEmail.Split('@')[0] : f.Sender.Username),
-                email = friendUser?.Email ?? (isSender ? f.ReceiverEmail : f.Sender.Email),
-                since = f.UpdatedAt ?? f.CreatedAt
+                id = f.Id,
+                friendId,
+                username,
+                email,
+                avatarUrl,
+                createdAt = f.UpdatedAt ?? f.CreatedAt,
+                since = f.UpdatedAt ?? f.CreatedAt,
+                friend = new
+                {
+                    id = friendId,
+                    username,
+                    email,
+                    avatarUrl
+                }
             };
-        }).Where(f => f.id != Guid.Empty).ToList();
+        }).Where(f => f.friendId != Guid.Empty).ToList();
 
         return Ok(friends);
     }
@@ -299,10 +316,12 @@ public sealed class FriendsController : ControllerBase
             return Unauthorized();
         }
 
+        var userEmail = currentUser.Email?.ToLowerInvariant() ?? string.Empty;
+
         var incoming = await _dbContext.Friendships
             .Include(f => f.Sender)
             .Where(f => f.Status == FriendshipStatus.Pending &&
-                        (f.ReceiverId == currentUserId || f.ReceiverEmail == currentUser.Email.ToLower()))
+                        (f.ReceiverId == currentUserId || f.ReceiverEmail == userEmail))
             .OrderByDescending(f => f.CreatedAt)
             .Select(f => new
             {
@@ -310,7 +329,10 @@ public sealed class FriendsController : ControllerBase
                 token = f.Token,
                 senderId = f.SenderId,
                 senderName = f.Sender.Username,
+                senderUsername = f.Sender.Username,
                 senderEmail = f.Sender.Email,
+                senderAvatarUrl = (string?)null,
+                receiverEmail = f.ReceiverEmail,
                 createdAt = f.CreatedAt
             })
             .ToListAsync(cancellationToken);
@@ -336,8 +358,8 @@ public sealed class FriendsController : ControllerBase
     }
 
     [Authorize]
-    [HttpDelete("{friendId:guid}")]
-    public async Task<IActionResult> RemoveFriend(Guid friendId, CancellationToken cancellationToken)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> RemoveFriend(Guid id, CancellationToken cancellationToken)
     {
         if (!TryGetUserId(out var currentUserId))
         {
@@ -346,20 +368,21 @@ public sealed class FriendsController : ControllerBase
 
         var friendship = await _dbContext.Friendships
             .FirstOrDefaultAsync(f =>
-                f.Status == FriendshipStatus.Accepted &&
-                ((f.SenderId == currentUserId && f.ReceiverId == friendId) ||
-                 (f.ReceiverId == currentUserId && f.SenderId == friendId)),
+                (f.Id == id && (f.SenderId == currentUserId || f.ReceiverId == currentUserId)) ||
+                (f.Status == FriendshipStatus.Accepted &&
+                 ((f.SenderId == currentUserId && f.ReceiverId == id) ||
+                  (f.ReceiverId == currentUserId && f.SenderId == id))),
                 cancellationToken);
 
         if (friendship is null)
         {
-            return NotFound(new { message = "Không tìm thấy mối quan hệ bạn bè để xóa." });
+            return NotFound(new { message = "Không tìm thấy lời mời hoặc mối quan hệ bạn bè để xóa." });
         }
 
         _dbContext.Friendships.Remove(friendship);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return NoContent();
+        return Ok(new { success = true, message = "Đã xóa thành công." });
     }
 
     private bool TryGetUserId(out Guid userId)

@@ -14,35 +14,64 @@ import {
   Loader2,
   UserCheck,
   Search,
-  AlertCircle,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-interface FriendUser {
-  id: string;
-  username: string;
-  email: string;
-  avatarUrl?: string;
-  isRegistered: boolean;
-}
-
 interface FriendItem {
   id: string; // friendship id
-  friend: FriendUser;
-  createdAt: string;
+  friendId?: string;
+  username?: string;
+  email?: string;
+  avatarUrl?: string;
+  createdAt?: string;
+  since?: string;
+  friend?: {
+    id?: string;
+    username?: string;
+    email?: string;
+    avatarUrl?: string;
+  };
 }
 
 interface FriendRequestItem {
   id: string;
-  senderId: string;
-  senderUsername: string;
-  senderEmail: string;
+  senderId?: string;
+  senderName?: string;
+  senderUsername?: string;
+  senderEmail?: string;
   senderAvatarUrl?: string;
-  receiverEmail: string;
-  createdAt: string;
+  receiverEmail?: string;
+  createdAt?: string;
+}
+
+function getFriendName(item: FriendItem): string {
+  return (
+    item.friend?.username ||
+    item.username ||
+    item.friend?.email?.split("@")[0] ||
+    item.email?.split("@")[0] ||
+    "Bạn bè"
+  );
+}
+
+function getFriendEmail(item: FriendItem): string {
+  return item.friend?.email || item.email || "";
+}
+
+function getFriendAvatar(item: FriendItem): string | undefined {
+  return item.friend?.avatarUrl || item.avatarUrl;
+}
+
+function getSenderName(req: FriendRequestItem): string {
+  return (
+    req.senderUsername ||
+    req.senderName ||
+    req.senderEmail?.split("@")[0] ||
+    "Người dùng"
+  );
 }
 
 export default function ProfileFriendsPage() {
@@ -80,13 +109,13 @@ export default function ProfileFriendsPage() {
 
       if (friendsRes.ok) {
         const friendsData = await friendsRes.json();
-        setFriends(friendsData);
+        setFriends(Array.isArray(friendsData) ? friendsData : []);
       }
 
       if (requestsRes.ok) {
         const requestsData = await requestsRes.json();
-        setIncomingRequests(requestsData.incoming || []);
-        setOutgoingRequests(requestsData.outgoing || []);
+        setIncomingRequests(Array.isArray(requestsData?.incoming) ? requestsData.incoming : []);
+        setOutgoingRequests(Array.isArray(requestsData?.outgoing) ? requestsData.outgoing : []);
       }
     } catch (err) {
       console.error("Failed to fetch friends data:", err);
@@ -158,6 +187,7 @@ export default function ProfileFriendsPage() {
         body: JSON.stringify({
           friendshipId: requestId,
           action,
+          accept: action === "accept",
         }),
       });
 
@@ -175,15 +205,15 @@ export default function ProfileFriendsPage() {
     }
   };
 
-  const handleRemoveFriend = async (friendshipId: string, name: string) => {
-    if (!confirm(`Bạn có chắc muốn hủy kết bạn với ${name}?`)) return;
+  const handleRemoveFriend = async (id: string, name: string) => {
+    if (!confirm(`Bạn có chắc muốn thực hiện thao tác này với ${name}?`)) return;
 
     const token = getToken();
     if (!token) return;
 
     try {
-      setProcessingId(friendshipId);
-      const res = await fetch(`/api/friends/${friendshipId}`, {
+      setProcessingId(id);
+      const res = await fetch(`/api/friends/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -192,13 +222,13 @@ export default function ProfileFriendsPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || "Hủy kết bạn thất bại");
+        throw new Error(data.message || "Xóa thất bại");
       }
 
-      toast.success(`Đã hủy kết bạn với ${name}`);
+      toast.success(`Đã hủy thành công.`);
       fetchAllData();
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi hủy kết bạn");
+      toast.error(err.message || "Lỗi khi xử lý");
     } finally {
       setProcessingId(null);
     }
@@ -206,10 +236,9 @@ export default function ProfileFriendsPage() {
 
   const filteredFriends = friends.filter((item) => {
     const q = searchQuery.toLowerCase();
-    return (
-      item.friend.username.toLowerCase().includes(q) ||
-      item.friend.email.toLowerCase().includes(q)
-    );
+    const name = getFriendName(item).toLowerCase();
+    const email = getFriendEmail(item).toLowerCase();
+    return name.includes(q) || email.includes(q);
   });
 
   return (
@@ -320,57 +349,66 @@ export default function ProfileFriendsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredFriends.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:border-primary/40 transition-all shadow-sm"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {item.friend.avatarUrl ? (
-                      <img
-                        src={
-                          item.friend.avatarUrl.startsWith("http")
-                            ? `/api/avatar?url=${encodeURIComponent(item.friend.avatarUrl)}`
-                            : item.friend.avatarUrl
-                        }
-                        alt={item.friend.username}
-                        className="h-11 w-11 rounded-full object-cover border border-border shrink-0"
-                      />
-                    ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-                        {item.friend.username.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {item.friend.username}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {item.friend.email}
-                      </p>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
-                        <Clock className="h-3 w-3" />
-                        Kết bạn từ {new Date(item.createdAt).toLocaleDateString("vi-VN")}
-                      </span>
-                    </div>
-                  </div>
+              {filteredFriends.map((item) => {
+                const friendName = getFriendName(item);
+                const friendEmail = getFriendEmail(item);
+                const avatar = getFriendAvatar(item);
+                const createdDate = item.createdAt || item.since;
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={processingId === item.id}
-                    onClick={() => handleRemoveFriend(item.id, item.friend.username)}
-                    className="text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    title="Hủy kết bạn"
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:border-primary/40 transition-all shadow-sm"
                   >
-                    {processingId === item.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {avatar ? (
+                        <img
+                          src={
+                            avatar.startsWith("http")
+                              ? `/api/avatar?url=${encodeURIComponent(avatar)}`
+                              : avatar
+                          }
+                          alt={friendName}
+                          className="h-11 w-11 rounded-full object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                          {friendName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {friendName}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {friendEmail}
+                        </p>
+                        {createdDate && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
+                            <Clock className="h-3 w-3" />
+                            Kết bạn từ {new Date(createdDate).toLocaleDateString("vi-VN")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={processingId === item.id}
+                      onClick={() => handleRemoveFriend(item.id, friendName)}
+                      className="text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                      title="Hủy kết bạn"
+                    >
+                      {processingId === item.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -386,67 +424,75 @@ export default function ProfileFriendsPage() {
             </div>
           ) : (
             <div className="space-y-3 max-w-2xl">
-              {incomingRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-card rounded-xl border border-border shadow-sm"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {req.senderAvatarUrl ? (
-                      <img
-                        src={
-                          req.senderAvatarUrl.startsWith("http")
-                            ? `/api/avatar?url=${encodeURIComponent(req.senderAvatarUrl)}`
-                            : req.senderAvatarUrl
-                        }
-                        alt={req.senderUsername}
-                        className="h-11 w-11 rounded-full object-cover border border-border shrink-0"
-                      />
-                    ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-                        {req.senderUsername.slice(0, 2).toUpperCase()}
+              {incomingRequests.map((req) => {
+                const sName = getSenderName(req);
+                const sEmail = req.senderEmail || "";
+                const sAvatar = req.senderAvatarUrl;
+
+                return (
+                  <div
+                    key={req.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-card rounded-xl border border-border shadow-sm"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {sAvatar ? (
+                        <img
+                          src={
+                            sAvatar.startsWith("http")
+                              ? `/api/avatar?url=${encodeURIComponent(sAvatar)}`
+                              : sAvatar
+                          }
+                          alt={sName}
+                          className="h-11 w-11 rounded-full object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                          {sName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {sName}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {sEmail}
+                        </p>
+                        {req.createdAt && (
+                          <span className="text-[11px] text-muted-foreground">
+                            Đã gửi lúc {new Date(req.createdAt).toLocaleDateString("vi-VN")}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {req.senderUsername}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {req.senderEmail}
-                      </p>
-                      <span className="text-[11px] text-muted-foreground">
-                        Đã gửi lúc {new Date(req.createdAt).toLocaleDateString("vi-VN")}
-                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        disabled={processingId === req.id}
+                        onClick={() => handleRespondRequest(req.id, "accept")}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs gap-1.5 h-8"
+                      >
+                        {processingId === req.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5" />
+                        )}
+                        <span>Chấp nhận</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={processingId === req.id}
+                        onClick={() => handleRespondRequest(req.id, "decline")}
+                        className="text-xs text-muted-foreground hover:text-red-600 hover:border-red-200 gap-1.5 h-8"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        <span>Từ chối</span>
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      disabled={processingId === req.id}
-                      onClick={() => handleRespondRequest(req.id, "accept")}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs gap-1.5 h-8"
-                    >
-                      {processingId === req.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Check className="h-3.5 w-3.5" />
-                      )}
-                      <span>Chấp nhận</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={processingId === req.id}
-                      onClick={() => handleRespondRequest(req.id, "decline")}
-                      className="text-xs text-muted-foreground hover:text-red-600 hover:border-red-200 gap-1.5 h-8"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      <span>Từ chối</span>
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -486,9 +532,9 @@ export default function ProfileFriendsPage() {
                     variant="ghost"
                     size="sm"
                     disabled={processingId === req.id}
-                    onClick={() => handleRemoveFriend(req.id, req.receiverEmail)}
+                    onClick={() => handleRemoveFriend(req.id, req.receiverEmail || "lời mời")}
                     className="text-xs text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                    title="Hủy lời mời"
+                    title="Thu hồi lời mời"
                   >
                     {processingId === req.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
