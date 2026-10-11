@@ -69,7 +69,7 @@ interface Props {
     origins: Array<{ id: string; name: string; address: string; lat: number; lng: number }>
   ) => void;
   onSelectMeetingPlace: (place: MeetingPlace, shouldCloseModal?: boolean) => void;
-  onScheduleMeeting: (place: Place) => void;
+  onScheduleMeeting: (place: Place, participants?: Array<{ name: string; email: string }>) => void;
 }
 
 export default function GroupMeetingFinder({
@@ -200,15 +200,29 @@ export default function GroupMeetingFinder({
   function handleAddCustomFriend(e: React.FormEvent) {
     e.preventDefault();
     const name = customName.trim();
+    const email = customEmail.trim().toLowerCase();
+
     if (!name) {
-      toast.error("Vui lòng nhập tên bạn bè");
+      toast.error("Vui lòng nhập tên người tham gia");
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      toast.error("Vui lòng nhập địa chỉ email hợp lệ để gửi thư mời hẹn");
+      return;
+    }
+
+    if (friends.some((f) => f.email.toLowerCase() === email)) {
+      toast.error("Email này đã có trong danh sách");
+      return;
+    }
+
     const area = COMMON_AREAS.find((a) => a.name === customArea) || COMMON_AREAS[0];
     const newFriend: FriendWithLocation = {
       id: `custom_${Date.now()}`,
       name,
-      email: customEmail.trim() || `${name.toLowerCase()}@friend.local`,
+      email,
       addressName: area.name,
       lat: area.lat,
       lng: area.lng,
@@ -551,19 +565,25 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
-                    placeholder="Tên bạn bè (VD: Tuấn)"
+                    placeholder="Tên bạn bè (VD: Tuấn) *"
                     value={customName}
                     onChange={(e) => setCustomName(e.target.value)}
                     className="h-8 text-xs bg-background"
+                    required
                     autoFocus
                   />
                   <Input
-                    placeholder="Email (tùy chọn)"
+                    type="email"
+                    placeholder="Email nhận thư mời *"
                     value={customEmail}
                     onChange={(e) => setCustomEmail(e.target.value)}
                     className="h-8 text-xs bg-background"
+                    required
                   />
                 </div>
+                <p className="text-[10px] text-muted-foreground">
+                  * Email bắt buộc để gửi thư mời họp &amp; liên kết xác nhận tham gia.
+                </p>
                 <div className="flex items-center gap-2">
                   <select
                     value={customArea}
@@ -791,14 +811,23 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onScheduleMeeting({
-                                id: item.placeId,
-                                name: item.name,
-                                address: item.address,
-                                latitude: item.latitude,
-                                longitude: item.longitude,
-                                category: item.category,
-                              });
+                              const invitees = [
+                                ...(currentUser?.email
+                                  ? [{ name: currentUser.username || "Tôi", email: currentUser.email }]
+                                  : []),
+                                ...selectedFriends.map((f) => ({ name: f.name, email: f.email })),
+                              ];
+                              onScheduleMeeting(
+                                {
+                                  id: item.placeId,
+                                  name: item.name,
+                                  address: item.address,
+                                  latitude: item.latitude,
+                                  longitude: item.longitude,
+                                  category: item.category,
+                                },
+                                invitees
+                              );
                             }}
                             className="h-7 text-xs flex-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
                           >

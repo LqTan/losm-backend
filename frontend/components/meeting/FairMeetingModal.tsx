@@ -30,6 +30,7 @@ import { toast } from "sonner";
 interface Props {
   userLocation?: { lat: number; lng: number } | null;
   selectedPlace?: Place | null;
+  initialParticipants?: Participant[];
   onClose: () => void;
   onSelectPlaceOnMap?: (lat: number, lng: number, name: string) => void;
 }
@@ -42,6 +43,7 @@ interface Participant {
 export default function FairMeetingModal({
   userLocation,
   selectedPlace,
+  initialParticipants,
   onClose,
 }: Props) {
   const [currentUser] = useState(() => getUser());
@@ -62,11 +64,20 @@ export default function FairMeetingModal({
 
   // Participants
   const [participants, setParticipants] = useState<Participant[]>(() => {
+    if (initialParticipants && initialParticipants.length > 0) {
+      return initialParticipants;
+    }
     if (currentUser?.email) {
       return [{ name: currentUser.username, email: currentUser.email }];
     }
     return [{ name: "Tôi", email: "host@example.com" }];
   });
+
+  useEffect(() => {
+    if (initialParticipants && initialParticipants.length > 0) {
+      setParticipants(initialParticipants);
+    }
+  }, [initialParticipants]);
 
   // Friend search
   const [friendQuery, setFriendQuery] = useState("");

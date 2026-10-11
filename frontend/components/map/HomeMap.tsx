@@ -73,6 +73,7 @@ export default function HomeMap() {
 
   // Fair Meeting Modal state
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+  const [meetingParticipants, setMeetingParticipants] = useState<Array<{ name: string; email: string }>>([]);
 
   // Docked sidebar open/close state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -388,8 +389,11 @@ export default function HomeMap() {
     }
   }
 
-  function handleScheduleFromGroup(place: PlaceType) {
+  function handleScheduleFromGroup(place: PlaceType, participants?: Array<{ name: string; email: string }>) {
     setSelectedPlace(place);
+    if (participants && participants.length > 0) {
+      setMeetingParticipants(participants);
+    }
     setIsMeetingModalOpen(true);
   }
 
@@ -556,7 +560,11 @@ export default function HomeMap() {
         <FairMeetingModal
           userLocation={userLocation}
           selectedPlace={selectedPlace}
-          onClose={() => setIsMeetingModalOpen(false)}
+          initialParticipants={meetingParticipants}
+          onClose={() => {
+            setIsMeetingModalOpen(false);
+            setMeetingParticipants([]);
+          }}
           onSelectPlaceOnMap={handleSelectPlaceFromModalOrChat}
         />
       )}
