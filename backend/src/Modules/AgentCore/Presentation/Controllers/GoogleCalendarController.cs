@@ -82,20 +82,29 @@ public sealed class GoogleCalendarController : ControllerBase
         if (string.IsNullOrWhiteSpace(frontendBaseUrl))
         {
             var origin = Request.Headers.Origin.FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(origin))
+            if (!string.IsNullOrWhiteSpace(origin) && !IsExternalOAuthHost(origin))
             {
                 frontendBaseUrl = origin;
             }
             else
             {
                 var referer = Request.Headers.Referer.FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
+                if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri) && !IsExternalOAuthHost(refUri.Host))
                 {
                     frontendBaseUrl = $"{refUri.Scheme}://{refUri.Authority}";
                 }
                 else
                 {
-                    frontendBaseUrl = "http://localhost:3000";
+                    var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+                    var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
+                    if (!string.IsNullOrWhiteSpace(host) && !host.Contains(":5232") && !host.Contains(":8082") && !host.Contains(":8080"))
+                    {
+                        frontendBaseUrl = $"{scheme}://{host}";
+                    }
+                    else
+                    {
+                        frontendBaseUrl = "http://localhost:3000";
+                    }
                 }
             }
         }
@@ -148,5 +157,13 @@ public sealed class GoogleCalendarController : ControllerBase
         userId = Guid.Empty;
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(claim, out userId);
+    }
+
+    private static bool IsExternalOAuthHost(string hostOrUrl)
+    {
+        return hostOrUrl.Contains("google.com", StringComparison.OrdinalIgnoreCase)
+            || hostOrUrl.Contains("googleapis.com", StringComparison.OrdinalIgnoreCase)
+            || hostOrUrl.Contains("googleusercontent.com", StringComparison.OrdinalIgnoreCase)
+            || hostOrUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
     }
 }

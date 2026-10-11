@@ -13,6 +13,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Overture__DockerBin: "/usr/bin/docker"
+      Frontend__BaseUrl: ${Frontend__BaseUrl:-https://losm.duckdns.org}
+      Backend__BaseUrl: ${Backend__BaseUrl:-https://losm.duckdns.org}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/tmp

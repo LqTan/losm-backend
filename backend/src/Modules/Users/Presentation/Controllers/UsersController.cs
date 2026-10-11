@@ -360,25 +360,39 @@ public class UsersController : ControllerBase
         }
 
         var origin = Request.Headers.Origin.FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(origin))
+        if (!string.IsNullOrWhiteSpace(origin) && !IsExternalOAuthHost(origin))
         {
             return origin.TrimEnd('/');
         }
 
         var referer = Request.Headers.Referer.FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
+        if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri) && !IsExternalOAuthHost(refUri.Host))
         {
             return $"{refUri.Scheme}://{refUri.Authority}".TrimEnd('/');
         }
 
         var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
-        var hostName = Request.Host.Host;
-        if (!string.IsNullOrWhiteSpace(hostName))
+        var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
+        if (!string.IsNullOrWhiteSpace(host))
         {
-            return $"{scheme}://{hostName}:3000".TrimEnd('/');
+            if (!host.Contains(":5232") && !host.Contains(":8082") && !host.Contains(":8080"))
+            {
+                return $"{scheme}://{host}".TrimEnd('/');
+            }
+
+            var hostWithoutPort = host.Split(':')[0];
+            return $"{scheme}://{hostWithoutPort}:3000".TrimEnd('/');
         }
 
         return "http://localhost:3000";
+    }
+
+    private static bool IsExternalOAuthHost(string hostOrUrl)
+    {
+        return hostOrUrl.Contains("google.com", StringComparison.OrdinalIgnoreCase)
+            || hostOrUrl.Contains("googleapis.com", StringComparison.OrdinalIgnoreCase)
+            || hostOrUrl.Contains("googleusercontent.com", StringComparison.OrdinalIgnoreCase)
+            || hostOrUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
     }
 }
 
