@@ -1,10 +1,13 @@
 export function getApiBase() {
   const envBase =
     process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (typeof window !== "undefined") {
-    return envBase ?? "http://localhost:5232";
+  if (envBase) {
+    return envBase;
   }
-  return envBase ?? "http://localhost:5232";
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:5232";
 }
 
 export type Json = Record<string, unknown>;

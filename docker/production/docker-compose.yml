@@ -27,8 +27,8 @@ services:
       context: ../../frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://103.200.22.67:8082}
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://103.200.22.67:8082}
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://losm.duckdns.org}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://losm.duckdns.org}
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-387601506011-gjo72l23fe97mr5irt6778dd9l7vd0sk.apps.googleusercontent.com}
     container_name: location-search-web
     restart: unless-stopped
@@ -37,8 +37,8 @@ services:
     environment:
       NODE_ENV: production
       INTERNAL_API_URL: http://api:8080
-      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://103.200.22.67:8082}
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://103.200.22.67:8082}
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://losm.duckdns.org}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://losm.duckdns.org}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-387601506011-gjo72l23fe97mr5irt6778dd9l7vd0sk.apps.googleusercontent.com}
     depends_on:
       - api

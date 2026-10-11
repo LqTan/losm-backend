@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { setAuth, LoginResponse } from "@/lib/auth";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, getApiBase } from "@/lib/api";
 import { ArrowLeft, Calendar, Loader2, LogIn } from "lucide-react";
 
 function LoginContent() {
@@ -36,7 +36,7 @@ function LoginContent() {
 
   // Điều hướng trực tiếp sang Google OAuth
   function handleGoogleLogin() {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5232";
+    const apiBase = getApiBase();
     window.location.href = `${apiBase}/api/users/google-login?redirect=${encodeURIComponent(redirectParam)}`;
   }
 
