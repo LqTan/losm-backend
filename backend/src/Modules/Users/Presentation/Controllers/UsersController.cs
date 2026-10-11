@@ -126,7 +126,7 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = "Chưa cấu hình Google:ClientId trong appsettings.json." });
         }
 
-        var backendUrl = (config["Backend:BaseUrl"] ?? "http://localhost:5232").TrimEnd('/');
+        var backendUrl = ResolveBackendUrl(config);
         var redirectUri = $"{backendUrl}/api/users/google/callback";
         var state = string.IsNullOrWhiteSpace(redirect) ? "/profile/calendar" : redirect;
 
@@ -153,7 +153,7 @@ public class UsersController : ControllerBase
         [FromServices] Users.Application.Abstractions.ITokenProvider tokenProvider,
         CancellationToken cancellationToken)
     {
-        var frontendUrl = (config["Frontend:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/');
+        var frontendUrl = ResolveFrontendUrl(config);
         var redirectPath = string.IsNullOrWhiteSpace(state) ? "/profile/calendar" : state;
 
         if (!string.IsNullOrEmpty(error))
@@ -168,7 +168,7 @@ public class UsersController : ControllerBase
 
         var clientId = config["Google:ClientId"];
         var clientSecret = config["Google:ClientSecret"];
-        var backendUrl = (config["Backend:BaseUrl"] ?? "http://localhost:5232").TrimEnd('/');
+        var backendUrl = ResolveBackendUrl(config);
         var redirectUri = $"{backendUrl}/api/users/google/callback";
 
         try
@@ -331,6 +331,54 @@ public class UsersController : ControllerBase
     {
         var result = await handler.HandleAsync(command);
         return Ok(result);
+    }
+
+    private string ResolveBackendUrl(Microsoft.Extensions.Configuration.IConfiguration config)
+    {
+        var configured = config["Backend:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.TrimEnd('/');
+        }
+
+        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+        var host = Request.Headers["X-Forwarded-Host"].FirstOrDefault() ?? Request.Host.Value;
+        if (!string.IsNullOrWhiteSpace(host))
+        {
+            return $"{scheme}://{host}".TrimEnd('/');
+        }
+
+        return "http://localhost:5232";
+    }
+
+    private string ResolveFrontendUrl(Microsoft.Extensions.Configuration.IConfiguration config)
+    {
+        var configured = config["Frontend:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.TrimEnd('/');
+        }
+
+        var origin = Request.Headers.Origin.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(origin))
+        {
+            return origin.TrimEnd('/');
+        }
+
+        var referer = Request.Headers.Referer.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
+        {
+            return $"{refUri.Scheme}://{refUri.Authority}".TrimEnd('/');
+        }
+
+        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
+        var hostName = Request.Host.Host;
+        if (!string.IsNullOrWhiteSpace(hostName))
+        {
+            return $"{scheme}://{hostName}:3000".TrimEnd('/');
+        }
+
+        return "http://localhost:3000";
     }
 }
 

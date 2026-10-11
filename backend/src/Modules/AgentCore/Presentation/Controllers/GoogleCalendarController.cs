@@ -78,8 +78,28 @@ public sealed class GoogleCalendarController : ControllerBase
         [FromQuery] string? error,
         CancellationToken cancellationToken)
     {
-        var frontendBaseUrl = (_configuration["Frontend:BaseUrl"]
-            ?? "http://localhost:3000").TrimEnd('/');
+        var frontendBaseUrl = _configuration["Frontend:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+        {
+            var origin = Request.Headers.Origin.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(origin))
+            {
+                frontendBaseUrl = origin;
+            }
+            else
+            {
+                var referer = Request.Headers.Referer.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
+                {
+                    frontendBaseUrl = $"{refUri.Scheme}://{refUri.Authority}";
+                }
+                else
+                {
+                    frontendBaseUrl = "http://localhost:3000";
+                }
+            }
+        }
+        frontendBaseUrl = frontendBaseUrl.TrimEnd('/');
 
         if (!string.IsNullOrEmpty(error))
         {

@@ -66,7 +66,28 @@ public sealed class MeetingsController : ControllerBase
         // 1. Tạo file lịch iCalendar (.ics)
         var icsBytes = BuildIcsAttachmentSafe(request, startUtc, duration, validEmails);
 
-        var frontendBaseUrl = _configuration?["Frontend:BaseUrl"] ?? "http://localhost:3000";
+        var frontendBaseUrl = _configuration?["Frontend:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+        {
+            var origin = Request.Headers.Origin.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(origin))
+            {
+                frontendBaseUrl = origin;
+            }
+            else
+            {
+                var referer = Request.Headers.Referer.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
+                {
+                    frontendBaseUrl = $"{refUri.Scheme}://{refUri.Authority}";
+                }
+                else
+                {
+                    frontendBaseUrl = "http://localhost:3000";
+                }
+            }
+        }
+        frontendBaseUrl = frontendBaseUrl.TrimEnd('/');
 
         var sentEmails = new List<string>();
         var failedEmails = new List<string>();
