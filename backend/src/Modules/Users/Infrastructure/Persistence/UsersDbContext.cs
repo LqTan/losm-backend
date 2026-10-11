@@ -9,6 +9,7 @@ public class UsersDbContext : DbContext
         : base(options){}
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

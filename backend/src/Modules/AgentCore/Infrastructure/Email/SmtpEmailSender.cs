@@ -5,7 +5,7 @@ using MimeKit;
 
 namespace AgentCore.Infrastructure.Email;
 
-public sealed class SmtpEmailSender : IEmailSender
+public sealed class SmtpEmailSender : IEmailSender, Common.Email.IEmailSender
 {
     private readonly SmtpOptions _options;
     private readonly ILogger<SmtpEmailSender> _logger;
@@ -96,5 +96,21 @@ public sealed class SmtpEmailSender : IEmailSender
                 request.Subject);
             return new EmailResult(false, ex.Message);
         }
+    }
+
+    async Task<Common.Email.EmailResult> Common.Email.IEmailSender.SendAsync(
+        Common.Email.EmailRequest request,
+        CancellationToken cancellationToken)
+    {
+        var internalReq = new EmailRequest(
+            request.ToAddress,
+            request.ToName,
+            request.Subject,
+            request.HtmlBody,
+            request.PlainTextBody,
+            request.Attachments?.Select(a => new EmailAttachment(a.FileName, a.ContentType, a.Content)).ToList()
+        );
+        var res = await SendAsync(internalReq, cancellationToken);
+        return new Common.Email.EmailResult(res.Sent, res.Error);
     }
 }

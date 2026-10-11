@@ -95,11 +95,23 @@ export default function FairMeetingModal({
       setSearchingFriends(true);
       try {
         const token = getToken();
-        const res = await api.get<FriendUser[]>(
-          `/api/users/search?q=${encodeURIComponent(friendQuery.trim())}&limit=10`,
-          token,
-        );
-        setFriendResults(res ?? []);
+        const res = await api.get<
+          Array<{ id: string; friend: { id: string; username: string; email: string } }>
+        >("/api/friends", token);
+        const mapped: FriendUser[] = (res ?? []).map((x) => ({
+          id: x.friend.id,
+          username: x.friend.username,
+          email: x.friend.email,
+        }));
+        const q = friendQuery.trim().toLowerCase();
+        const filtered = q
+          ? mapped.filter(
+              (u) =>
+                u.username.toLowerCase().includes(q) ||
+                u.email.toLowerCase().includes(q),
+            )
+          : mapped;
+        setFriendResults(filtered);
       } catch {
         setFriendResults([]);
       } finally {

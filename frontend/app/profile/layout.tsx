@@ -22,6 +22,7 @@ import {
   LogOut,
   ShieldCheck,
   User as UserIcon,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { href: "/profile", label: "Thông tin hồ sơ", icon: UserIcon },
+  { href: "/profile/friends", label: "Bạn bè", icon: Users },
   { href: "/profile/calendar", label: "Lịch hẹn của tôi", icon: Calendar },
 ];
 
@@ -160,7 +162,11 @@ export default function ProfileLayout({
           <div className="flex items-center gap-3">
             <SidebarTrigger />
             <h1 className="text-sm font-semibold text-foreground">
-              {pathname === "/profile/calendar" ? "Lịch hẹn của tôi" : "Hồ sơ cá nhân"}
+              {pathname === "/profile/calendar"
+                ? "Lịch hẹn của tôi"
+                : pathname === "/profile/friends"
+                ? "Danh sách bạn bè"
+                : "Hồ sơ cá nhân"}
             </h1>
           </div>
           <Link href="/">

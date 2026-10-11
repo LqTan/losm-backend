@@ -104,7 +104,9 @@ public static class DependencyInjection
 
         services.AddScoped<IGoogleCalendarClient, GoogleCalendarClient>();
         services.AddScoped<IGoogleOAuthService, GoogleOAuthService>();
-        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<SmtpEmailSender>();
+        services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
+        services.AddScoped<Common.Email.IEmailSender>(sp => sp.GetRequiredService<SmtpEmailSender>());
 
         if (!string.IsNullOrWhiteSpace(n8nBaseUrl))
         {
