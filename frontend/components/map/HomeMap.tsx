@@ -5,14 +5,16 @@ import SearchBar from "@/components/search/SearchBar";
 import ResultsSidebar from "@/components/search/ResultsSidebar";
 import PlaceCard from "../place/PlaceCard";
 import FairMeetingModal from "../meeting/FairMeetingModal";
+import GroupMeetingFinder, { OriginItem } from "../meeting/GroupMeetingFinder";
 import AiChatWidget from "../ai/AiChatWidget";
 import UserNavDropdown from "../user/UserNavDropdown";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { getToken } from "@/lib/auth";
-import type { Place as PlaceType } from "@/types/place";
+import { getToken, getUser } from "@/lib/auth";
+import type { StoredUser } from "@/lib/auth";
+import type { Place as PlaceType, MeetingPlace } from "@/types/place";
 import { toast } from "sonner";
-import { List, Loader2, LocateFixed, X } from "lucide-react";
+import { List, Loader2, LocateFixed, Users, X } from "lucide-react";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -24,6 +26,20 @@ const MapView = dynamic(() => import("./MapView"), {
   ),
 });
 
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 const DEFAULT_COORDS = { lat: 10.7769, lng: 106.7009 }; // TP. Hồ Chí Minh center
 
 export default function HomeMap() {
@@ -33,32 +49,91 @@ export default function HomeMap() {
   const [selectedPlace, setSelectedPlace] = useState<PlaceType | null>(null);
   const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number } | null>(null);
 
+  // Current logged in user
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => {
+    if (typeof window !== "undefined") {
+      return getUser();
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    setCurrentUser(getUser());
+  }, []);
+
   // User location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Group Meeting Finder state
+  const [isGroupMeetingOpen, setIsGroupMeetingOpen] = useState(false);
+  const [groupOrigins, setGroupOrigins] = useState<OriginItem[]>([]);
+  const [centroid, setCentroid] = useState<{ lat: number; lng: number } | null>(null);
+  const [activeMeetingPlace, setActiveMeetingPlace] = useState<MeetingPlace | null>(null);
+  const [meetingResults, setMeetingResults] = useState<MeetingPlace[]>([]);
 
   // Fair Meeting Modal state
   const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
 
   // Docked sidebar open/close state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  async function fallbackIpLocation(): Promise<boolean> {
+    try {
+      const res = await fetch("https://ipwho.is/");
+      const data = await res.json();
+      if (data && data.success && data.latitude && data.longitude) {
+        const loc = { lat: Number(data.latitude), lng: Number(data.longitude) };
+        setUserLocation(loc);
+        setFlyToTarget(loc);
+        toast.success(`Đã định vị theo mạng thiết bị (${data.city || "TP.HCM"})`);
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  }
 
   // Locate User GPS
   function handleLocateUser() {
+    if (locating) return;
+    setLocating(true);
+    toast.info("Đang xác định vị trí của bạn...");
+
     if (typeof window !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          setLocating(false);
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setUserLocation(loc);
           setFlyToTarget(loc);
-          toast.success("Đã định vị vị trí của bạn");
+          toast.success("Đã định vị vị trí GPS của bạn");
         },
-        () => {
-          toast.error("Không thể lấy vị trí GPS hiện tại");
+        async (err) => {
+          // Laptop thường không có chip GPS vệ tinh -> tự động fallback sang định vị mạng
+          const ipSuccess = await fallbackIpLocation();
+          setLocating(false);
+          if (!ipSuccess) {
+            if (err.code === 1) {
+              toast.error("Trình duyệt đang chặn quyền vị trí. Vui lòng bật quyền vị trí ở thanh địa chỉ URL.");
+            } else {
+              toast.error("Không thể lấy vị trí GPS. Đã đặt về vị trí mặc định.");
+              setUserLocation(DEFAULT_COORDS);
+              setFlyToTarget(DEFAULT_COORDS);
+            }
+          }
         },
-        { enableHighAccuracy: true, timeout: 8000 },
+        { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 },
       );
     } else {
-      toast.error("Trình duyệt không hỗ trợ GPS");
+      void (async () => {
+        const ipSuccess = await fallbackIpLocation();
+        setLocating(false);
+        if (!ipSuccess) {
+          toast.error("Trình duyệt không hỗ trợ GPS");
+        }
+      })();
     }
   }
 
@@ -74,15 +149,17 @@ export default function HomeMap() {
           setUserLocation(loc);
           setFlyToTarget(loc);
         },
-        () => {
-          setUserLocation(DEFAULT_COORDS);
-          setFlyToTarget(DEFAULT_COORDS);
+        async () => {
+          const ipSuccess = await fallbackIpLocation();
+          if (!ipSuccess) {
+            setUserLocation(DEFAULT_COORDS);
+            setFlyToTarget(DEFAULT_COORDS);
+          }
         },
-        { timeout: 8000 },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 },
       );
     } else {
-      setUserLocation(DEFAULT_COORDS);
-      setFlyToTarget(DEFAULT_COORDS);
+      void fallbackIpLocation();
     }
   }, []);
 
@@ -198,6 +275,38 @@ export default function HomeMap() {
   function handleSelectPlace(place: PlaceType) {
     setSelectedPlace(place);
     setFlyToTarget({ lat: place.latitude, lng: place.longitude });
+
+    if (groupOrigins.length > 0) {
+      const matched = meetingResults.find(
+        (m) => m.placeId === place.id || m.placeId === (place as { placeId?: string }).placeId
+      );
+      if (matched) {
+        setActiveMeetingPlace(matched);
+      } else {
+        const dists = groupOrigins.map((o) =>
+          getDistanceKm(o.lat, o.lng, place.latitude, place.longitude)
+        );
+        const avgDist = dists.reduce((a, b) => a + b, 0) / (dists.length || 1);
+        setActiveMeetingPlace({
+          placeId: String(place.id),
+          name: place.name,
+          category: place.category ?? null,
+          address: place.address ?? null,
+          openingHours: place.openingHours ?? null,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          distanceKmByOrigin: dists,
+          averageDistanceKm: avgDist,
+          maxDistanceKm: Math.max(...dists, 0),
+          spreadKm: Math.max(...dists, 0) - Math.min(...dists, 0),
+          relevanceScore: place.relevanceScore ?? 1,
+          distanceScore: place.distanceScore ?? 1,
+          fairnessScore: place.fairnessScore ?? 1,
+          finalScore: place.finalScore ?? 1,
+          durationMinutesByOrigin: dists.map((km) => Math.max(1, Math.round((km / 25) * 60))),
+        });
+      }
+    }
   }
 
   function handleSelectPlaceFromModalOrChat(lat: number, lng: number, name: string) {
@@ -206,15 +315,90 @@ export default function HomeMap() {
       (p) => Math.abs(p.latitude - lat) < 0.0001 && Math.abs(p.longitude - lng) < 0.0001,
     );
     if (matched) {
-      setSelectedPlace(matched);
+      handleSelectPlace(matched);
     } else {
-      setSelectedPlace({
+      const customPlace: PlaceType = {
         id: `custom_${Date.now()}`,
         name,
         latitude: lat,
         longitude: lng,
-      });
+      };
+      handleSelectPlace(customPlace);
     }
+  }
+
+  function handleGroupSearchResults(
+    results: MeetingPlace[],
+    centroidCoord: { lat: number; lng: number } | null,
+    origins: OriginItem[]
+  ) {
+    setGroupOrigins(origins);
+    setCentroid(centroidCoord);
+    setMeetingResults(results);
+
+    const mappedPlaces: PlaceType[] = results.map((r) => ({
+      id: r.placeId,
+      placeId: r.placeId,
+      name: r.name,
+      category: r.category,
+      address: r.address,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      distanceKm: r.averageDistanceKm,
+      relevanceScore: r.relevanceScore,
+      distanceScore: r.distanceScore,
+      fairnessScore: r.fairnessScore,
+      finalScore: r.finalScore,
+    }));
+
+    setPlaces(mappedPlaces);
+    setHasSearched(true);
+    setIsSidebarOpen(false);
+
+    if (results.length > 0) {
+      setActiveMeetingPlace(results[0]);
+      setSelectedPlace(mappedPlaces[0]);
+    }
+
+    if (centroidCoord) {
+      setFlyToTarget(centroidCoord);
+    }
+  }
+
+  function handleSelectGroupMeetingPlace(place: MeetingPlace, shouldCloseModal = true) {
+    setActiveMeetingPlace(place);
+    const p: PlaceType = {
+      id: place.placeId,
+      placeId: place.placeId,
+      name: place.name,
+      category: place.category,
+      address: place.address,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      distanceKm: place.averageDistanceKm,
+      relevanceScore: place.relevanceScore,
+      distanceScore: place.distanceScore,
+      fairnessScore: place.fairnessScore,
+      finalScore: place.finalScore,
+    };
+    setSelectedPlace(p);
+    setFlyToTarget({ lat: place.latitude, lng: place.longitude });
+    if (shouldCloseModal) {
+      setIsGroupMeetingOpen(false);
+    }
+  }
+
+  function handleScheduleFromGroup(place: PlaceType) {
+    setSelectedPlace(place);
+    setIsMeetingModalOpen(true);
+  }
+
+  function handleClearMeetingMode() {
+    setActiveMeetingPlace(null);
+    setGroupOrigins([]);
+    setMeetingResults([]);
+    setCentroid(null);
+    setSelectedPlace(null);
   }
 
   return (
@@ -226,6 +410,10 @@ export default function HomeMap() {
         userLocation={userLocation}
         onSelectPlace={handleSelectPlace}
         flyToTarget={flyToTarget}
+        groupOrigins={groupOrigins}
+        centroid={centroid}
+        activeMeetingPlace={activeMeetingPlace}
+        currentUserAvatar={currentUser?.avatarUrl}
       />
 
       {/* Top Search Bar & Controls */}
@@ -235,6 +423,68 @@ export default function HomeMap() {
           loading={loading}
         />
       </div>
+
+      {/* Floating Group Meeting Trigger Button (Góc dưới bên phải) */}
+      <button
+        type="button"
+        onClick={() => setIsGroupMeetingOpen(true)}
+        className="fixed right-5 bottom-40 z-[1000] flex items-center gap-3 rounded-2xl bg-card/95 border border-border shadow-lg backdrop-blur-md px-3.5 py-2.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/50 transition-all active:scale-95 group"
+        title="Bạn muốn tìm điểm hẹn chung?"
+      >
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
+          <Users className="h-4 w-4" />
+        </div>
+        <div className="text-left pr-1">
+          <div className="text-[12px] font-bold text-foreground leading-tight">
+            Bạn muốn tìm điểm hẹn chung?
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            Trợ lý AI tính vị trí công bằng
+          </div>
+        </div>
+      </button>
+
+      {/* Group Meeting Finder Modal (always mounted to preserve search state when viewing on map) */}
+      <GroupMeetingFinder
+        userLocation={userLocation}
+        isOpen={isGroupMeetingOpen}
+        activeMeetingPlaceId={activeMeetingPlace?.placeId}
+        onClose={() => setIsGroupMeetingOpen(false)}
+        onSearchResults={handleGroupSearchResults}
+        onSelectMeetingPlace={handleSelectGroupMeetingPlace}
+        onScheduleMeeting={handleScheduleFromGroup}
+      />
+
+      {/* Active Meeting Place Quick Indicator Banner */}
+      {activeMeetingPlace && !isGroupMeetingOpen && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[990] flex items-center gap-2 rounded-full border border-primary/30 bg-card/95 pl-4 pr-2 py-1.5 shadow-xl backdrop-blur-md text-xs animate-in fade-in slide-in-from-top-2">
+          <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="font-medium text-foreground">
+            Điểm hẹn: <span className="text-primary font-bold">{activeMeetingPlace.name}</span>
+          </span>
+
+          <div className="h-3.5 w-px bg-border mx-1" />
+
+          <button
+            type="button"
+            onClick={() => setIsGroupMeetingOpen(true)}
+            className="font-semibold text-primary hover:underline flex items-center gap-0.5 text-xs"
+            title="Mở lại danh sách điểm hẹn"
+          >
+            <span>Danh sách</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClearMeetingMode}
+            className="ml-1 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+            title="Hủy xem điểm hẹn (xóa lộ trình & tâm điểm trên bản đồ)"
+            aria-label="Hủy xem điểm hẹn"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Floating User Profile Dropdown */}
       <UserNavDropdown />
@@ -282,17 +532,20 @@ export default function HomeMap() {
       <button
         type="button"
         onClick={handleLocateUser}
-        className="fixed right-5 bottom-24 z-[1000] flex h-11 w-11 items-center justify-center rounded-full bg-card/95 border border-border shadow-md backdrop-blur-md text-foreground hover:bg-muted active:scale-95 transition-all"
-        title="Vị trí của tôi (GPS)"
-        aria-label="Vị trí của tôi (GPS)"
+        disabled={locating}
+        className="fixed right-5 bottom-24 z-[1000] flex h-11 w-11 items-center justify-center rounded-full bg-card/95 border border-border shadow-md backdrop-blur-md text-foreground hover:bg-muted active:scale-95 transition-all disabled:opacity-60"
+        title="Vị trí của tôi (GPS / Mạng)"
+        aria-label="Vị trí của tôi (GPS / Mạng)"
       >
-        <LocateFixed className="h-5 w-5 text-foreground" />
+        <LocateFixed className={`h-5 w-5 text-foreground ${locating ? "animate-spin text-primary" : ""}`} />
       </button>
 
       {/* Bottom Place Card Detail */}
       {selectedPlace && (
         <PlaceCard
           place={selectedPlace}
+          activeMeetingPlace={activeMeetingPlace}
+          groupOrigins={groupOrigins}
           onClose={() => setSelectedPlace(null)}
           onScheduleMeeting={() => setIsMeetingModalOpen(true)}
         />

@@ -42,4 +42,15 @@ public class User
     {
         Role = role;
     }
+
+    public void UpdateAdmin(string username, string email, UserRole role, string? newPasswordHash = null)
+    {
+        Username = username;
+        Email = email;
+        Role = role;
+        if (!string.IsNullOrWhiteSpace(newPasswordHash))
+        {
+            PasswordHash = newPasswordHash;
+        }
+    }
 }

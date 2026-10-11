@@ -14,6 +14,7 @@ function AuthCallbackContent() {
     const username = searchParams.get("username");
     const email = searchParams.get("email");
     const role = searchParams.get("role") || "User";
+    const avatar = searchParams.get("avatar") || undefined;
     const redirect = searchParams.get("redirect") || "/profile/calendar";
 
     if (token && username && email) {
@@ -21,6 +22,7 @@ function AuthCallbackContent() {
         id: "",
         username,
         email,
+        avatarUrl: avatar,
       });
       router.replace(redirect);
     } else {

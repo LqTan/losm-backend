@@ -2,7 +2,8 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Place } from "@/types/place";
+import type { Place, MeetingPlace } from "@/types/place";
+import type { OriginItem } from "@/components/meeting/GroupMeetingFinder";
 import {
   Calendar,
   Clock,
@@ -10,17 +11,26 @@ import {
   MapPin,
   Navigation2,
   Share2,
+  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
   place: Place;
+  activeMeetingPlace?: MeetingPlace | null;
+  groupOrigins?: OriginItem[];
   onClose: () => void;
   onScheduleMeeting?: (place: Place) => void;
 }
 
-export default function PlaceCard({ place, onClose, onScheduleMeeting }: Props) {
+export default function PlaceCard({
+  place,
+  activeMeetingPlace,
+  groupOrigins,
+  onClose,
+  onScheduleMeeting,
+}: Props) {
   function handleOpenGoogleMaps() {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
     window.open(url, "_blank", "noopener,noreferrer");
@@ -96,6 +106,49 @@ export default function PlaceCard({ place, onClose, onScheduleMeeting }: Props) 
           </span>
         </div>
       </div>
+
+      {/* Khoảng cách từng thành viên khi đang trong chế độ điểm hẹn */}
+      {groupOrigins && groupOrigins.length > 0 && activeMeetingPlace && (
+        <div className="mt-2.5 rounded-xl border border-primary/20 bg-primary/5 p-2.5 text-xs">
+          <div className="font-semibold text-primary mb-1.5 flex items-center justify-between text-[11px]">
+            <span className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" />
+              Khoảng cách từng người đến đây:
+            </span>
+            {activeMeetingPlace.fairnessScore !== undefined && (
+              <span className="text-[10px] text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded border border-border/50">
+                Công bằng: {Math.round(activeMeetingPlace.fairnessScore * 100)}%
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {groupOrigins.map((orig, idx) => {
+              const dist = activeMeetingPlace.distanceKmByOrigin?.[idx];
+              const dur = activeMeetingPlace.durationMinutesByOrigin?.[idx];
+              return (
+                <div
+                  key={orig.id}
+                  className="flex items-center justify-between text-[11px] bg-background/70 px-2 py-1 rounded-md border border-border/40"
+                >
+                  <span className="font-semibold text-foreground truncate max-w-[65px]">
+                    {orig.name}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-primary font-bold">
+                      {dist !== undefined && dist !== null ? `${dist.toFixed(1)} km` : "—"}
+                    </span>
+                    {dur !== undefined && dur !== null && (
+                      <span className="text-muted-foreground text-[10px]">
+                        ({Math.round(dur)}p)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="mt-3 flex items-center gap-2">

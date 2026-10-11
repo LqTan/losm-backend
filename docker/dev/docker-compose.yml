@@ -43,6 +43,18 @@ services:
     command: ["--help"]
     restart: "no"
 
+  # OSRM Routing Engine (Tùy chọn: Chạy local container thay vì dùng public API router.project-osrm.org)
+  # Yêu cầu tải dữ liệu bản đồ OSM: ví dụ vietnam-latest.osrm vào thư mục docker/dev/osrm-data
+  # osrm:
+  #   image: osrm/osrm-backend:latest
+  #   container_name: location-search-osrm-dev
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./osrm-data:/data
+  #   command: osrm-routed --algorithm mld /data/vietnam.osrm
+
 volumes:
   sqlserver-data:
   # es-data:
+  # osrm-data:

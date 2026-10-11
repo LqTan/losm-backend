@@ -23,6 +23,7 @@ import {
   LogOut,
   Activity,
   Database,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,6 +32,7 @@ import { clearAuth, isAdmin } from "@/lib/auth";
 
 const items = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/places", label: "Places", icon: MapPin },
   { href: "/admin/overture/areas", label: "Areas", icon: Map },
   { href: "/admin/overture", label: "Overture Import", icon: Database },

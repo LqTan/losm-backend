@@ -109,6 +109,7 @@ public class UsersController : ControllerBase
             username = user.Username,
             email = user.Email,
             role = user.Role.ToString(),
+            avatar = request.AvatarUrl,
             token = token
         });
     }
@@ -213,6 +214,7 @@ public class UsersController : ControllerBase
 
             var googleEmail = userinfoDoc.RootElement.TryGetProperty("email", out var eElem) ? eElem.GetString() : null;
             var googleName = userinfoDoc.RootElement.TryGetProperty("name", out var nElem) ? nElem.GetString() : null;
+            var googlePicture = userinfoDoc.RootElement.TryGetProperty("picture", out var pElem) ? pElem.GetString() : null;
 
             if (string.IsNullOrWhiteSpace(googleEmail))
             {
@@ -254,6 +256,7 @@ public class UsersController : ControllerBase
                 $"&username={Uri.EscapeDataString(user.Username)}" +
                 $"&email={Uri.EscapeDataString(user.Email)}" +
                 $"&role={Uri.EscapeDataString(user.Role.ToString())}" +
+                (string.IsNullOrWhiteSpace(googlePicture) ? "" : $"&avatar={Uri.EscapeDataString(googlePicture)}") +
                 $"&redirect={Uri.EscapeDataString(redirectPath)}";
 
             return Redirect(callbackUrl);

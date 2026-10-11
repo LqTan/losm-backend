@@ -52,3 +52,32 @@ body {
     color: var(--foreground);
 }
 
+/* Floating Polyline Distance Badge */
+.distance-badge {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+}
+.distance-badge::before {
+    display: none !important;
+}
+
+/* Custom Leaflet Teardrop Pin Marker Reset */
+.losm-teardrop-pin {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.losm-teardrop-pin img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 50% !important;
+    display: block !important;
+}
+

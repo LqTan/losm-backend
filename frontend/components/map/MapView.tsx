@@ -1,17 +1,106 @@
 "use client";
 
+import L from "leaflet";
 import {
   CircleMarker,
   MapContainer,
+  Marker,
+  Polyline,
   Popup,
   TileLayer,
+  Tooltip,
   useMap,
 } from "react-leaflet";
-import type { Place } from "@/types/place";
-import { useEffect } from "react";
+import type { Place, MeetingPlace } from "@/types/place";
+import { Fragment, useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 
 const DEFAULT_CENTER: [number, number] = [10.7769, 106.7009];
+const ORIGIN_COLORS = ["#0284c7", "#f97316", "#a855f7", "#10b981", "#ef4444"];
+
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function createTeardropPinIcon({
+  name,
+  avatarUrl,
+  color = "#2563eb",
+  isMe = false,
+}: {
+  name: string;
+  avatarUrl?: string;
+  color?: string;
+  isMe?: boolean;
+}) {
+  const pinWidth = 40;
+  const pinHeight = 52;
+  const iconAnchorX = 20;
+  const iconAnchorY = 50;
+
+  const clipId = `av_clip_${Math.random().toString(36).slice(2, 9)}`;
+
+  const safeUrl = avatarUrl && avatarUrl.trim()
+    ? (avatarUrl.trim().startsWith("http")
+        ? `/api/avatar?url=${encodeURIComponent(avatarUrl.trim())}`
+        : avatarUrl.trim())
+    : `/api/avatar?name=${encodeURIComponent(name || "Tôi")}&color=${encodeURIComponent(color)}`;
+
+  const badgeBorderColor = isMe ? "#10b981" : "#ffffff";
+
+  const html = `
+    <div style="position: relative; width: ${pinWidth}px; height: ${pinHeight}px; display: flex; flex-direction: column; align-items: center; cursor: pointer; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.45));">
+      <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 40 52" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="position: absolute; left: 0; top: 0; pointer-events: none;">
+        <defs>
+          <clipPath id="${clipId}">
+            <circle cx="20" cy="20" r="14.5"/>
+          </clipPath>
+        </defs>
+        <path d="M20 2 C10.1 2 2 10.1 2 20 C2 31.5 20 50 20 50 C20 50 38 31.5 38 20 C38 10.1 29.9 2 20 2 Z" fill="${color}" stroke="${badgeBorderColor}" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="20" cy="20" r="15" fill="#ffffff"/>
+        <image href="${safeUrl}" xlink:href="${safeUrl}" x="5.5" y="5.5" width="29" height="29" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>
+      </svg>
+      <div style="position: absolute; top: 5px; left: 5px; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; z-index: 10; display: block; box-shadow: 0 1px 2px rgba(0,0,0,0.2);">
+        <img
+          src="${safeUrl}"
+          alt="${name}"
+          style="width: 30px !important; height: 30px !important; min-width: 30px !important; min-height: 30px !important; max-width: 30px !important; max-height: 30px !important; object-fit: cover; border-radius: 50%; display: block;"
+        />
+      </div>
+      ${
+        isMe
+          ? `<span style="position: absolute; top: -14px; background: #10b981; color: white; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 1px solid white; z-index: 20;">Tôi</span>`
+          : ""
+      }
+    </div>
+  `;
+
+  return L.divIcon({
+    className: "losm-teardrop-pin",
+    html,
+    iconSize: [pinWidth, pinHeight],
+    iconAnchor: [iconAnchorX, iconAnchorY],
+    popupAnchor: [0, -iconAnchorY],
+  });
+}
+
+export interface MapOrigin {
+  id?: string;
+  name: string;
+  lat: number;
+  lng: number;
+  avatarUrl?: string;
+}
 
 interface Props {
   places: Place[];
@@ -19,6 +108,10 @@ interface Props {
   userLocation: { lat: number; lng: number } | null;
   onSelectPlace: (place: Place) => void;
   flyToTarget?: { lat: number; lng: number } | null;
+  groupOrigins?: MapOrigin[];
+  centroid?: { lat: number; lng: number } | null;
+  activeMeetingPlace?: MeetingPlace | null;
+  currentUserAvatar?: string;
 }
 
 function MapViewController({
@@ -30,11 +123,11 @@ function MapViewController({
 
   useEffect(() => {
     if (target && target.lat && target.lng) {
-      map.flyTo([target.lat, target.lng], 15, {
+      map.flyTo([target.lat, target.lng], 16, {
         duration: 1.2,
       });
     }
-  }, [target, map]);
+  }, [target?.lat, target?.lng, map]);
 
   return null;
 }
@@ -45,6 +138,10 @@ export default function MapView({
   userLocation,
   onSelectPlace,
   flyToTarget,
+  groupOrigins,
+  centroid,
+  activeMeetingPlace,
+  currentUserAvatar,
 }: Props) {
   const centerPos = userLocation
     ? ([userLocation.lat, userLocation.lng] as [number, number])
@@ -68,34 +165,213 @@ export default function MapView({
 
       {/* User Current Location Marker */}
       {userLocation && (
+        <Fragment key={`user_loc_group_${userLocation.lat}_${userLocation.lng}`}>
+          <CircleMarker
+            center={[userLocation.lat, userLocation.lng]}
+            radius={7}
+            pathOptions={{
+              color: "#ffffff",
+              weight: 2,
+              fillColor: "#0284c7",
+              fillOpacity: 0.9,
+            }}
+          >
+            <Popup>
+              <div className="text-xs font-semibold p-1">
+                📍 Vị trí hiện tại của bạn
+              </div>
+            </Popup>
+          </CircleMarker>
+          {(!groupOrigins || groupOrigins.length === 0) && (
+            <Marker
+              key={`user_pin_${userLocation.lat}_${userLocation.lng}_${currentUserAvatar || "no_av"}`}
+              position={[userLocation.lat, userLocation.lng]}
+              icon={createTeardropPinIcon({
+                name: "Vị trí của bạn",
+                avatarUrl: currentUserAvatar,
+                color: "#0284c7",
+                isMe: true,
+              })}
+            >
+              <Popup>
+                <div className="p-1 text-xs font-bold text-slate-900">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    {currentUserAvatar ? (
+                      <img
+                        src={`/api/avatar?url=${encodeURIComponent(currentUserAvatar)}`}
+                        alt="Tôi"
+                        className="h-5 w-5 rounded-full object-cover border"
+                      />
+                    ) : (
+                      <span>📍</span>
+                    )}
+                    <span>Vị trí hiện tại của bạn</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-normal">
+                    {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+        </Fragment>
+      )}
+
+      {/* Group Origins Markers */}
+      {groupOrigins &&
+        groupOrigins.map((orig, idx) => {
+          const color = ORIGIN_COLORS[idx % ORIGIN_COLORS.length];
+          const isMe = idx === 0 || orig.name.includes("Tôi");
+          const avatar = isMe ? (orig.avatarUrl || currentUserAvatar) : orig.avatarUrl;
+
+          return (
+            <Fragment key={`orig_marker_grp_${idx}_${orig.lat}_${orig.lng}`}>
+              {/* Giữ nguyên chấm tròn định vị ("bổ sung thêm không có bảo sửa hay xóa nha") */}
+              <CircleMarker
+                key={`orig_dot_${idx}_${orig.lat}_${orig.lng}`}
+                center={[orig.lat, orig.lng]}
+                radius={6}
+                pathOptions={{
+                  color: "#ffffff",
+                  weight: 2,
+                  fillColor: color,
+                  fillOpacity: 0.95,
+                }}
+              />
+              {/* Bổ sung Marker hình giọt nước úp ngược với Avatar tròn bên trong */}
+              <Marker
+                key={`orig_pin_${idx}_${orig.lat}_${orig.lng}_${avatar || "no_av"}`}
+                position={[orig.lat, orig.lng]}
+                icon={createTeardropPinIcon({
+                  name: orig.name,
+                  avatarUrl: avatar,
+                  color: color,
+                  isMe: isMe,
+                })}
+              >
+                <Popup>
+                  <div className="p-1 text-xs font-bold text-slate-900">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {avatar ? (
+                        <img
+                          src={avatar.startsWith("http") ? `/api/avatar?url=${encodeURIComponent(avatar)}` : avatar}
+                          alt={orig.name}
+                          className="h-5 w-5 rounded-full object-cover border"
+                        />
+                      ) : (
+                        <span>👤</span>
+                      )}
+                      <span>{orig.name}</span>
+                      {isMe && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">
+                          Chủ trì
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-normal">
+                      Tọa độ: {orig.lat.toFixed(4)}, {orig.lng.toFixed(4)}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            </Fragment>
+          );
+        })}
+
+      {/* Centroid Marker (Green crosshair) */}
+      {centroid && (
         <CircleMarker
-          center={[userLocation.lat, userLocation.lng]}
-          radius={8}
+          center={[centroid.lat, centroid.lng]}
+          radius={11}
           pathOptions={{
-            color: "#ffffff",
-            weight: 2.5,
-            fillColor: "#0284c7",
-            fillOpacity: 0.9,
+            color: "#059669",
+            weight: 2,
+            dashArray: "4, 4",
+            fillColor: "#10b981",
+            fillOpacity: 0.35,
           }}
         >
           <Popup>
-            <div className="text-xs font-semibold p-1">
-              📍 Vị trí hiện tại của bạn
+            <div className="p-1 text-xs font-bold text-emerald-800">
+              🎯 Tâm điểm hẹn lý tưởng (Centroid)
             </div>
           </Popup>
         </CircleMarker>
       )}
 
+      {/* Polyline connections to active meeting place */}
+      {activeMeetingPlace &&
+        groupOrigins &&
+        groupOrigins.map((orig, idx) => {
+          const distNum =
+            activeMeetingPlace.distanceKmByOrigin?.[idx] ??
+            getDistanceKm(orig.lat, orig.lng, activeMeetingPlace.latitude, activeMeetingPlace.longitude);
+          const dur = activeMeetingPlace.durationMinutesByOrigin?.[idx];
+
+          return (
+            <Polyline
+              key={`conn_line_${idx}_${activeMeetingPlace.latitude}_${activeMeetingPlace.longitude}`}
+              positions={[
+                [orig.lat, orig.lng],
+                [activeMeetingPlace.latitude, activeMeetingPlace.longitude],
+              ]}
+              pathOptions={{
+                color: "#2563eb",
+                weight: 3,
+                dashArray: "6, 6",
+                opacity: 0.85,
+              }}
+            >
+              <Tooltip
+                permanent
+                direction="center"
+                className="distance-badge"
+              >
+                <div className="flex items-center gap-1.5 font-bold text-[11px] bg-slate-900/95 text-white border border-slate-700 shadow-xl px-2.5 py-1 rounded-full whitespace-nowrap backdrop-blur-md">
+                  <span className="text-blue-400 font-semibold">{orig.name}:</span>
+                  <span>{distNum.toFixed(1)} km</span>
+                  {dur !== undefined && dur !== null && (
+                    <span className="text-slate-300 text-[10px] font-normal">
+                      (~{Math.round(dur)}p)
+                    </span>
+                  )}
+                </div>
+              </Tooltip>
+
+              <Popup>
+                <div className="p-1 text-xs font-medium space-y-0.5">
+                  <div className="font-bold text-slate-900">
+                    🚗 {orig.name} ➔ {activeMeetingPlace.name}
+                  </div>
+                  <div className="text-blue-600 font-semibold">
+                    Khoảng cách: {distNum.toFixed(1)} km
+                  </div>
+                  {dur !== undefined && dur !== null && (
+                    <div className="text-slate-600">
+                      Thời gian ước tính: ~{Math.round(dur)} phút
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Polyline>
+          );
+        })}
+
       {/* Place Markers */}
       {places.map((place) => {
-        const isSelected = selectedPlace?.id === place.id;
-        const color = isSelected ? "#0f172a" : "#2563eb";
+        const isActiveMeeting =
+          activeMeetingPlace &&
+          (activeMeetingPlace.placeId === String(place.id) ||
+            (Math.abs(activeMeetingPlace.latitude - place.latitude) < 0.0001 &&
+              Math.abs(activeMeetingPlace.longitude - place.longitude) < 0.0001));
+        const isSelected = selectedPlace?.id === place.id || Boolean(isActiveMeeting);
+        const color = isActiveMeeting ? "#8b5cf6" : isSelected ? "#0f172a" : "#2563eb";
 
         return (
           <CircleMarker
             key={place.id}
             center={[place.latitude, place.longitude]}
-            radius={isSelected ? 12 : 8}
+            radius={isActiveMeeting ? 13 : isSelected ? 11 : 8}
             pathOptions={{
               color: isSelected ? "#ffffff" : color,
               weight: isSelected ? 3 : 1.5,
@@ -108,6 +384,11 @@ export default function MapView({
           >
             <Popup>
               <div className="p-1 space-y-1 text-xs">
+                {isActiveMeeting && (
+                  <div className="inline-block bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded text-[10px] mb-0.5">
+                    📍 Điểm hẹn đang chọn
+                  </div>
+                )}
                 <p className="font-bold text-sm text-gray-900 leading-tight">
                   {place.name}
                 </p>

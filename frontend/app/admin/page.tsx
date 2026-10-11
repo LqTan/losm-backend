@@ -16,6 +16,7 @@ import {
   MapPin,
   RefreshCw,
   Sparkles,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ interface RecurringConfig {
 export default function AdminOverviewPage() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [placesCount, setPlacesCount] = useState<number | null>(null);
+  const [usersCount, setUsersCount] = useState<number | null>(null);
   const [recurring, setRecurring] = useState<RecurringConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,13 +39,14 @@ export default function AdminOverviewPage() {
     void (async () => {
       try {
         const token = getToken();
-        const [areasData, settingsData, placesData] = await Promise.allSettled([
+        const [areasData, settingsData, placesData, usersData] = await Promise.allSettled([
           api.get<Area[]>("/api/areas", token),
           api.get<{ key: string; valueJson: string }>(
             "/api/admin/overture/settings/overture.recurring",
             token
           ),
           api.get<PagedResult<Place>>("/api/places?page=1&pageSize=1", token),
+          api.get<PagedResult<{ id: string }>>("/api/admin/users?page=1&pageSize=1", token),
         ]);
 
         if (areasData.status === "fulfilled") {
@@ -52,6 +55,10 @@ export default function AdminOverviewPage() {
 
         if (placesData.status === "fulfilled") {
           setPlacesCount(placesData.value.totalCount);
+        }
+
+        if (usersData.status === "fulfilled") {
+          setUsersCount(usersData.value.totalCount);
         }
 
         if (settingsData.status === "fulfilled" && settingsData.value?.valueJson) {
@@ -81,7 +88,32 @@ export default function AdminOverviewPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {/* Users Card */}
+        <Card className="relative overflow-hidden transition-all hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {loading ? "…" : usersCount !== null ? usersCount.toLocaleString() : "0"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Registered user accounts
+            </p>
+            <div className="mt-4 pt-3 border-t">
+              <Link
+                href="/admin/users"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <span>Manage users</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Places Card */}
         <Card className="relative overflow-hidden transition-all hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -192,6 +224,23 @@ export default function AdminOverviewPage() {
       <div className="space-y-4">
         <h3 className="text-base font-semibold">Quick Actions</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Link
+            href="/admin/users"
+            className="group flex flex-col justify-between rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:bg-muted/30"
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 font-medium">
+                <Users className="h-4 w-4 text-primary" />
+                <span>Quản lý Người dùng</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Xem, thêm mới, phân quyền và xóa tài khoản người dùng
+              </p>
+            </div>
+            <span className="mt-4 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+              Quản lý &rarr;
+            </span>
+          </Link>
           <Link
             href="/admin/overture"
             className="group flex flex-col justify-between rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:bg-muted/30"

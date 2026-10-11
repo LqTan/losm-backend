@@ -48,6 +48,7 @@ export default function ProfilePage() {
             username: profile.username,
             email: profile.email,
             role: profile.role || prev?.role || "User",
+            avatarUrl: prev?.avatarUrl,
           }));
           setUsernameInput(profile.username);
         }
@@ -138,6 +139,23 @@ export default function ProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {currentUser?.avatarUrl && (
+              <div className="mb-4 flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5">
+                <img
+                  src={currentUser.avatarUrl.startsWith("http") ? `/api/avatar?url=${encodeURIComponent(currentUser.avatarUrl)}` : currentUser.avatarUrl}
+                  alt={currentUser.username}
+                  className="h-12 w-12 rounded-xl object-cover border border-border shadow-sm shrink-0"
+                />
+                <div>
+                  <div className="text-xs font-semibold text-foreground">
+                    Ảnh đại diện Google
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Được đồng bộ tự động từ tài khoản Google của bạn
+                  </div>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="username" className="text-xs font-medium">

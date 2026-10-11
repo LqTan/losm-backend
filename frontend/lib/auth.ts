@@ -9,9 +9,14 @@ export interface StoredUser {
   username: string;
   email: string;
   role: string;
+  avatarUrl?: string;
 }
 
-export function setAuth(token: string, role: string, user?: { id: string; username: string; email: string }) {
+export function setAuth(
+  token: string,
+  role: string,
+  user?: { id: string; username: string; email: string; avatarUrl?: string }
+) {
   if (typeof window === "undefined") return;
   localStorage.setItem(TokenKey, token);
   localStorage.setItem(RoleKey, role);

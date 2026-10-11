@@ -9,17 +9,20 @@ public sealed class SearchMeetingPlacesHandler
     private readonly IRelevanceScorer _relevanceScorer;
     private readonly IRankingService _rankingService;
     private readonly ITuningProvider _tuning;
+    private readonly IOsrmTableService _osrmTableService;
 
     public SearchMeetingPlacesHandler(
         IPlaceSearchService placeSearchService,
         IRelevanceScorer relevanceScorer,
         IRankingService rankingService,
-        ITuningProvider tuning)
+        ITuningProvider tuning,
+        IOsrmTableService osrmTableService)
     {
         _placeSearchService = placeSearchService;
         _relevanceScorer = relevanceScorer;
         _rankingService = rankingService;
         _tuning = tuning;
+        _osrmTableService = osrmTableService;
     }
 
     public async Task<SearchMeetingPlacesResult> HandleAsync(
@@ -75,15 +78,55 @@ public sealed class SearchMeetingPlacesHandler
         var scoreByPlaceId = relevanceScores.ToDictionary(
             x => x.PlaceId, x => x.Score);
 
+        // Fetch OSRM Table matrix (sources = origins, destinations = candidates)
+        OsrmTableMatrix? osrmMatrix = null;
+        if (candidates.Count > 0)
+        {
+            var sources = query.Origins
+                .Select(o => new GeoCoordinate(o.Latitude, o.Longitude))
+                .ToList();
+            var destinations = candidates
+                .Select(c => new GeoCoordinate(c.Latitude, c.Longitude))
+                .ToList();
+
+            osrmMatrix = await _osrmTableService.GetTableAsync(
+                sources,
+                destinations,
+                cancellationToken
+            );
+        }
+
         var results = new List<SearchMeetingPlaceResult>(candidates.Count);
 
-        foreach (var place in candidates)
+        for (var j = 0; j < candidates.Count; j++)
         {
-            var distancesByOrigin = query.Origins
-                .Select(o => _rankingService.CalculateDistanceKm(
-                    o.Latitude, o.Longitude,
-                    place.Latitude, place.Longitude))
-                .ToList();
+            var place = candidates[j];
+            List<double> distancesByOrigin;
+            List<double>? durationsByOrigin = null;
+            bool isRoad = false;
+
+            if (osrmMatrix is not null
+                && osrmMatrix.DistancesKm.Count == query.Origins.Count
+                && osrmMatrix.DistancesKm[0].Count > j)
+            {
+                distancesByOrigin = Enumerable.Range(0, query.Origins.Count)
+                    .Select(i => osrmMatrix.DistancesKm[i][j])
+                    .ToList();
+
+                durationsByOrigin = Enumerable.Range(0, query.Origins.Count)
+                    .Select(i => osrmMatrix.DurationsMinutes[i][j])
+                    .ToList();
+
+                isRoad = true;
+            }
+            else
+            {
+                distancesByOrigin = query.Origins
+                    .Select(o => _rankingService.CalculateDistanceKm(
+                        o.Latitude, o.Longitude,
+                        place.Latitude, place.Longitude))
+                    .ToList();
+            }
 
             var relevanceScore = scoreByPlaceId.GetValueOrDefault(place.Id);
 
@@ -96,6 +139,14 @@ public sealed class SearchMeetingPlacesHandler
                 cancellationToken
             );
 
+            double? avgDuration = durationsByOrigin is { Count: > 0 }
+                ? Math.Round(durationsByOrigin.Average(), 1)
+                : null;
+
+            double? spreadDuration = durationsByOrigin is { Count: > 0 }
+                ? Math.Round(durationsByOrigin.Max() - durationsByOrigin.Min(), 1)
+                : null;
+
             results.Add(new SearchMeetingPlaceResult(
                 place.Id,
                 place.Name,
@@ -105,13 +156,17 @@ public sealed class SearchMeetingPlacesHandler
                 place.Category,
                 place.OpeningHours,
                 distancesByOrigin,
-                distancesByOrigin.Average(),
-                distancesByOrigin.Max(),
-                distancesByOrigin.Max() - distancesByOrigin.Min(),
+                Math.Round(distancesByOrigin.Average(), 2),
+                Math.Round(distancesByOrigin.Max(), 2),
+                Math.Round(distancesByOrigin.Max() - distancesByOrigin.Min(), 2),
                 relevanceScore,
                 breakdown.DistanceScore,
                 breakdown.FairnessScore,
-                breakdown.FinalScore
+                breakdown.FinalScore,
+                durationsByOrigin,
+                avgDuration,
+                spreadDuration,
+                isRoad
             ));
         }
 

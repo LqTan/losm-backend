@@ -44,6 +44,10 @@ export interface MeetingPlace {
     distanceScore: number;
     fairnessScore: number;
     finalScore: number;
+    durationMinutesByOrigin?: number[] | null;
+    averageDurationMinutes?: number | null;
+    spreadMinutes?: number | null;
+    isRoadRouting?: boolean;
 }
 
 export interface SearchMeetingPlacesResponse {

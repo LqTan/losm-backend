@@ -28,7 +28,11 @@ public sealed record SearchMeetingPlaceResult(
     double RelevanceScore,
     double DistanceScore,
     double FairnessScore,
-    double FinalScore
+    double FinalScore,
+    IReadOnlyList<double>? DurationMinutesByOrigin = null,
+    double? AverageDurationMinutes = null,
+    double? SpreadMinutes = null,
+    bool IsRoadRouting = false
 );
 
 public sealed record SearchMeetingPlacesResult(

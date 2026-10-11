@@ -78,3 +78,12 @@ export interface UpdatePlaceInput {
   openingHours?: string | null;
   source?: string | null;
 }
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string | null;
+}

@@ -77,9 +77,17 @@ export default function ProfileLayout({
         <SidebarHeader className="border-b px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background font-bold text-xs">
-                {initials}
-              </div>
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl.startsWith("http") ? `/api/avatar?url=${encodeURIComponent(user.avatarUrl)}` : user.avatarUrl}
+                  alt={user.username}
+                  className="h-8 w-8 rounded-lg object-cover border border-border shrink-0"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background font-bold text-xs shrink-0">
+                  {initials}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground truncate">
                   {user?.username || "Người dùng"}

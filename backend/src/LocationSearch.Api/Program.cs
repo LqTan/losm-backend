@@ -98,7 +98,7 @@ builder.Services.AddConfigurationModule(builder.Configuration);
 builder.Services.AddPlaces(builder.Configuration);
 builder.Services.AddReviews(builder.Configuration);
 builder.Services.AddUsers(builder.Configuration);
-builder.Services.AddSearch();
+builder.Services.AddSearch(builder.Configuration);
 builder.Services.AddAreas(builder.Configuration);
 builder.Services.AddOverture(builder.Configuration);
 

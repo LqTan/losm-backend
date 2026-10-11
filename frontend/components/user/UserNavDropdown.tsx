@@ -72,9 +72,17 @@ export default function UserNavDropdown() {
           className="h-11 px-3 rounded-xl bg-card/95 border shadow-md flex items-center gap-2 backdrop-blur-md hover:bg-muted outline-none cursor-pointer transition text-left"
           title="Tài khoản cá nhân"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background text-xs font-bold shrink-0">
-            {initials}
-          </div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl.startsWith("http") ? `/api/avatar?url=${encodeURIComponent(user.avatarUrl)}` : user.avatarUrl}
+              alt={user.username}
+              className="h-7 w-7 rounded-lg object-cover border border-border shrink-0"
+            />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background text-xs font-bold shrink-0">
+              {initials}
+            </div>
+          )}
           <span className="hidden sm:inline-block max-w-[100px] truncate text-xs font-medium text-foreground">
             {user.username}
           </span>
@@ -82,16 +90,29 @@ export default function UserNavDropdown() {
 
         <DropdownMenuContent align="end" className="w-56 p-1.5 shadow-xl">
           <div className="p-2">
-            <div className="flex flex-col space-y-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {user.username}
-                </p>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                  {user.role || "Thành viên"}
-                </Badge>
+            <div className="flex items-center gap-2.5">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl.startsWith("http") ? `/api/avatar?url=${encodeURIComponent(user.avatarUrl)}` : user.avatarUrl}
+                  alt={user.username}
+                  className="h-9 w-9 rounded-xl object-cover border border-border shrink-0"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-background text-sm font-bold shrink-0">
+                  {initials}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {user.username}
+                  </p>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                    {user.role || "Thành viên"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
 
