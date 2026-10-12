@@ -78,11 +78,9 @@ function createTeardropPinIcon({
           style="width: 30px !important; height: 30px !important; min-width: 30px !important; min-height: 30px !important; max-width: 30px !important; max-height: 30px !important; object-fit: cover; border-radius: 50%; display: block;"
         />
       </div>
-      ${
-        isMe
-          ? `<span style="position: absolute; top: -14px; background: #10b981; color: white; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 1px solid white; z-index: 20;">Tôi</span>`
-          : ""
-      }
+      <span style="position: absolute; top: -14px; background: ${isMe ? '#10b981' : color}; color: white; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 1px solid white; z-index: 20; max-width: 85px; overflow: hidden; text-overflow: ellipsis;">
+        ${isMe ? "Tôi" : (name || "Người")}
+      </span>
     </div>
   `;
 

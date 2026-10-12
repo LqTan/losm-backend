@@ -20,12 +20,23 @@ internal static class AttachedPlaceExtractor
         {
             using var doc = JsonDocument.Parse(toolResultJson);
 
-            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            JsonElement arrayElem;
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                arrayElem = doc.RootElement;
+            }
+            else if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                     doc.RootElement.TryGetProperty("results", out var resElem) &&
+                     resElem.ValueKind == JsonValueKind.Array)
+            {
+                arrayElem = resElem;
+            }
+            else
             {
                 return [];
             }
 
-            foreach (var elem in doc.RootElement.EnumerateArray())
+            foreach (var elem in arrayElem.EnumerateArray())
             {
                 if (elem.ValueKind != JsonValueKind.Object) continue;
 

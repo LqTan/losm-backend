@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError } from "@/lib/api";
 import { getToken, getUser, StoredUser, AUTH_CHANGE_EVENT } from "@/lib/auth";
 import type { MeetingPlace, SearchMeetingPlacesResponse, Place } from "@/types/place";
@@ -85,11 +86,12 @@ export default function GroupMeetingFinder({
   const [loadingFriends, setLoadingFriends] = useState(false);
 
   const [aiPrompt, setAiPrompt] = useState(
-    "Tìm quán cà phê yên tĩnh có không gian họp nhóm và đồ uống ngon"
+    "Tôi đang ở Chợ Bến Thành và bạn tôi đang ở UBND Quận 1, tìm 1 quán ăn phù hợp"
   );
   const [loading, setLoading] = useState(false);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [results, setResults] = useState<MeetingPlace[]>([]);
+  const [activeOrigins, setActiveOrigins] = useState<OriginItem[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => {
@@ -199,33 +201,8 @@ export default function GroupMeetingFinder({
       return;
     }
 
-    if (selectedFriends.length === 0) {
-      toast.error("Vui lòng chọn ít nhất 1 người bạn để tính điểm hẹn");
-      return;
-    }
-
-    // Origins = [Tôi, ...selectedFriends]
     const myLat = userLocation?.lat ?? 10.7769;
     const myLng = userLocation?.lng ?? 106.7009;
-
-    const allOrigins: OriginItem[] = [
-      {
-        id: "me",
-        name: currentUser?.username ? `${currentUser.username} (Tôi)` : "Tôi",
-        address: userLocation ? "GPS Hiện tại" : "Quận 1 (Trung tâm)",
-        lat: myLat,
-        lng: myLng,
-        avatarUrl: currentUser?.avatarUrl,
-      },
-      ...selectedFriends.map((f) => ({
-        id: f.id,
-        name: f.name,
-        address: f.addressName,
-        lat: f.lat,
-        lng: f.lng,
-        avatarUrl: f.avatarUrl,
-      })),
-    ];
 
     setLoading(true);
     setAiInsight(null);
@@ -233,84 +210,75 @@ export default function GroupMeetingFinder({
     try {
       const token = getToken();
 
-      // 1. Tính toán điểm hẹn và định tuyến OSRM
+      // Gọi endpoint phân tích AI và tối ưu hóa điểm hẹn nhóm qua MiniMax & OSRM
       const payload = {
-        query: promptText,
-        origins: allOrigins.map((o) => ({
-          name: o.name,
-          latitude: o.lat,
-          longitude: o.lng,
+        prompt: promptText,
+        userLatitude: myLat,
+        userLongitude: myLng,
+        friends: selectedFriends.map((f) => ({
+          name: f.name,
+          latitude: f.lat,
+          longitude: f.lng,
+          avatarUrl: f.avatarUrl,
         })),
-        radiusKm: 6,
-        topK: 10,
       };
 
-      const res = await api.post<SearchMeetingPlacesResponse>(
-        "/api/search/meeting-places",
-        payload,
-        token
-      );
+      const res = await api.post<{
+        query: string;
+        centroid: { lat: number; lng: number };
+        origins: OriginItem[];
+        results: MeetingPlace[];
+        aiInsight?: string;
+      }>("/api/agent/meeting-search", payload, token);
 
       const items = res?.results ?? [];
+      const returnedOrigins: OriginItem[] =
+        res?.origins && res.origins.length > 0
+          ? res.origins
+          : [
+              {
+                id: "me",
+                name: currentUser?.username ? `${currentUser.username} (Tôi)` : "Tôi",
+                address: userLocation ? "GPS Hiện tại" : "Quận 1 (Trung tâm)",
+                lat: myLat,
+                lng: myLng,
+                avatarUrl: currentUser?.avatarUrl,
+              },
+              ...selectedFriends.map((f) => ({
+                id: f.id,
+                name: f.name,
+                address: f.addressName,
+                lat: f.lat,
+                lng: f.lng,
+                avatarUrl: f.avatarUrl,
+              })),
+            ];
+
       setResults(items);
+      setActiveOrigins(returnedOrigins);
       setHasSearched(true);
 
-      const centroid = res
-        ? { lat: res.centroidLatitude, lng: res.centroidLongitude }
-        : null;
+      if (res?.aiInsight) {
+        setAiInsight(res.aiInsight);
+      }
 
-      onSearchResults(items, centroid, allOrigins);
+      const centroidCoord = res?.centroid ? { lat: res.centroid.lat, lng: res.centroid.lng } : null;
+
+      onSearchResults(items, centroidCoord, returnedOrigins);
 
       if (items.length > 0) {
         setSelectedResultId(items[0].placeId);
         onSelectMeetingPlace(items[0], false);
-
-        // 2. Gọi MiniMax AI để nhận xét & tư vấn ngắn gọn
-        try {
-          const topPlace = items[0];
-          const membersList = ["Tôi", ...selectedFriends.map((f) => f.name)].join(", ");
-          const distancesInfo = allOrigins
-            .map((o, idx) => {
-              const dist = topPlace.distanceKmByOrigin?.[idx];
-              const dur = topPlace.durationMinutesByOrigin?.[idx];
-              const distStr = dist != null ? `${dist.toFixed(1)} km` : "";
-              const durStr = dur != null ? ` (~${Math.round(dur)} phút)` : "";
-              return `${o.name}: ${distStr}${durStr}`;
-            })
-            .join("; ");
-
-          const prompt = `Bạn là trợ lý điểm hẹn nhóm. Nhóm gồm: ${membersList}. Yêu cầu: "${promptText}".
-Hệ thống OSRM đã chọn quán tối ưu nhất cho nhóm là: "${topPlace.name}" (${topPlace.address ?? "TP.HCM"}).
-Khoảng cách di chuyển: ${distancesInfo}.
-Độ công bằng lộ trình: ${Math.round((topPlace.fairnessScore ?? 0.8) * 100)}%.
-
-YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm lại dữ liệu vì hệ thống hiện tại chưa có dữ liệu review. Hãy trả lời trực tiếp trong 2 đến 3 câu ngắn gọn nhận xét về vị trí địa lý, độ thuận tiện di chuyển công bằng cho nhóm bạn và một lời chúc buổi gặp mặt.`;
-
-          const aiRes = await api.post<{ answer?: string }>(
-            "/api/agent",
-            {
-              message: prompt,
-              latitude: centroid?.lat ?? myLat,
-              longitude: centroid?.lng ?? myLng,
-            },
-            token
-          );
-          if (aiRes?.answer) {
-            setAiInsight(aiRes.answer);
-          }
-        } catch {
-          // Bỏ qua nếu MiniMax agent bận, kết quả OSRM vẫn hiển thị trọn vẹn
-        }
-
         toast.success(`Đã tìm thấy ${items.length} điểm hẹn tối ưu nhất cho nhóm!`);
       } else {
         toast.info("Không tìm thấy địa điểm phù hợp. Hãy thử thay đổi yêu cầu.");
       }
     } catch (err) {
+      console.error("Group meeting search error:", err);
       const msg =
         err instanceof ApiError
           ? err.message
-          : "Có lỗi khi tính toán điểm hẹn. Vui lòng thử lại.";
+          : "Có lỗi khi phân tích và tìm kiếm điểm hẹn. Vui lòng thử lại.";
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -354,15 +322,69 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
 
         {/* Modal Body */}
         <div className="overflow-y-auto p-6 space-y-5 text-foreground">
-          {/* Chọn thành viên tham gia */}
-          <div className="space-y-2.5">
+          {/* 1. Thanh nhập yêu cầu cho Trợ lý AI */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Yêu cầu cho Trợ lý AI
+            </label>
+            <Textarea
+              rows={3}
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !loading) {
+                  e.preventDefault();
+                  handleFindPlaces();
+                }
+              }}
+              placeholder="Ví dụ: Tôi đang ở Chợ Bến Thành và bạn tôi đang ở UBND Quận 1, tìm 1 quán ăn phù hợp..."
+              className="text-xs py-2.5 px-3 rounded-xl border-border bg-background resize-y min-h-[90px] max-h-[240px] focus-visible:ring-primary leading-relaxed"
+            />
+          </div>
+
+          {/* 2. Nút Tìm kiếm chính */}
+          <Button
+            type="button"
+            onClick={handleFindPlaces}
+            disabled={loading}
+            className="w-full h-11 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-md"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Đang phân tích địa điểm & tính toán lộ trình OSRM...
+              </>
+            ) : (
+              <>
+                <Bot className="h-4 w-4 mr-2" />
+                Tìm điểm hẹn công bằng cho nhóm
+              </>
+            )}
+          </Button>
+
+          {/* 3. Nhận xét từ Trợ lý AI (nếu có) */}
+          {aiInsight && (
+            <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 text-xs text-foreground space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-primary">
+                <Bot className="h-4 w-4" />
+                Trợ lý AI nhận xét:
+              </div>
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-[11px]">
+                {aiInsight}
+              </p>
+            </div>
+          )}
+
+          {/* 4. Chọn thêm bạn bè trong danh bạ (Tùy chọn - Không bắt buộc) */}
+          <div className="space-y-2.5 pt-2 border-t border-border/70">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <UserCheck className="h-3.5 w-3.5 text-primary" />
-                Chọn thành viên tham gia ({selectedFriends.length + 1} người)
+                Chọn thêm bạn bè trong danh bạ (Tùy chọn)
               </label>
               <span className="text-[11px] text-muted-foreground">
-                Chọn bạn bè để tìm điểm hẹn
+                {selectedFriends.length > 0 ? `Đã chọn ${selectedFriends.length} bạn` : "Không bắt buộc"}
               </span>
             </div>
 
@@ -402,13 +424,10 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                 Đang tải danh sách thành viên...
               </div>
             ) : friends.length === 0 ? (
-              <div className="p-5 rounded-2xl border border-dashed border-border text-center space-y-2 bg-muted/20">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Users className="h-5 w-5" />
-                </div>
+              <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1.5 bg-muted/20">
                 <p className="text-xs font-semibold text-foreground">Chưa có bạn bè trong danh sách</p>
                 <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                  Hãy kết bạn qua email để cùng chọn điểm hẹn và tối ưu hóa thời gian di chuyển công bằng cho tất cả mọi người.
+                  Bạn có thể nhập trực tiếp vị trí các bạn trong ô yêu cầu AI ở trên hoặc thêm bạn bè qua danh bạ.
                 </p>
                 <div className="pt-1">
                   <a
@@ -422,7 +441,7 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+                <div className="flex flex-col gap-2 max-h-44 overflow-y-auto pr-1">
                   {friends.map((friend) => (
                     <div
                       key={friend.id}
@@ -484,73 +503,6 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
               </div>
             )}
           </div>
-
-          {/* Thanh nhập yêu cầu cho Trợ lý AI */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Yêu cầu cho Trợ lý AI (MiniMax)
-            </label>
-            <div className="relative">
-              <Input
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !loading) {
-                    handleFindPlaces();
-                  }
-                }}
-                placeholder="Ví dụ: Tìm quán cà phê yên tĩnh có ổ điện để làm việc nhóm..."
-                className="pr-12 text-xs py-2.5 rounded-xl border-border bg-background"
-              />
-              <button
-                type="button"
-                onClick={handleFindPlaces}
-                disabled={loading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
-                title="Gửi yêu cầu"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Nút Tìm kiếm chính */}
-          <Button
-            type="button"
-            onClick={handleFindPlaces}
-            disabled={loading}
-            className="w-full h-11 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs shadow-md"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Đang xử lý yêu cầu qua MiniMax & OSRM Table...
-              </>
-            ) : (
-              <>
-                <Bot className="h-4 w-4 mr-2" />
-                Tìm điểm hẹn
-              </>
-            )}
-          </Button>
-
-          {/* Nhận xét từ Trợ lý AI (nếu có) */}
-          {aiInsight && (
-            <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 text-xs text-foreground space-y-1.5">
-              <div className="font-bold flex items-center gap-1.5 text-primary">
-                <Bot className="h-4 w-4" />
-                Trợ lý AI nhận xét:
-              </div>
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-[11px]">
-                {aiInsight}
-              </p>
-            </div>
-          )}
 
           {/* Kết quả tìm kiếm */}
           {hasSearched && (
@@ -630,44 +582,36 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                           </div>
 
                           <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] pt-0.5">
-                            {/* Tôi */}
-                            <div className="flex items-center gap-1 text-muted-foreground truncate">
-                              <span className="font-semibold text-foreground">Tôi:</span>
-                              <span>
-                                {(item.distanceKmByOrigin?.[0] ?? 0).toFixed(1)} km
-                                {item.durationMinutesByOrigin?.[0] !== undefined &&
-                                  item.durationMinutesByOrigin?.[0] !== null && (
-                                    <span className="ml-0.5 font-bold text-foreground">
-                                      ({Math.round(item.durationMinutesByOrigin[0])}p)
+                            {activeOrigins.length > 0 ? (
+                              activeOrigins.map((orig, i) => {
+                                const dist = item.distanceKmByOrigin?.[i] ?? 0;
+                                const dur = item.durationMinutesByOrigin?.[i];
+
+                                return (
+                                  <div
+                                    key={orig.id || `orig_${i}`}
+                                    className="flex items-center gap-1 text-muted-foreground truncate"
+                                  >
+                                    <span className="font-semibold text-foreground truncate max-w-[65px]">
+                                      {orig.name}:
                                     </span>
-                                  )}
-                              </span>
-                            </div>
-
-                            {/* Các bạn bè */}
-                            {selectedFriends.map((f, i) => {
-                              const dist = item.distanceKmByOrigin?.[i + 1] ?? 0;
-                              const dur = item.durationMinutesByOrigin?.[i + 1];
-
-                              return (
-                                <div
-                                  key={f.id}
-                                  className="flex items-center gap-1 text-muted-foreground truncate"
-                                >
-                                  <span className="font-semibold text-foreground truncate max-w-[50px]">
-                                    {f.name}:
-                                  </span>
-                                  <span>
-                                    {dist.toFixed(1)} km
-                                    {dur !== undefined && dur !== null && (
-                                      <span className="ml-0.5 font-bold text-foreground">
-                                        ({Math.round(dur)}p)
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              );
-                            })}
+                                    <span>
+                                      {dist.toFixed(1)} km
+                                      {dur !== undefined && dur !== null && (
+                                        <span className="ml-0.5 font-bold text-foreground">
+                                          ({Math.round(dur)}p)
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="flex items-center gap-1 text-muted-foreground truncate">
+                                <span className="font-semibold text-foreground">Khoảng cách TB:</span>
+                                <span>{(item.averageDistanceKm ?? 0).toFixed(1)} km</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -692,12 +636,14 @@ YÊU CẦU ĐẶC BIỆT: KHÔNG gọi tool tra cứu review hay tìm kiếm l�
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const invitees = [
-                                ...(currentUser?.email
-                                  ? [{ name: currentUser.username || "Tôi", email: currentUser.email }]
-                                  : []),
-                                ...selectedFriends.map((f) => ({ name: f.name, email: f.email })),
-                              ];
+                              const invitees = activeOrigins.length > 0
+                                ? activeOrigins.map((o) => ({ name: o.name, email: o.address || "" }))
+                                : [
+                                    ...(currentUser?.email
+                                      ? [{ name: currentUser.username || "Tôi", email: currentUser.email }]
+                                      : []),
+                                    ...selectedFriends.map((f) => ({ name: f.name, email: f.email })),
+                                  ];
                               onScheduleMeeting(
                                 {
                                   id: item.placeId,
