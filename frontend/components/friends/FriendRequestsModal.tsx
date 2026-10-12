@@ -51,8 +51,10 @@ export default function FriendRequestsModal({
         setRequests(res.incoming);
         onRequestsUpdated?.(res.incomingCount);
       }
-    } catch (err) {
-      console.error("Failed to load friend requests:", err);
+    } catch (err: any) {
+      if (err?.status !== 401) {
+        console.warn("Could not load friend requests:", err);
+      }
     } finally {
       setLoading(false);
     }

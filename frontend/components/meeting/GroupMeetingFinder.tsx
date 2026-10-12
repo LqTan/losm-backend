@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
-import { getToken, getUser, StoredUser } from "@/lib/auth";
+import { getToken, getUser, StoredUser, AUTH_CHANGE_EVENT } from "@/lib/auth";
 import type { MeetingPlace, SearchMeetingPlacesResponse, Place } from "@/types/place";
 import {
   Users,
@@ -100,6 +100,16 @@ export default function GroupMeetingFinder({
   });
 
   useEffect(() => {
+    function handleAuthChange() {
+      setCurrentUser(getUser());
+    }
+    window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
+    return () => {
+      window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
+    };
+  }, []);
+
+  useEffect(() => {
     async function fetchFriends() {
       setLoadingFriends(true);
       try {
@@ -148,8 +158,13 @@ export default function GroupMeetingFinder({
         });
 
         setFriends(realFriends);
-      } catch (err) {
-        console.error("Failed to load friends:", err);
+      } catch (err: any) {
+        if (err instanceof ApiError && err.status === 401) {
+          // Token hết hạn hoặc chưa đăng nhập hợp lệ
+          setFriends([]);
+        } else {
+          console.warn("Could not load friends list:", err);
+        }
       } finally {
         setLoadingFriends(false);
       }

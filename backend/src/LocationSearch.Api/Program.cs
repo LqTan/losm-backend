@@ -199,8 +199,6 @@ using (var scope = app.Services.CreateScope())
 
     await sp.GetRequiredService<Users.Infrastructure.Seed.UsersSeeder>().SeedAsync();
 
-    // await sp.GetRequiredService<Areas.Infrastructure.Seed.AreasSeeder>().SeedAsync();
-
     await sp.GetRequiredService<Overture.Infrastructure.OvertureRecurringJobBootstrap>()
         .EnsureScheduledAsync(sp);
 }

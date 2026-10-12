@@ -33,7 +33,7 @@ public abstract class AgentTool<TArguments> : IAgentTool
     public virtual ToolKind Kind => ToolKind.ReadOnly;
     public virtual bool SuppliesPlaces => false;
 
-    public ToolDisplay Display
+    public virtual ToolDisplay Display
     {
         get
         {

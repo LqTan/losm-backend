@@ -113,6 +113,31 @@ interface Props {
   centroid?: { lat: number; lng: number } | null;
   activeMeetingPlace?: MeetingPlace | null;
   currentUserAvatar?: string;
+  navigationRoute?: {
+    coordinates: [number, number][];
+    distanceKm: number;
+    durationMinutes: number;
+  } | null;
+}
+
+function RouteBoundsController({
+  route,
+}: {
+  route?: { coordinates: [number, number][] } | null;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (route && route.coordinates && route.coordinates.length > 1) {
+      const bounds = L.latLngBounds(route.coordinates);
+      map.fitBounds(bounds, {
+        padding: [80, 80],
+        maxZoom: 16,
+      });
+    }
+  }, [route, map]);
+
+  return null;
 }
 
 function MapViewController({
@@ -143,6 +168,7 @@ export default function MapView({
   centroid,
   activeMeetingPlace,
   currentUserAvatar,
+  navigationRoute,
 }: Props) {
   const centerPos = userLocation
     ? ([userLocation.lat, userLocation.lng] as [number, number])
@@ -158,8 +184,8 @@ export default function MapView({
       className="h-full w-full"
     >
       <AppTileLayer />
-
-      <MapViewController target={activeTarget} />
+      <MapViewController target={navigationRoute ? null : activeTarget} />
+      <RouteBoundsController route={navigationRoute} />
 
       {/* User Current Location Marker */}
       {userLocation && (
@@ -363,60 +389,155 @@ export default function MapView({
             (Math.abs(activeMeetingPlace.latitude - place.latitude) < 0.0001 &&
               Math.abs(activeMeetingPlace.longitude - place.longitude) < 0.0001));
         const isSelected = selectedPlace?.id === place.id || Boolean(isActiveMeeting);
-        const color = isActiveMeeting ? "#8b5cf6" : isSelected ? "#0f172a" : "#2563eb";
+        const color = isActiveMeeting ? "#8b5cf6" : isSelected ? "#ef4444" : "#2563eb";
 
         return (
-          <CircleMarker
-            key={place.id}
-            center={[place.latitude, place.longitude]}
-            radius={isActiveMeeting ? 13 : isSelected ? 11 : 8}
-            pathOptions={{
-              color: isSelected ? "#ffffff" : color,
-              weight: isSelected ? 3 : 1.5,
-              fillColor: color,
-              fillOpacity: isSelected ? 1 : 0.85,
-            }}
-            eventHandlers={{
-              click: () => onSelectPlace(place),
-            }}
-          >
+          <Fragment key={place.id}>
+            {isSelected && (
+              <CircleMarker
+                center={[place.latitude, place.longitude]}
+                radius={18}
+                pathOptions={{
+                  color: "#ef4444",
+                  weight: 2,
+                  fillColor: "#ef4444",
+                  fillOpacity: 0.25,
+                }}
+              />
+            )}
+            <CircleMarker
+              center={[place.latitude, place.longitude]}
+              radius={isActiveMeeting ? 14 : isSelected ? 12 : 8}
+              pathOptions={{
+                color: isSelected ? "#ffffff" : color,
+                weight: isSelected ? 3 : 1.5,
+                fillColor: color,
+                fillOpacity: isSelected ? 1 : 0.85,
+              }}
+              eventHandlers={{
+                click: () => onSelectPlace(place),
+              }}
+            >
+              <Popup>
+                <div className="p-1 space-y-1 text-xs">
+                  {isActiveMeeting && (
+                    <div className="inline-block bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded text-[10px] mb-0.5">
+                      📍 Điểm hẹn đang chọn
+                    </div>
+                  )}
+                  <p className="font-bold text-sm text-gray-900 leading-tight">
+                    {place.name}
+                  </p>
+                  {place.category && (
+                    <p className="text-gray-500 font-medium">
+                      {place.category}
+                    </p>
+                  )}
+                  {place.address && (
+                    <p className="text-gray-600 line-clamp-2">
+                      {place.address}
+                    </p>
+                  )}
+                  {place.distanceKm !== undefined && (
+                    <p className="text-blue-600 font-semibold pt-0.5">
+                      Cách bạn: {place.distanceKm.toFixed(1)} km
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onSelectPlace(place)}
+                    className="mt-1 w-full rounded-md bg-blue-600 py-1 text-[11px] font-semibold text-white hover:bg-blue-700 transition"
+                  >
+                    Xem chi tiết
+                  </button>
+                </div>
+              </Popup>
+            </CircleMarker>
+          </Fragment>
+        );
+      })}
+
+      {/* Standalone Marker for selectedPlace if not in places array */}
+      {selectedPlace &&
+        !places.some(
+          (p) =>
+            p.id === selectedPlace.id ||
+            (Math.abs(p.latitude - selectedPlace.latitude) < 0.0001 &&
+              Math.abs(p.longitude - selectedPlace.longitude) < 0.0001)
+        ) && (
+          <Fragment key={`standalone_frag_${selectedPlace.id}`}>
+            <CircleMarker
+              center={[selectedPlace.latitude, selectedPlace.longitude]}
+              radius={18}
+              pathOptions={{
+                color: "#ef4444",
+                weight: 2,
+                fillColor: "#ef4444",
+                fillOpacity: 0.25,
+              }}
+            />
+            <CircleMarker
+              center={[selectedPlace.latitude, selectedPlace.longitude]}
+              radius={12}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 3,
+                fillColor: "#ef4444",
+                fillOpacity: 1,
+              }}
+              eventHandlers={{
+                click: () => onSelectPlace(selectedPlace),
+              }}
+            >
             <Popup>
               <div className="p-1 space-y-1 text-xs">
-                {isActiveMeeting && (
-                  <div className="inline-block bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded text-[10px] mb-0.5">
-                    📍 Điểm hẹn đang chọn
-                  </div>
-                )}
                 <p className="font-bold text-sm text-gray-900 leading-tight">
-                  {place.name}
+                  {selectedPlace.name}
                 </p>
-                {place.category && (
+                {selectedPlace.category && (
                   <p className="text-gray-500 font-medium">
-                    {place.category}
+                    {selectedPlace.category}
                   </p>
                 )}
-                {place.address && (
+                {selectedPlace.address && (
                   <p className="text-gray-600 line-clamp-2">
-                    {place.address}
+                    {selectedPlace.address}
                   </p>
                 )}
-                {place.distanceKm !== undefined && (
+                {selectedPlace.distanceKm !== undefined && (
                   <p className="text-blue-600 font-semibold pt-0.5">
-                    Cách bạn: {place.distanceKm.toFixed(1)} km
+                    Cách bạn: {selectedPlace.distanceKm.toFixed(1)} km
                   </p>
                 )}
-                <button
-                  type="button"
-                  onClick={() => onSelectPlace(place)}
-                  className="mt-1 w-full rounded-md bg-blue-600 py-1 text-[11px] font-semibold text-white hover:bg-blue-700 transition"
-                >
-                  Xem chi tiết
-                </button>
               </div>
             </Popup>
           </CircleMarker>
-        );
-      })}
+        </Fragment>
+      )}
+
+      {/* Driving Navigation Route from OSRM */}
+      {navigationRoute && navigationRoute.coordinates && navigationRoute.coordinates.length > 0 && (
+        <>
+          <Polyline
+            positions={navigationRoute.coordinates}
+            pathOptions={{
+              color: "#60a5fa",
+              weight: 8,
+              opacity: 0.45,
+              lineJoin: "round",
+            }}
+          />
+          <Polyline
+            positions={navigationRoute.coordinates}
+            pathOptions={{
+              color: "#2563eb",
+              weight: 4.5,
+              opacity: 0.95,
+              lineJoin: "round",
+            }}
+          />
+        </>
+      )}
     </MapContainer>
   );
 }

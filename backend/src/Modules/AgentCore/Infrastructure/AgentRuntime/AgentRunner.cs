@@ -246,11 +246,39 @@ public sealed class AgentRunner : IAgentRunner
                 session.Id
             );
 
-            var response = await _modelClient.SendAsync(
-                messages,
-                tools,
-                cancellationToken
-            );
+            AgentModelResponse response;
+            try
+            {
+                response = await _modelClient.SendAsync(
+                    messages,
+                    tools,
+                    cancellationToken
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Agent model invocation failed. SessionId: {SessionId}",
+                    session.Id
+                );
+
+                var errorAnswer = "Rất tiếc, trợ lý AI đang gặp sự cố tạm thời khi kết nối với mô hình xử lý. Bạn vui lòng thử lại sau giây lát nhé.";
+                session.AddMessage(AgentMessageRole.Assistant, errorAnswer);
+                await _sessionRepository.UpdateAsync(session, cancellationToken);
+
+                await RecordStep(
+                    activity, sink, order,
+                    AgentActivityStepKind.Finalize, null, false);
+
+                return new AgentRunResult(
+                    session.Id,
+                    errorAnswer,
+                    activity,
+                    [],
+                    attachedPlaces
+                );
+            }
 
             messages.Add(response.AssistantMessage);
 
@@ -338,13 +366,31 @@ public sealed class AgentRunner : IAgentRunner
         }
 
         _logger.LogWarning(
-            "Agent exceeded maximum steps. SessionId: {SessionId}, MaxSteps: {MaxSteps}",
+            "Agent reached maximum steps. SessionId: {SessionId}, MaxSteps: {MaxSteps}",
             session.Id,
             maxSteps
         );
 
-        throw new InvalidOperationException(
-            $"Agent exceeded the maximum number of steps: {maxSteps}."
+        var fallbackAnswer = attachedPlaces.Count > 0
+            ? $"Mình đã tìm thấy một số địa điểm phù hợp gần khu vực bạn yêu cầu ({string.Join(", ", attachedPlaces.Take(3).Select(p => p.Name))}). Bạn có thể xem danh sách địa điểm đính kèm."
+            : "Mình đã cố gắng tìm kiếm nhưng hiện chưa thấy địa điểm nào thật sự phù hợp quanh khu vực này. Bạn có thể cho mình biết cụ thể hơn về tên quán hoặc gợi ý khu vực khác không?";
+
+        session.AddMessage(AgentMessageRole.Assistant, fallbackAnswer);
+        await _sessionRepository.UpdateAsync(session, cancellationToken);
+
+        await RecordStep(
+            activity, sink, order,
+            AgentActivityStepKind.Finalize, null, true);
+
+        var pendingActions = await _pendingActionStore
+            .GetBySessionAsync(session.Id, cancellationToken);
+
+        return new AgentRunResult(
+            session.Id,
+            fallbackAnswer,
+            activity,
+            pendingActions,
+            attachedPlaces
         );
     }
 
@@ -512,7 +558,7 @@ public sealed class AgentRunner : IAgentRunner
         );
     }
 
-    private static async Task RecordStep(
+    private async Task RecordStep(
         List<AgentActivityStep> activity,
         IAgentEventSink? sink,
         Counter order,
@@ -521,29 +567,40 @@ public sealed class AgentRunner : IAgentRunner
         bool succeeded
     )
     {
-        var summary = kind switch
+        string? summary = null;
+        if (!string.IsNullOrWhiteSpace(toolName))
         {
-            AgentActivityStepKind.ToolCall => toolName is null
-                ? StepSummary.Thinking
-                : null,
-            AgentActivityStepKind.ToolResult => toolName is null
-                ? StepSummary.Finalize
-                : null,
-            AgentActivityStepKind.ModelResponse => StepSummary.Thinking,
-            _ => kind switch
+            try
             {
-                AgentActivityStepKind.Finalize => succeeded
-                    ? StepSummary.Finalize
-                    : StepSummary.FinalizeFailed,
-                _ => StepSummary.Thinking
+                var tool = _toolRegistry.GetRequired(toolName);
+                summary = kind switch
+                {
+                    AgentActivityStepKind.ToolCall => StepSummary.ForToolCall(tool),
+                    AgentActivityStepKind.ToolResult => StepSummary.ForToolResult(tool, succeeded),
+                    AgentActivityStepKind.PendingAction => StepSummary.ForPendingAction(tool),
+                    _ => null
+                };
             }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        summary ??= kind switch
+        {
+            AgentActivityStepKind.Finalize => succeeded
+                ? StepSummary.Finalize
+                : StepSummary.FinalizeFailed,
+            AgentActivityStepKind.ModelResponse => StepSummary.Thinking,
+            _ => succeeded ? "Đang xử lý..." : "Xử lý thất bại"
         };
 
         var step = new AgentActivityStep(
             order.Next(),
             kind,
             toolName,
-            summary ?? toolName ?? string.Empty,
+            summary,
             succeeded
         );
 

@@ -39,6 +39,14 @@ public sealed class GeocodePlaceTool
         "If the query cannot be resolved, the result will indicate 'notFound': true " +
         "so you can ask the user to clarify.";
 
+    public override ToolDisplay Display => new(
+        DisplayName: "Định vị toạ độ",
+        CallingMessage: "Đang tra cứu toạ độ địa điểm...",
+        SuccessMessage: "Đã xác định toạ độ địa điểm",
+        FailedMessage: "Không tìm thấy toạ độ địa điểm",
+        PendingConfirmationMessage: "Chờ bạn xác nhận"
+    );
+
     protected override async Task<string> ExecuteAsync(
         GeocodePlaceToolArguments arguments,
         CancellationToken cancellationToken)

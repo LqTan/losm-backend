@@ -79,6 +79,14 @@ export default function HomeMap() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [locating, setLocating] = useState(false);
 
+  // Real-world driving directions via OSRM
+  const [navigationRoute, setNavigationRoute] = useState<{
+    coordinates: [number, number][];
+    distanceKm: number;
+    durationMinutes: number;
+  } | null>(null);
+  const [loadingDirections, setLoadingDirections] = useState(false);
+
   async function fallbackIpLocation(): Promise<boolean> {
     try {
       const res = await fetch("https://ipwho.is/");
@@ -274,6 +282,9 @@ export default function HomeMap() {
   }
 
   function handleSelectPlace(place: PlaceType) {
+    if (selectedPlace?.id !== place.id) {
+      setNavigationRoute(null);
+    }
     setSelectedPlace(place);
     setFlyToTarget({ lat: place.latitude, lng: place.longitude });
 
@@ -310,22 +321,103 @@ export default function HomeMap() {
     }
   }
 
-  function handleSelectPlaceFromModalOrChat(lat: number, lng: number, name: string) {
-    setFlyToTarget({ lat, lng });
-    const matched = places.find(
-      (p) => Math.abs(p.latitude - lat) < 0.0001 && Math.abs(p.longitude - lng) < 0.0001,
-    );
-    if (matched) {
-      handleSelectPlace(matched);
-    } else {
-      const customPlace: PlaceType = {
-        id: `custom_${Date.now()}`,
-        name,
-        latitude: lat,
-        longitude: lng,
-      };
-      handleSelectPlace(customPlace);
+  function handleSelectPlaceFromModalOrChat(
+    lat: number,
+    lng: number,
+    name: string,
+    extra?: Partial<PlaceType>
+  ) {
+    const dist = userLocation
+      ? getDistanceKm(userLocation.lat, userLocation.lng, lat, lng)
+      : undefined;
+
+    const targetPlace: PlaceType = {
+      id: extra?.id || `place_${Date.now()}`,
+      name: extra?.name || name,
+      latitude: lat,
+      longitude: lng,
+      address: extra?.address ?? null,
+      category: extra?.category ?? "Địa điểm",
+      openingHours: extra?.openingHours ?? null,
+      distanceKm: extra?.distanceKm ?? dist,
+    };
+
+    setPlaces((prev) => {
+      const existsIndex = prev.findIndex(
+        (p) =>
+          p.id === targetPlace.id ||
+          (Math.abs(p.latitude - lat) < 0.0001 && Math.abs(p.longitude - lng) < 0.0001)
+      );
+      if (existsIndex >= 0) {
+        const next = [...prev];
+        next[existsIndex] = { ...next[existsIndex], ...targetPlace };
+        return next;
+      }
+      return [targetPlace, ...prev];
+    });
+
+    handleSelectPlace(targetPlace);
+  }
+
+  async function handleGetDirections(place: PlaceType) {
+    let origin = userLocation;
+    if (!origin) {
+      if (typeof window !== "undefined" && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: false,
+              timeout: 4000,
+            });
+          });
+          origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserLocation(origin);
+        } catch {
+          origin = DEFAULT_COORDS;
+        }
+      } else {
+        origin = DEFAULT_COORDS;
+      }
     }
+
+    setLoadingDirections(true);
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${place.longitude},${place.latitude}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`OSRM HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (data?.code === "Ok" && data.routes && data.routes.length > 0) {
+        const bestRoute = data.routes[0];
+        const coords = (bestRoute.geometry?.coordinates ?? []).map(
+          ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
+        );
+        const distanceKm = (bestRoute.distance ?? 0) / 1000;
+        const durationMinutes = (bestRoute.duration ?? 0) / 60;
+
+        setNavigationRoute({
+          coordinates: coords,
+          distanceKm,
+          durationMinutes,
+        });
+
+        toast.success(
+          `Đã tìm thấy lộ trình: ${distanceKm.toFixed(1)} km (~${Math.round(durationMinutes)} phút lái xe)`
+        );
+      } else {
+        toast.error("Không tìm thấy tuyến đường khả dụng từ vị trí hiện tại.");
+      }
+    } catch (err) {
+      console.error("OSRM Route Error:", err);
+      toast.error("Không thể lấy dữ liệu lộ trình từ hệ thống định tuyến OSRM.");
+    } finally {
+      setLoadingDirections(false);
+    }
+  }
+
+  function handleClearDirections() {
+    setNavigationRoute(null);
   }
 
   function handleGroupSearchResults(
@@ -418,6 +510,7 @@ export default function HomeMap() {
         centroid={centroid}
         activeMeetingPlace={activeMeetingPlace}
         currentUserAvatar={currentUser?.avatarUrl}
+        navigationRoute={navigationRoute}
       />
 
       {/* Top Search Bar & Controls */}
@@ -550,8 +643,15 @@ export default function HomeMap() {
           place={selectedPlace}
           activeMeetingPlace={activeMeetingPlace}
           groupOrigins={groupOrigins}
-          onClose={() => setSelectedPlace(null)}
+          navigationRoute={navigationRoute}
+          loadingDirections={loadingDirections}
+          onClose={() => {
+            setSelectedPlace(null);
+            setNavigationRoute(null);
+          }}
           onScheduleMeeting={() => setIsMeetingModalOpen(true)}
+          onGetDirections={handleGetDirections}
+          onClearDirections={handleClearDirections}
         />
       )}
 

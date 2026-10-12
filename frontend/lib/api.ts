@@ -22,6 +22,8 @@ export class ApiError extends Error {
   }
 }
 
+import { handleAuthExpired } from "./auth";
+
 async function request<T>(
   path: string,
   init: RequestInit & { token?: string | null } = {},
@@ -43,6 +45,13 @@ async function request<T>(
     : await res.text().catch(() => null);
 
   if (!res.ok) {
+    if (
+      res.status === 401 &&
+      !path.includes("/users/login") &&
+      !path.includes("/users/register")
+    ) {
+      handleAuthExpired();
+    }
     const message =
       data && typeof data === "object" && "message" in data
         ? String((data as { message?: unknown }).message ?? res.statusText)

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { clearAuth, getUser } from "@/lib/auth";
+import { clearAuth, getUser, getToken, AUTH_CHANGE_EVENT } from "@/lib/auth";
 import type { StoredUser } from "@/lib/auth";
 import {
   Bell,
@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import FriendRequestsModal from "@/components/friends/FriendRequestsModal";
 import { api } from "@/lib/api";
-import { getToken } from "@/lib/auth";
 
 export default function UserNavDropdown() {
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -36,11 +35,25 @@ export default function UserNavDropdown() {
 
   useEffect(() => {
     setMounted(true);
-    const u = getUser();
-    setUser(u);
-    if (u) {
-      loadPendingCount();
+
+    function syncUser() {
+      const u = getUser();
+      setUser(u);
+      if (u) {
+        loadPendingCount();
+      } else {
+        setPendingCount(0);
+      }
     }
+
+    syncUser();
+
+    window.addEventListener(AUTH_CHANGE_EVENT, syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener(AUTH_CHANGE_EVENT, syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
   }, []);
 
   async function loadPendingCount() {

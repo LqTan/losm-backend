@@ -38,10 +38,21 @@ public sealed class SearchPlacesTool
     public override string Name => "search_places";
 
     public override string Description =>
-        "Search and rank places near the current user's location. " +
-        "Use when the user asks to find places, recommendations, or anything nearby.";
+        "Search and rank places near a location. " +
+        "Use when the user asks to find places, restaurants, cafes, recommendations, or anything nearby. " +
+        "IMPORTANT: If the user mentions a specific landmark, district, or address (e.g. 'gần Chợ Bến Thành', 'gần Bệnh viện Từ Dũ', 'ở Quận 1'), " +
+        "first call geocode_place to get its coordinates, then pass those coordinates as ReferenceLatitude and ReferenceLongitude to this tool, " +
+        "and use a concise query (e.g. 'nhà hàng nhật' or 'quán cafe').";
 
     public override bool SuppliesPlaces => true;
+
+    public override ToolDisplay Display => new(
+        DisplayName: "Tìm địa điểm",
+        CallingMessage: "Đang tìm kiếm các địa điểm phù hợp...",
+        SuccessMessage: "Đã tìm thấy địa điểm",
+        FailedMessage: "Không tìm thấy địa điểm nào",
+        PendingConfirmationMessage: "Chờ bạn xác nhận"
+    );
 
     protected override async Task<string> ExecuteAsync(
         SearchPlacesToolArguments arguments,
@@ -63,10 +74,13 @@ public sealed class SearchPlacesTool
         var limit = arguments.Limit > 0 ? arguments.Limit : opts.DefaultLimit;
         if (limit > opts.MaxLimit) limit = opts.MaxLimit;
 
+        var targetLat = arguments.ReferenceLatitude ?? _executionContext.Latitude;
+        var targetLon = arguments.ReferenceLongitude ?? _executionContext.Longitude;
+
         var query = new SearchPlacesQuery(
             arguments.Query,
-            arguments.Box is null ? _executionContext.Latitude : null,
-            arguments.Box is null ? _executionContext.Longitude : null,
+            arguments.Box is null ? targetLat : null,
+            arguments.Box is null ? targetLon : null,
             radiusKm,
             searchOptions.CandidateLimit,
             arguments.Box,

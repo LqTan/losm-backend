@@ -106,6 +106,15 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
         }
         residual = string.Join(" ", residual.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
+        // Bóc tách cụm từ vị trí mốc (ví dụ: "gần chợ bến thành", "gần bệnh viện từ dũ") khỏi từ khóa tên thương hiệu
+        residual = System.Text.RegularExpressions.Regex.Replace(
+            residual,
+            @"\b(gần|quanh|khu vực|tại|ở|phía|hướng|cạnh|đối diện)\s+.*$",
+            " ",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+        residual = string.Join(" ", residual.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
         // 3. Xây dựng truy vấn cơ sở theo vùng địa lý
         var baseQuery = _db.Places.AsNoTracking().Where(p =>
             p.Latitude >= latitude - latDelta &&

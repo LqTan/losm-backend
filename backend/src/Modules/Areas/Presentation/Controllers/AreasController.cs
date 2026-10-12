@@ -121,14 +121,21 @@ public sealed class AreasController : ControllerBase
     [Authorize(Roles = "Admin")]
     public IActionResult Template()
     {
-        var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-            ?? AppContext.BaseDirectory;
-        var path = Path.Combine(assemblyDir, "Seed", "vn-areas.json");
-
-        if (!System.IO.File.Exists(path))
-            return NotFound("Template file not found.");
-
-        var bytes = System.IO.File.ReadAllBytes(path);
+        const string sampleJson = """
+        [
+          {
+            "name": "Quận 1",
+            "level": 2,
+            "parentExternalCode": "HCM",
+            "externalCode": "HCM-Q1",
+            "bboxMinLat": 10.7525,
+            "bboxMinLng": 106.6805,
+            "bboxMaxLat": 10.7936,
+            "bboxMaxLng": 106.7110
+          }
+        ]
+        """;
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sampleJson);
         return File(bytes, "application/json", "vn-areas.json");
     }
     [HttpGet("lookup-bbox")]

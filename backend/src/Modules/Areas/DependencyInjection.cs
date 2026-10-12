@@ -5,7 +5,6 @@ using Areas.Application.Areas.Commands.UpdateArea;
 using Areas.Application.Areas.Queries.GetAreas;
 using Areas.Infrastructure.Persistence;
 using Areas.Infrastructure.Repositories;
-using Areas.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +22,6 @@ public static class DependencyInjection
                 configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<Areas.Application.Abstractions.IAreaRepository, AreaRepository>();
-        services.AddScoped<AreasSeeder>();
 
         services.AddScoped<GetAreasHandler>();
         services.AddScoped<CreateAreaHandler>();

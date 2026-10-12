@@ -8,6 +8,8 @@ import {
   Calendar,
   Clock,
   Compass,
+  ExternalLink,
+  Loader2,
   MapPin,
   Navigation2,
   Share2,
@@ -20,16 +22,27 @@ interface Props {
   place: Place;
   activeMeetingPlace?: MeetingPlace | null;
   groupOrigins?: OriginItem[];
+  navigationRoute?: {
+    distanceKm: number;
+    durationMinutes: number;
+  } | null;
+  loadingDirections?: boolean;
   onClose: () => void;
   onScheduleMeeting?: (place: Place) => void;
+  onGetDirections?: (place: Place) => void;
+  onClearDirections?: () => void;
 }
 
 export default function PlaceCard({
   place,
   activeMeetingPlace,
   groupOrigins,
+  navigationRoute,
+  loadingDirections,
   onClose,
   onScheduleMeeting,
+  onGetDirections,
+  onClearDirections,
 }: Props) {
   function handleOpenGoogleMaps() {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
@@ -150,34 +163,74 @@ export default function PlaceCard({
         </div>
       )}
 
+      {/* Real-world Navigation Stats when active */}
+      {navigationRoute && (
+        <div className="mt-2.5 p-2 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs animate-in fade-in">
+          <div className="flex items-center gap-1.5 font-semibold text-blue-600">
+            <Navigation2 className="h-3.5 w-3.5" />
+            <span>Khoảng cách: {navigationRoute.distanceKm.toFixed(1)} km</span>
+          </div>
+          <span className="text-muted-foreground text-[11px] font-medium">
+            Thời gian lái xe: ~{Math.round(navigationRoute.durationMinutes)} phút
+          </span>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="mt-3 flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleOpenGoogleMaps}
-          className="flex-1 gap-1.5 text-xs h-9 font-medium"
-        >
-          <Navigation2 className="h-3.5 w-3.5 text-muted-foreground" />
-          Chỉ đường
-        </Button>
+        {onGetDirections && (
+          <Button
+            variant={navigationRoute ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              if (navigationRoute && onClearDirections) {
+                onClearDirections();
+              } else {
+                onGetDirections(place);
+              }
+            }}
+            disabled={loadingDirections}
+            className={`flex-1 gap-1.5 text-xs h-9 font-medium cursor-pointer ${
+              navigationRoute ? "bg-blue-600 hover:bg-blue-700 text-white" : ""
+            }`}
+          >
+            {loadingDirections ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Navigation2 className="h-3.5 w-3.5" />
+            )}
+            <span>{navigationRoute ? "Đóng đường đi" : "Chỉ đường"}</span>
+          </Button>
+        )}
 
         {onScheduleMeeting && (
           <Button
             size="sm"
             onClick={() => onScheduleMeeting(place)}
-            className="flex-1 gap-1.5 text-xs h-9 font-medium"
+            className="flex-1 gap-1.5 text-xs h-9 font-medium cursor-pointer"
           >
             <Calendar className="h-3.5 w-3.5" />
             Hẹn bạn bè tại đây
           </Button>
         )}
 
+        {/* Secondary: Open Google Maps */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleOpenGoogleMaps}
+          title="Mở trên Google Maps"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
           onClick={handleShare}
-          className="h-9 w-9 text-muted-foreground hover:text-foreground shrink-0"
+          title="Chia sẻ"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
         >
           <Share2 className="h-4 w-4" />
         </Button>
