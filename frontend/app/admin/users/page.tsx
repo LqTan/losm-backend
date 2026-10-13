@@ -699,7 +699,7 @@ function CreateUserModal({
           username: username.trim(),
           email: email.trim(),
           password,
-          role,
+          role: role === "Admin" ? 1 : 0,
         },
         token,
       );
@@ -837,7 +837,7 @@ function EditUserModal({
         {
           username: username.trim(),
           email: email.trim(),
-          role,
+          role: role === "Admin" ? 1 : 0,
           password: password.trim() ? password : null,
         },
         token,

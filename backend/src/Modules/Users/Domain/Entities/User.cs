@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace Users.Domain.Entities;
 
+[JsonConverter(typeof(FlexibleUserRoleConverter))]
 public enum UserRole
 {
     User = 0,

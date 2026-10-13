@@ -93,7 +93,7 @@ public sealed class AdminUsersController : ControllerBase
         if (existing is not null)
             return BadRequest(new { message = "Email already exists." });
 
-        var role = request.Role == 1 ? UserRole.Admin : UserRole.User;
+        var role = request.Role;
         var hash = _passwordHasher.Hash(request.Password.Trim());
 
         var newUser = new User(
@@ -137,7 +137,7 @@ public sealed class AdminUsersController : ControllerBase
 
         var username = !string.IsNullOrWhiteSpace(request.Username) ? request.Username.Trim() : user.Username;
         var email = !string.IsNullOrWhiteSpace(request.Email) ? request.Email.Trim().ToLowerInvariant() : user.Email;
-        var role = request.Role.HasValue ? (request.Role.Value == 1 ? UserRole.Admin : UserRole.User) : user.Role;
+        var role = request.Role ?? user.Role;
         var newHash = !string.IsNullOrWhiteSpace(request.Password) ? _passwordHasher.Hash(request.Password.Trim()) : null;
 
         user.UpdateAdmin(username, email, role, newHash);
@@ -203,24 +203,24 @@ public sealed class AdminUsersController : ControllerBase
         [FromServices] SetUserRoleHandler handler)
     {
         var result = await handler.HandleAsync(
-            new SetUserRoleCommand(id, body2.Role));
+            new SetUserRoleCommand(id, (int)body2.Role));
         return Ok(result);
     }
 }
 
-public sealed record SetUserRoleBody(int Role);
+public sealed record SetUserRoleBody(UserRole Role);
 
 public sealed record CreateAdminUserRequest(
     string Username,
     string Email,
     string Password,
-    int Role = 0
+    UserRole Role = UserRole.User
 );
 
 public sealed record UpdateAdminUserRequest(
     string? Username,
     string? Email,
-    int? Role,
+    UserRole? Role,
     string? Password
 );
 
