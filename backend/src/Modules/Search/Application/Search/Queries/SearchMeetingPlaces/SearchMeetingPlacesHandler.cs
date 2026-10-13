@@ -96,7 +96,20 @@ public sealed class SearchMeetingPlacesHandler
             );
         }
 
-        var results = new List<SearchMeetingPlaceResult>(candidates.Count);
+        // 1. Precompute distance and duration metrics for all candidates
+        var candidateMetrics = new List<(
+            PlaceCandidate Candidate,
+            List<double> Distances,
+            List<double>? Durations,
+            double DistanceAvg,
+            double DistanceMax,
+            double DurationAvg,
+            double DurationMax,
+            double DurationSpread,
+            double Relevance,
+            float CategoryMatch,
+            bool IsRoad
+        )>(candidates.Count);
 
         for (var j = 0; j < candidates.Count; j++)
         {
@@ -128,23 +141,108 @@ public sealed class SearchMeetingPlacesHandler
                     .ToList();
             }
 
-            var relevanceScore = scoreByPlaceId.GetValueOrDefault(place.Id);
+            var durAvg = durationsByOrigin is { Count: > 0 }
+                ? durationsByOrigin.Average()
+                : distancesByOrigin.Average() / 25.0 * 60.0;
 
-            var breakdown = await _rankingService.CalculateBreakdownAsync(
-                relevanceScore,
-                distancesByOrigin.Min(),
-                radiusKm,
+            var durMax = durationsByOrigin is { Count: > 0 }
+                ? durationsByOrigin.Max()
+                : distancesByOrigin.Max() / 25.0 * 60.0;
+
+            var durSpread = durationsByOrigin is { Count: > 0 }
+                ? durationsByOrigin.Max() - durationsByOrigin.Min()
+                : (distancesByOrigin.Max() - distancesByOrigin.Min()) / 25.0 * 60.0;
+
+            var relevanceScore = scoreByPlaceId.GetValueOrDefault(place.Id);
+            var catMatch = ComputeCategoryMatch(place.Category, query.Query);
+
+            candidateMetrics.Add((
+                place,
                 distancesByOrigin,
-                profile,
-                cancellationToken
+                durationsByOrigin,
+                distancesByOrigin.Average(),
+                distancesByOrigin.Max(),
+                durAvg,
+                durMax,
+                durSpread,
+                relevanceScore,
+                catMatch,
+                isRoad
+            ));
+        }
+
+        // 2. Compute relative ranks within candidate batch (0-1 normalized, 1.0 is best)
+        int K = candidateMetrics.Count;
+        var avgDurationRanks = new float[K];
+        var spreadDurationRanks = new float[K];
+
+        if (K <= 1)
+        {
+            if (K == 1)
+            {
+                avgDurationRanks[0] = 1.0f;
+                spreadDurationRanks[0] = 1.0f;
+            }
+        }
+        else
+        {
+            var sortedByAvg = candidateMetrics
+                .Select((m, idx) => (m.DurationAvg, idx))
+                .OrderBy(x => x.DurationAvg)
+                .ToList();
+
+            for (int r = 0; r < K; r++)
+            {
+                avgDurationRanks[sortedByAvg[r].idx] = 1.0f - ((float)r / (K - 1));
+            }
+
+            var sortedBySpread = candidateMetrics
+                .Select((m, idx) => (m.DurationSpread, idx))
+                .OrderBy(x => x.DurationSpread)
+                .ToList();
+
+            for (int r = 0; r < K; r++)
+            {
+                spreadDurationRanks[sortedBySpread[r].idx] = 1.0f - ((float)r / (K - 1));
+            }
+        }
+
+        var results = new List<SearchMeetingPlaceResult>(K);
+
+        for (var j = 0; j < K; j++)
+        {
+            var m = candidateMetrics[j];
+            var place = m.Candidate;
+
+            var onnxInput = new RankingFeaturesDto(
+                Bm25Norm: (float)m.Relevance,
+                CategoryMatch: m.CategoryMatch,
+                DurationAvgMin: (float)m.DurationAvg,
+                DurationMaxMin: (float)m.DurationMax,
+                DurationSpreadMin: (float)m.DurationSpread,
+                DistanceAvgKm: (float)m.DistanceAvg,
+                DistanceMaxKm: (float)m.DistanceMax,
+                DurationAvgRankNorm: avgDurationRanks[j],
+                DurationSpreadRankNorm: spreadDurationRanks[j],
+                ParticipantCount: (float)query.Origins.Count
             );
 
-            double? avgDuration = durationsByOrigin is { Count: > 0 }
-                ? Math.Round(durationsByOrigin.Average(), 1)
+            var breakdown = await _rankingService.CalculateBreakdownAsync(
+                m.Relevance,
+                m.Distances.Min(),
+                radiusKm,
+                m.Distances,
+                profile,
+                cancellationToken,
+                onnxInput
+            );
+
+            double? avgDuration = m.Durations is { Count: > 0 }
+                ? Math.Round(m.Durations.Average(), 1)
                 : null;
 
-            double? spreadDuration = durationsByOrigin is { Count: > 0 }
-                ? Math.Round(durationsByOrigin.Max() - durationsByOrigin.Min(), 1)
+            double? spreadDuration = m.Durations is { Count: > 0 }
+                ? Math.Round(m.Durations.Max() - m.Durations.Min(), 1)
                 : null;
 
             results.Add(new SearchMeetingPlaceResult(
@@ -155,18 +253,18 @@ public sealed class SearchMeetingPlacesHandler
                 place.Longitude,
                 place.Category,
                 place.OpeningHours,
-                distancesByOrigin,
-                Math.Round(distancesByOrigin.Average(), 2),
-                Math.Round(distancesByOrigin.Max(), 2),
-                Math.Round(distancesByOrigin.Max() - distancesByOrigin.Min(), 2),
-                relevanceScore,
+                m.Distances,
+                Math.Round(m.DistanceAvg, 2),
+                Math.Round(m.DistanceMax, 2),
+                Math.Round(m.DistanceMax - m.Distances.Min(), 2),
+                m.Relevance,
                 breakdown.DistanceScore,
                 breakdown.FairnessScore,
                 breakdown.FinalScore,
-                durationsByOrigin,
+                m.Durations,
                 avgDuration,
                 spreadDuration,
-                isRoad
+                m.IsRoad
             ));
         }
 
@@ -182,5 +280,26 @@ public sealed class SearchMeetingPlacesHandler
             searchRadius,
             profile
         );
+    }
+
+    private static float ComputeCategoryMatch(string? placeCategory, string query)
+    {
+        if (string.IsNullOrWhiteSpace(placeCategory) || string.IsNullOrWhiteSpace(query))
+            return 0f;
+
+        var p = placeCategory.ToLowerInvariant();
+        var q = query.ToLowerInvariant();
+
+        if (q.Contains(p) || p.Contains(q)) return 1f;
+
+        if ((q.Contains("cà phê") || q.Contains("cafe") || q.Contains("coffee")) &&
+            (p.Contains("cafe") || p.Contains("coffee") || p.Contains("cà phê")))
+            return 1f;
+
+        if ((q.Contains("ăn") || q.Contains("nhà hàng") || q.Contains("quán ăn") || q.Contains("food") || q.Contains("restaurant")) &&
+            (p.Contains("restaurant") || p.Contains("food") || p.Contains("ăn") || p.Contains("quán")))
+            return 1f;
+
+        return 0f;
     }
 }

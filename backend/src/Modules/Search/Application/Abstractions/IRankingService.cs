@@ -21,7 +21,8 @@ public interface IRankingService
         double radiusKm,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
-        CancellationToken ct
+        CancellationToken ct,
+        RankingFeaturesDto? onnxFeatures = null
     );
 
     Task<RankingScoreBreakdown> CalculateBreakdownAsync(
@@ -30,6 +31,7 @@ public interface IRankingService
         double radiusKm,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
-        CancellationToken ct
+        CancellationToken ct,
+        RankingFeaturesDto? onnxFeatures = null
     );
 }

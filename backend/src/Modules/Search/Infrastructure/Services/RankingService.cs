@@ -6,10 +6,12 @@ namespace Search.Infrastructure.Services;
 public sealed class RankingService : IRankingService
 {
     private readonly ITuningProvider _tuning;
+    private readonly IOnnxRankingModelService _onnxService;
 
-    public RankingService(ITuningProvider tuning)
+    public RankingService(ITuningProvider tuning, IOnnxRankingModelService onnxService)
     {
         _tuning = tuning;
+        _onnxService = onnxService;
     }
 
     public double CalculateDistanceKm(
@@ -43,7 +45,8 @@ public sealed class RankingService : IRankingService
         double radiusKm,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
-        CancellationToken ct)
+        CancellationToken ct,
+        RankingFeaturesDto? onnxFeatures = null)
     {
         return CalculateAsync(
             relevanceScore,
@@ -52,7 +55,8 @@ public sealed class RankingService : IRankingService
             originDistancesKm,
             profileName,
             returnBreakdown: false,
-            ct).ContinueWith(t => t.Result.final, ct);
+            ct,
+            onnxFeatures).ContinueWith(t => t.Result.final, ct);
     }
 
     public Task<RankingScoreBreakdown> CalculateBreakdownAsync(
@@ -61,7 +65,8 @@ public sealed class RankingService : IRankingService
         double radiusKm,
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
-        CancellationToken ct)
+        CancellationToken ct,
+        RankingFeaturesDto? onnxFeatures = null)
     {
         return CalculateAsync(
             relevanceScore,
@@ -70,7 +75,8 @@ public sealed class RankingService : IRankingService
             originDistancesKm,
             profileName,
             returnBreakdown: true,
-            ct).ContinueWith(t => t.Result.breakdown!, ct);
+            ct,
+            onnxFeatures).ContinueWith(t => t.Result.breakdown!, ct);
     }
 
     private async Task<(double final, RankingScoreBreakdown? breakdown)> CalculateAsync(
@@ -80,7 +86,8 @@ public sealed class RankingService : IRankingService
         IReadOnlyList<double>? originDistancesKm,
         string profileName,
         bool returnBreakdown,
-        CancellationToken ct)
+        CancellationToken ct,
+        RankingFeaturesDto? onnxFeatures = null)
     {
         var weights = await _tuning.GetRankingProfileAsync(profileName, ct);
 
@@ -95,10 +102,39 @@ public sealed class RankingService : IRankingService
             fairnessScore = Math.Max(0, 1 - spread / radiusKm);
         }
 
-        var final =
-            weights.Relevance * relevanceScore
-            + weights.Distance * distanceScore
-            + weights.Fairness * fairnessScore;
+        // Try ONNX LambdaMART prediction if model is active
+        float? onnxScore = null;
+        if (_onnxService.GetStatus().IsActive)
+        {
+            var maxD = originDistancesKm is { Count: > 0 } ? originDistancesKm.Max() : distanceKm;
+            var avgD = originDistancesKm is { Count: > 0 } ? originDistancesKm.Average() : distanceKm;
+            var durAvg = avgD / 25.0 * 60.0;
+            var durMax = maxD / 25.0 * 60.0;
+            var durSpread = originDistancesKm is { Count: > 0 }
+                ? (originDistancesKm.Max() - originDistancesKm.Min()) / 25.0 * 60.0
+                : 0.0;
+
+            var inputDto = onnxFeatures ?? new RankingFeaturesDto(
+                Bm25Norm: (float)relevanceScore,
+                CategoryMatch: 1f,
+                DurationAvgMin: (float)durAvg,
+                DurationMaxMin: (float)durMax,
+                DurationSpreadMin: (float)durSpread,
+                DistanceAvgKm: (float)avgD,
+                DistanceMaxKm: (float)maxD,
+                DurationAvgRankNorm: (float)distanceScore,
+                DurationSpreadRankNorm: (float)fairnessScore,
+                ParticipantCount: (float)(originDistancesKm?.Count ?? 1)
+            );
+
+            onnxScore = _onnxService.Predict(inputDto);
+        }
+
+        var final = onnxScore.HasValue
+            ? onnxScore.Value
+            : weights.Relevance * relevanceScore
+              + weights.Distance * distanceScore
+              + weights.Fairness * fairnessScore;
 
         if (!returnBreakdown)
         {

@@ -24,6 +24,7 @@ import {
   Activity,
   Database,
   Users,
+  Cpu,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ const items = [
   { href: "/admin/places", label: "Places", icon: MapPin },
   { href: "/admin/overture/areas", label: "Areas", icon: Map },
   { href: "/admin/overture", label: "Overture Import", icon: Database },
+  { href: "/admin/ranking-model", label: "AI Model (ONNX)", icon: Cpu },
   { href: "/admin/hangfire", label: "Hangfire Jobs", icon: Activity },
 ];
 
