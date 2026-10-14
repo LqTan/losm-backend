@@ -534,28 +534,30 @@ export default function HomeMap() {
         />
       </div>
 
-      {/* Floating Group Meeting Trigger Button (Góc dưới bên phải - Mở Trợ lý AI ở tab Điểm hẹn nhóm) */}
-      <button
-        type="button"
-        onClick={() => {
-          setAssistantTab("meeting");
-          setIsAssistantOpen(true);
-        }}
-        className="fixed right-5 bottom-40 z-[1000] flex items-center gap-3 rounded-2xl bg-card/95 border border-border shadow-lg backdrop-blur-md px-3.5 py-2.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/50 transition-all active:scale-95 group cursor-pointer"
-        title="Bạn muốn tìm điểm hẹn chung? Mở Trợ lý AI"
-      >
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
-          <Users className="h-4 w-4" />
-        </div>
-        <div className="text-left pr-1">
-          <div className="text-[12px] font-bold text-foreground leading-tight">
-            Bạn muốn tìm điểm hẹn chung?
+      {/* Floating Group Meeting Trigger Button (Góc dưới bên phải - Mở Trợ lý AI có đủ 2 chức năng) */}
+      {!isAssistantOpen && (
+        <button
+          type="button"
+          onClick={() => {
+            setAssistantTab("meeting");
+            setIsAssistantOpen(true);
+          }}
+          className="fixed right-5 bottom-20 z-[1000] flex items-center gap-3 rounded-2xl bg-card/95 border border-border shadow-lg backdrop-blur-md px-3.5 py-2.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/50 transition-all active:scale-95 group cursor-pointer"
+          title="Bạn muốn tìm điểm hẹn chung? Mở Trợ lý AI"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
+            <Users className="h-4 w-4" />
           </div>
-          <div className="text-[10px] text-muted-foreground mt-0.5">
-            Trợ lý AI tính vị trí công bằng
+          <div className="text-left pr-1">
+            <div className="text-[12px] font-bold text-foreground leading-tight">
+              Bạn muốn tìm điểm hẹn chung?
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              Trợ lý AI tính vị trí công bằng
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      )}
 
       {/* Active Meeting Place Quick Indicator Banner */}
       {activeMeetingPlace && (
@@ -638,7 +640,7 @@ export default function HomeMap() {
         type="button"
         onClick={handleLocateUser}
         disabled={locating}
-        className="fixed right-5 bottom-24 z-[1000] flex h-11 w-11 items-center justify-center rounded-full bg-card/95 border border-border shadow-md backdrop-blur-md text-foreground hover:bg-muted active:scale-95 transition-all disabled:opacity-60"
+        className="fixed right-5 bottom-5 z-[1000] flex h-11 w-11 items-center justify-center rounded-full bg-card/95 border border-border shadow-md backdrop-blur-md text-foreground hover:bg-muted active:scale-95 transition-all disabled:opacity-60 cursor-pointer"
         title="Vị trí của tôi (GPS / Mạng)"
         aria-label="Vị trí của tôi (GPS / Mạng)"
       >
@@ -691,6 +693,7 @@ export default function HomeMap() {
         onCloseControlled={() => setIsAssistantOpen(false)}
         controlledTab={assistantTab}
         onTabChange={(tab) => setAssistantTab(tab)}
+        hideFloatingTrigger={true}
       />
     </main>
   );

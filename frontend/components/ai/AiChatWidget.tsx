@@ -134,6 +134,7 @@ interface Props {
   onCloseControlled?: () => void;
   controlledTab?: "chat" | "meeting";
   onTabChange?: (tab: "chat" | "meeting") => void;
+  hideFloatingTrigger?: boolean;
 }
 
 function updateLiveSteps(prev: ActivityStep[], incoming: ActivityStep): ActivityStep[] {
@@ -267,6 +268,7 @@ export default function AiChatWidget({
   onCloseControlled,
   controlledTab,
   onTabChange,
+  hideFloatingTrigger,
 }: Props) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = isOpenControlled !== undefined ? isOpenControlled : internalIsOpen;
@@ -944,8 +946,8 @@ export default function AiChatWidget({
 
   return (
     <>
-      {/* Floating Trigger Button (khi đóng) */}
-      {!isOpen && (
+      {/* Floating Trigger Button (khi đóng và không bị ẩn) */}
+      {!isOpen && !hideFloatingTrigger && isOpenControlled === undefined && (
         <div className="fixed bottom-5 right-5 z-[1002] flex flex-col items-end">
           <Button
             onClick={() => {
