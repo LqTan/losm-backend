@@ -975,13 +975,17 @@ export default function AiChatWidget({
                                       size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        const invitees = msg.origins && msg.origins.length > 0
-                                          ? msg.origins.map((o) => ({ name: o.name, email: o.address || "" }))
-                                          : [
+                                        const invitees = selectedFriends.length > 0
+                                          ? [
                                               ...(currentUser?.email
                                                 ? [{ name: currentUser.username || "Tôi", email: currentUser.email }]
                                                 : []),
                                               ...selectedFriends.map((f) => ({ name: f.name, email: f.email })),
+                                            ]
+                                          : [
+                                              ...(currentUser?.email
+                                                ? [{ name: currentUser.username || "Tôi", email: currentUser.email }]
+                                                : []),
                                             ];
                                         onScheduleMeeting?.(
                                           {

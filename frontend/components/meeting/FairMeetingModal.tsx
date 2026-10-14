@@ -68,9 +68,9 @@ export default function FairMeetingModal({
       return initialParticipants;
     }
     if (currentUser?.email) {
-      return [{ name: currentUser.username, email: currentUser.email }];
+      return [{ name: currentUser.username || "Tôi", email: currentUser.email }];
     }
-    return [{ name: "Tôi", email: "host@example.com" }];
+    return [];
   });
 
   useEffect(() => {

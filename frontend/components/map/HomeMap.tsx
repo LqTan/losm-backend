@@ -437,6 +437,52 @@ export default function HomeMap() {
     setSelectedRouteOriginId(null);
   }
 
+  // Xử lý khi người dùng mở link từ email mời gặp mặt:
+  // Ví dụ: /?lat=10.77&lng=106.70&name=...&address=...&action=directions
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const latStr = params.get("lat");
+    const lngStr = params.get("lng");
+    const nameParam = params.get("name");
+    const addressParam = params.get("address");
+    const action = params.get("action");
+
+    if (latStr && lngStr) {
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const placeName = nameParam ? decodeURIComponent(nameParam) : "Địa điểm hẹn";
+        const placeAddress = addressParam ? decodeURIComponent(addressParam) : null;
+        const targetPlace: PlaceType = {
+          id: `meeting_target_${Date.now()}`,
+          name: placeName,
+          address: placeAddress,
+          latitude: lat,
+          longitude: lng,
+          category: "Điểm hẹn",
+        };
+
+        setPlaces((prev) => {
+          const exists = prev.some(
+            (p) => Math.abs(p.latitude - lat) < 0.0001 && Math.abs(p.longitude - lng) < 0.0001
+          );
+          return exists ? prev : [targetPlace, ...prev];
+        });
+
+        setSelectedPlace(targetPlace);
+        setFlyToTarget({ lat, lng });
+
+        if (action === "directions") {
+          toast.info(`Đang mở chỉ đường tới ${placeName} trên bản đồ LOSM...`);
+          void handleGetDirections(targetPlace);
+        } else {
+          toast.info(`Đang xem vị trí cuộc hẹn: ${placeName}`);
+        }
+      }
+    }
+  }, []);
+
   function handleAiRouteReceived(route: AttachedRoute) {
     setNavigationRoute({
       coordinates: route.coordinates,

@@ -69,14 +69,14 @@ public sealed class MeetingsController : ControllerBase
         var frontendBaseUrl = _configuration?["Frontend:BaseUrl"];
         if (string.IsNullOrWhiteSpace(frontendBaseUrl))
         {
-            var origin = Request.Headers.Origin.FirstOrDefault();
+            var origin = Request?.Headers?.Origin.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(origin))
             {
                 frontendBaseUrl = origin;
             }
             else
             {
-                var referer = Request.Headers.Referer.FirstOrDefault();
+                var referer = Request?.Headers?.Referer.FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
                 {
                     frontendBaseUrl = $"{refUri.Scheme}://{refUri.Authority}";
@@ -97,13 +97,17 @@ public sealed class MeetingsController : ControllerBase
             try
             {
                 var viewUrl = $"{frontendBaseUrl}/meetings/view?email={Uri.EscapeDataString(email)}";
-                var htmlBody = BuildHtmlBody(request, startUtc, viewUrl);
-                var plainBody = BuildTextBody(request, startUtc, viewUrl);
+                var directionsUrl = (request.Latitude.HasValue && request.Longitude.HasValue)
+                    ? $"{frontendBaseUrl}/?lat={request.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lng={request.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&name={Uri.EscapeDataString(request.PlaceName)}&address={Uri.EscapeDataString(request.Address ?? "")}&action=directions"
+                    : $"{frontendBaseUrl}/?query={Uri.EscapeDataString(request.PlaceName)}";
+
+                var htmlBody = BuildHtmlBody(request, startUtc, viewUrl, directionsUrl);
+                var plainBody = BuildTextBody(request, startUtc, viewUrl, directionsUrl);
 
                 var attachments = new List<EmailAttachment>();
                 if (icsBytes is { Length: > 0 })
                 {
-                    attachments.Add(new($"invite-{startUtc:yyyyMMddHHmm}.ics", "text/calendar", icsBytes));
+                    attachments.Add(new($"invite-{startUtc:yyyyMMddHHmm}.ics", "text/calendar; method=REQUEST; charset=UTF-8", icsBytes));
                 }
 
                 var res = await _emailSender.SendAsync(new EmailRequest(
@@ -217,7 +221,11 @@ public sealed class MeetingsController : ControllerBase
     {
         try
         {
-            var calendar = new Calendar();
+            var calendar = new Calendar
+            {
+                Method = "REQUEST",
+                ProductId = "-//LOSM//Meeting Platform//VI"
+            };
             var evt = new CalendarEvent
             {
                 Uid = Guid.NewGuid().ToString("D"),
@@ -252,7 +260,7 @@ public sealed class MeetingsController : ControllerBase
         }
     }
 
-    private static string BuildHtmlBody(ScheduleMeetingRequest req, DateTime startUtc, string viewUrl)
+    private static string BuildHtmlBody(ScheduleMeetingRequest req, DateTime startUtc, string viewUrl, string directionsUrl)
     {
         var localTime = startUtc.AddHours(7); // Giờ Việt Nam (UTC+7)
         var host = string.IsNullOrWhiteSpace(req.HostName) ? "Một người bạn" : req.HostName;
@@ -280,7 +288,12 @@ public sealed class MeetingsController : ControllerBase
             {note}
 
             <div style="text-align: center; margin: 28px 0 24px 0;">
-                <a href="{viewUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">Xem chi tiết</a>
+                <div style="display: inline-block; margin-bottom: 8px;">
+                    <a href="{directionsUrl}" style="background-color: #0284c7; color: #ffffff; padding: 12px 22px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin: 4px; box-shadow: 0 2px 4px rgba(2,132,199,0.25);">📍 Xem bản đồ & Chỉ đường trên LOSM</a>
+                </div>
+                <div style="display: inline-block;">
+                    <a href="{viewUrl}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 22px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin: 4px; box-shadow: 0 2px 4px rgba(79,70,229,0.25);">📅 Xem chi tiết cuộc hẹn</a>
+                </div>
             </div>
 
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px; line-height: 1.5;">
@@ -291,7 +304,7 @@ public sealed class MeetingsController : ControllerBase
         """;
     }
 
-    private static string BuildTextBody(ScheduleMeetingRequest req, DateTime startUtc, string viewUrl)
+    private static string BuildTextBody(ScheduleMeetingRequest req, DateTime startUtc, string viewUrl, string directionsUrl)
     {
         var localTime = startUtc.AddHours(7);
         return $"""
@@ -302,7 +315,8 @@ public sealed class MeetingsController : ControllerBase
         Địa chỉ: {req.Address ?? "N/A"}
         Ghi chú: {req.Note ?? ""}
         ------------------------------------------
-        Xem chi tiết lịch hẹn tại: {viewUrl}
+        📍 Chỉ đường trên bản đồ LOSM: {directionsUrl}
+        📅 Xem chi tiết cuộc hẹn: {viewUrl}
 
         Tệp lịch .ics đính kèm hỗ trợ thêm tự động vào Calendar của bạn.
         """;
