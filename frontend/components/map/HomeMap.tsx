@@ -14,7 +14,7 @@ import { getToken, getUser } from "@/lib/auth";
 import type { StoredUser } from "@/lib/auth";
 import type { Place as PlaceType, MeetingPlace } from "@/types/place";
 import { toast } from "sonner";
-import { List, Loader2, LocateFixed, Users, X } from "lucide-react";
+import { Bot, List, Loader2, LocateFixed, Users, X } from "lucide-react";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -64,9 +64,8 @@ export default function HomeMap() {
   // User location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // AI Assistant state (Tích hợp Điểm hẹn nhóm)
+  // Unified AI Assistant state
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [assistantTab, setAssistantTab] = useState<"chat" | "meeting">("chat");
   const [groupOrigins, setGroupOrigins] = useState<OriginItem[]>([]);
   const [centroid, setCentroid] = useState<{ lat: number; lng: number } | null>(null);
   const [activeMeetingPlace, setActiveMeetingPlace] = useState<MeetingPlace | null>(null);
@@ -565,26 +564,24 @@ export default function HomeMap() {
         />
       </div>
 
-      {/* Floating Group Meeting Trigger Button (Góc dưới bên phải - Mở Trợ lý AI có đủ 2 chức năng) */}
+      {/* Floating Unified Assistant Trigger Button (Góc dưới bên phải - Mở Trợ lý AI) */}
       {!isAssistantOpen && (
         <button
           type="button"
-          onClick={() => {
-            setAssistantTab("meeting");
-            setIsAssistantOpen(true);
-          }}
+          onClick={() => setIsAssistantOpen(true)}
           className="fixed right-5 bottom-20 z-[1000] flex items-center gap-3 rounded-2xl bg-card/95 border border-border shadow-lg backdrop-blur-md px-3.5 py-2.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/50 transition-all active:scale-95 group cursor-pointer"
-          title="Bạn muốn tìm điểm hẹn chung? Mở Trợ lý AI"
+          title="Mở Trợ lý AI"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
-            <Users className="h-4 w-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-xs group-hover:scale-105 transition">
+            <Bot className="h-4 w-4" />
           </div>
           <div className="text-left pr-1">
-            <div className="text-[12px] font-bold text-foreground leading-tight">
-              Bạn muốn tìm điểm hẹn chung?
+            <div className="text-[12px] font-bold text-foreground leading-tight flex items-center gap-1.5">
+              Trợ lý AI
+              <span className="text-[9px] font-medium px-1 py-0.2 rounded bg-blue-100 text-blue-700">LOSM</span>
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">
-              Trợ lý AI tính vị trí công bằng
+              Gợi ý địa điểm & Tìm điểm hẹn
             </div>
           </div>
         </button>
@@ -603,7 +600,6 @@ export default function HomeMap() {
           <button
             type="button"
             onClick={() => {
-              setAssistantTab("meeting");
               setIsAssistantOpen(true);
             }}
             className="font-semibold text-primary hover:underline flex items-center gap-0.5 text-xs cursor-pointer"
@@ -725,8 +721,6 @@ export default function HomeMap() {
         activeMeetingPlaceId={activeMeetingPlace?.placeId}
         isOpenControlled={isAssistantOpen}
         onCloseControlled={() => setIsAssistantOpen(false)}
-        controlledTab={assistantTab}
-        onTabChange={(tab) => setAssistantTab(tab)}
         hideFloatingTrigger={true}
       />
     </main>

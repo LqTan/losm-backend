@@ -20,7 +20,8 @@ public sealed record MeetingSearchPromptResponse(
     IReadOnlyList<MeetingSearchOriginItem> Origins,
     IReadOnlyList<MeetingPlaceResultDto> Results,
     string? AiInsight,
-    IReadOnlyList<string>? SupportedAreas = null
+    IReadOnlyList<string>? SupportedAreas = null,
+    AgentCore.Application.Models.AttachedRoute? AttachedRoute = null
 );
 
 public sealed record MeetingSearchCentroid(

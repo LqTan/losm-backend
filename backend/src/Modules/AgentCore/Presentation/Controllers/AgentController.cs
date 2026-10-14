@@ -399,6 +399,7 @@ public sealed class AgentController : ControllerBase
         [FromServices] IGeocodingService geocodingService,
         [FromServices] Areas.Application.Abstractions.IAreaRepository areaRepo,
         [FromServices] SearchMeetingPlacesHandler meetingPlacesHandler,
+        [FromServices] Search.Application.Abstractions.IOsrmRouteService routeService,
         [FromServices] ILogger<AgentController> logger,
         CancellationToken cancellationToken
     )
@@ -417,25 +418,30 @@ public sealed class AgentController : ControllerBase
         var areasDescription = string.Join(", ", activeAreaNames);
 
         var systemInstruction = """
-Bạn là chuyên gia phân tích yêu cầu điều phối điểm hẹn nhóm.
-Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xuất đúng 2 thông tin dưới dạng JSON:
-1. "query": Thể loại địa điểm người dùng muốn tìm (ví dụ: 'công viên', 'quán cà phê', 'quán ăn', 'quán lẩu'...). Trích xuất đúng từ khoá người dùng yêu cầu (mặc định 'quán cà phê' nếu không rõ).
-2. "origins": Danh sách tất cả thành viên và địa điểm/vị trí xuất phát:
-   - Trích xuất đúng số lượng thành viên và tên địa điểm xuất phát mà người dùng đã đề cập.
-   - TUYỆT ĐỐI KHÔNG tự động chèn thêm "GPS_CURRENT" nếu người dùng đã nêu đủ các điểm xuất phát.
+Bạn là trợ lý AI thông minh của nền tảng bản đồ LOSM.
+Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xuất thông tin dưới dạng JSON:
+1. "intent": "directions" (nếu người dùng hỏi đường đi, chỉ đường, cách di chuyển) hoặc "search" (mặc định cho tất cả yêu cầu tìm kiếm, gợi ý địa điểm cá nhân hoặc điểm hẹn nhóm).
+2. "query": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán lẩu', 'công viên', 'quán cơm'... hoặc tên quán cụ thể). Mặc định 'quán cà phê' nếu không rõ.
+3. "origins": Danh sách tất cả thành viên/người và địa điểm/vị trí xuất phát:
+   - Nếu là nhóm người (2 người trở lên): trích xuất đúng tên và vị trí xuất phát của từng người.
+   - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân (ví dụ: 'tìm quán cafe yên tĩnh', 'quán phở ngon gần đây', 'quán ăn trưa'): để "origins" rỗng [].
    - CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi".
+4. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
 
 Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 {
-  "query": "thể loại địa điểm",
+  "intent": "search",
+  "query": "thể loại hoặc tên địa điểm",
   "origins": [
-    { "name": "Người 1", "location": "Điểm xuất phát 1" },
-    { "name": "Người 2", "location": "Điểm xuất phát 2" }
-  ]
+    { "name": "Người 1", "location": "Điểm xuất phát 1" }
+  ],
+  "destination": ""
 }
 """;
 
+        string parsedIntent = "search";
         string parsedQuery = "quán cà phê";
+        string parsedDestination = "";
         var parsedOrigins = new List<(string Name, string Location)>();
 
         try
@@ -453,9 +459,19 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             if (match.Success)
             {
                 using var doc = JsonDocument.Parse(match.Value);
+                if (doc.RootElement.TryGetProperty("intent", out var iElem) && iElem.ValueKind == JsonValueKind.String)
+                {
+                    parsedIntent = iElem.GetString() ?? "search";
+                }
+
                 if (doc.RootElement.TryGetProperty("query", out var qElem) && qElem.ValueKind == JsonValueKind.String)
                 {
                     parsedQuery = qElem.GetString() ?? "quán cà phê";
+                }
+
+                if (doc.RootElement.TryGetProperty("destination", out var dElem) && dElem.ValueKind == JsonValueKind.String)
+                {
+                    parsedDestination = dElem.GetString() ?? "";
                 }
 
                 if (doc.RootElement.TryGetProperty("origins", out var originsElem) && originsElem.ValueKind == JsonValueKind.Array)
@@ -478,19 +494,114 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             logger.LogWarning(ex, "Failed to parse meeting prompt with MiniMax, using fallback extraction.");
         }
 
-        // Fallback if AI returned no origins
-        if (parsedOrigins.Count == 0)
-        {
-            parsedOrigins.Add(("Người 1", "Bến Thành"));
-            parsedOrigins.Add(("Người 2", "UBND Quận 1"));
-        }
-        else if (parsedOrigins.Count == 1)
-        {
-            parsedOrigins.Add(("Người 2", "UBND Quận 1"));
-        }
-
         var myLat = request.UserLatitude ?? 10.7769;
         var myLng = request.UserLongitude ?? 106.7009;
+
+        // Xử lý Intent CHỈ ĐƯỜNG (Directions)
+        if (string.Equals(parsedIntent, "directions", StringComparison.OrdinalIgnoreCase) ||
+            request.Prompt.Contains("chỉ đường", StringComparison.OrdinalIgnoreCase) ||
+            request.Prompt.Contains("đường đi", StringComparison.OrdinalIgnoreCase))
+        {
+            var destTarget = !string.IsNullOrWhiteSpace(parsedDestination) ? parsedDestination : parsedQuery;
+            var originTarget = parsedOrigins.Count > 0 && !string.IsNullOrWhiteSpace(parsedOrigins[0].Location)
+                ? parsedOrigins[0].Location
+                : "GPS_CURRENT";
+            var memberName = parsedOrigins.Count > 0 ? parsedOrigins[0].Name : "Bạn";
+
+            double startLat = myLat;
+            double startLng = myLng;
+            string startName = "Vị trí của bạn";
+
+            if (!string.Equals(originTarget, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase))
+            {
+                var geocodedOrigin = await geocodingService.GeocodeAsync(originTarget, cancellationToken);
+                if (geocodedOrigin is not null)
+                {
+                    startLat = geocodedOrigin.Latitude;
+                    startLng = geocodedOrigin.Longitude;
+                    startName = geocodedOrigin.DisplayName ?? originTarget;
+                }
+                else
+                {
+                    return Ok(new MeetingSearchPromptResponse(
+                        Query: parsedQuery,
+                        Centroid: null,
+                        Origins: [],
+                        Results: [],
+                        AiInsight: $"Hệ thống không tìm thấy toạ độ điểm xuất phát '{originTarget}' trong các khu vực hỗ trợ ({areasDescription}) để chỉ đường.",
+                        SupportedAreas: activeAreaNames
+                    ));
+                }
+            }
+
+            var geocodedDest = await geocodingService.GeocodeAsync(destTarget, cancellationToken);
+            if (geocodedDest is null)
+            {
+                return Ok(new MeetingSearchPromptResponse(
+                    Query: parsedQuery,
+                    Centroid: null,
+                    Origins: [],
+                    Results: [],
+                    AiInsight: $"Hệ thống không tìm thấy toạ độ địa điểm đến '{destTarget}' trong các khu vực hỗ trợ ({areasDescription}) để tính đường đi.",
+                    SupportedAreas: activeAreaNames
+                ));
+            }
+
+            try
+            {
+                var routeResult = await routeService.GetRouteAsync(
+                    new Search.Application.Abstractions.GeoCoordinate(startLat, startLng),
+                    new Search.Application.Abstractions.GeoCoordinate(geocodedDest.Latitude, geocodedDest.Longitude),
+                    cancellationToken
+                );
+                if (routeResult is not null && routeResult.Coordinates.Count > 0)
+                {
+                    var attachedRoute = new AttachedRoute(
+                        OriginName: startName,
+                        OriginLatitude: startLat,
+                        OriginLongitude: startLng,
+                        DestinationName: geocodedDest.DisplayName ?? destTarget,
+                        DestinationLatitude: geocodedDest.Latitude,
+                        DestinationLongitude: geocodedDest.Longitude,
+                        MemberName: memberName,
+                        DistanceKm: routeResult.DistanceKm,
+                        DurationMinutes: routeResult.DurationMinutes,
+                        Summary: $"Lộ trình từ {startName} đến {geocodedDest.DisplayName ?? destTarget}",
+                        Coordinates: routeResult.Coordinates.Select(c => (IReadOnlyList<double>)new[] { c.Latitude, c.Longitude }).ToList()
+                    );
+
+                    return Ok(new MeetingSearchPromptResponse(
+                        Query: destTarget,
+                        Centroid: new MeetingSearchCentroid(geocodedDest.Latitude, geocodedDest.Longitude),
+                        Origins: [
+                            new MeetingSearchOriginItem(
+                                Id: "route_origin",
+                                Name: memberName,
+                                Address: startName,
+                                Lat: startLat,
+                                Lng: startLng,
+                                AvatarUrl: null,
+                                IsMe: true
+                            )
+                        ],
+                        Results: [],
+                        AiInsight: $"Đã tìm thấy lộ trình cho {memberName} từ {startName} đến '{geocodedDest.DisplayName ?? destTarget}': khoảng cách {routeResult.DistanceKm:F1} km (~{Math.Round(routeResult.DurationMinutes)} phút lái xe). Lộ trình đã được vẽ trên bản đồ.",
+                        SupportedAreas: activeAreaNames,
+                        AttachedRoute: attachedRoute
+                    ));
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to calculate OSRM driving route for meeting search prompt.");
+            }
+        }
+
+        // Xử lý Intent TÌM KIẾM / GỢI Ý ĐỊA ĐIỂM (Cá nhân hoặc Nhóm)
+        if (parsedOrigins.Count == 0)
+        {
+            parsedOrigins.Add(("Tôi", "GPS_CURRENT"));
+        }
 
         var resolvedOrigins = new List<MeetingSearchOriginItem>();
         var unresolvedOrigins = new List<(string Name, string Location)>();
@@ -624,21 +735,32 @@ Nhiệm vụ của bạn:
             try
             {
                 var originsSummary = string.Join(", ", resolvedOrigins.Select(o => $"{o.Name} ({o.Address})"));
-                var timeSummary = top.DurationMinutesByOrigin != null && top.DurationMinutesByOrigin.Count == resolvedOrigins.Count
-                    ? string.Join(", ", resolvedOrigins.Select((o, idx) => $"{o.Name}: ~{top.DurationMinutesByOrigin[idx]:F0} phút"))
-                    : $"khoảng cách trung bình {top.AverageDistanceKm:F1} km";
+                var isSingleOrigin = resolvedOrigins.Count <= 1;
+
+                var promptSystem = isSingleOrigin
+                    ? "Bạn là chuyên gia tư vấn địa điểm thông minh. " +
+                      "Dựa trên vị trí của người dùng, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho địa điểm phù hợp nhất. " +
+                      "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt."
+                    : "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh. " +
+                      "Dựa trên kết quả tính toán lộ trình thực tế, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho người dùng. " +
+                      "Nêu điểm hẹn tối ưu nhất, thời gian di chuyển của các thành viên hoặc vì sao điểm này công bằng, thuận tiện. " +
+                      "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
+
+                var promptUser = isSingleOrigin
+                    ? $"Người dùng ở: {originsSummary}. " +
+                      $"Địa điểm phù hợp nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
+                      $"Khoảng cách: {top.AverageDistanceKm:F1} km (~{(top.AverageDurationMinutes ?? (top.AverageDistanceKm / 25.0 * 60.0)):F0} phút). " +
+                      $"Hãy tư vấn ngắn gọn, gợi ý lý do người dùng nên đến đây."
+                    : $"Nhóm gồm: {originsSummary}. " +
+                      $"Hệ thống đang có dữ liệu tại: {areasDescription}. " +
+                      $"Điểm hẹn tối ưu nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
+                      $"Thời gian di chuyển ước tính: {top.AverageDurationMinutes:F0} phút. Độ công bằng: {Math.Round(top.FairnessScore * 100)}%. " +
+                      $"Hãy tư vấn ngắn gọn và tự nhiên cho nhóm.";
 
                 var insightMessages = new List<AgentModelMessage>
                 {
-                    new(AgentModelRole.System, "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh. " +
-                        "Dựa trên kết quả tính toán lộ trình thực tế, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho người dùng. " +
-                        "Nêu điểm hẹn tối ưu nhất, thời gian di chuyển của các thành viên hoặc vì sao điểm này công bằng, thuận tiện. " +
-                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt."),
-                    new(AgentModelRole.User, $"Nhóm gồm: {originsSummary}. " +
-                        $"Hệ thống đang có dữ liệu tại: {areasDescription}. " +
-                        $"Điểm hẹn tối ưu nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
-                        $"Thời gian di chuyển ước tính: {timeSummary}. Độ công bằng: {Math.Round(top.FairnessScore * 100)}%. " +
-                        $"Hãy tư vấn ngắn gọn và tự nhiên cho nhóm.")
+                    new(AgentModelRole.System, promptSystem),
+                    new(AgentModelRole.User, promptUser)
                 };
 
                 var insightResp = await modelClient.SendAsync(insightMessages, [], cancellationToken);
@@ -655,8 +777,9 @@ Nhiệm vụ của bạn:
 
             if (string.IsNullOrWhiteSpace(insight))
             {
-                insight = $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). " +
-                          $"Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+                insight = resolvedOrigins.Count <= 1
+                    ? $"Địa điểm gợi ý phù hợp nhất cho bạn là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách vị trí của bạn khoảng {top.AverageDistanceKm:F1} km."
+                    : $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
             }
         }
         else
