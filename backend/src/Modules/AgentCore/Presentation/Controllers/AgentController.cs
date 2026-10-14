@@ -422,10 +422,13 @@ Bạn là trợ lý AI thông minh của nền tảng bản đồ LOSM.
 Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xuất thông tin dưới dạng JSON:
 1. "intent": "directions" (nếu người dùng hỏi đường đi, chỉ đường, cách di chuyển) hoặc "search" (mặc định cho tất cả yêu cầu tìm kiếm, gợi ý địa điểm cá nhân hoặc điểm hẹn nhóm).
 2. "query": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán lẩu', 'công viên', 'quán cơm'... hoặc tên quán cụ thể). Mặc định 'quán cà phê' nếu không rõ.
-3. "origins": Danh sách tất cả thành viên/người và địa điểm/vị trí xuất phát:
-   - Nếu là nhóm người (2 người trở lên): trích xuất đúng tên và vị trí xuất phát của từng người.
-   - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân (ví dụ: 'tìm quán cafe yên tĩnh', 'quán phở ngon gần đây', 'quán ăn trưa'): để "origins" rỗng [].
-   - CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi".
+3. "origins": Danh sách tất cả thành viên và địa điểm xuất phát:
+   - "name": Tên hoặc định danh người đó (ví dụ: 'Tôi', 'Người 1', 'Bạn Nam').
+   - "location": Địa điểm/vị trí xuất phát. CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi".
+   - "role": Vai trò của chủ thể ("speaker" hoặc "member"):
+     + "speaker": Khi người dùng tự chỉ định rõ ràng bản thân mình đang ở vị trí đó (chủ thể ngôi thứ nhất gắn liền với vị trí).
+     + "member": Dành cho bạn bè, người khác, hoặc khi người dùng chỉ liệt kê danh sách các điểm trong nhóm một cách khách quan (ví dụ: '1 đứa ở A, 1 đứa ở B, đứa còn lại ở C') mà không nói rõ bản thân ở điểm nào.
+   - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân (ví dụ: 'tìm quán cafe yên tĩnh', 'quán phở ngon gần đây'): để "origins" rỗng [].
 4. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
 
 Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
@@ -433,7 +436,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
   "intent": "search",
   "query": "thể loại hoặc tên địa điểm",
   "origins": [
-    { "name": "Người 1", "location": "Điểm xuất phát 1" }
+    { "name": "Người 1", "location": "Điểm xuất phát 1", "role": "member" }
   ],
   "destination": ""
 }
@@ -442,7 +445,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         string parsedIntent = "search";
         string parsedQuery = "quán cà phê";
         string parsedDestination = "";
-        var parsedOrigins = new List<(string Name, string Location)>();
+        var parsedOrigins = new List<(string Name, string Location, string Role)>();
 
         try
         {
@@ -484,7 +487,10 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                         var loc = o.TryGetProperty("location", out var lElem) && lElem.ValueKind == JsonValueKind.String
                             ? lElem.GetString() ?? ""
                             : "";
-                        parsedOrigins.Add((name, loc));
+                        var role = o.TryGetProperty("role", out var rElem) && rElem.ValueKind == JsonValueKind.String
+                            ? rElem.GetString() ?? "member"
+                            : "member";
+                        parsedOrigins.Add((name, loc, role));
                     }
                 }
             }
@@ -600,7 +606,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         // Xử lý Intent TÌM KIẾM / GỢI Ý ĐỊA ĐIỂM (Cá nhân hoặc Nhóm)
         if (parsedOrigins.Count == 0)
         {
-            parsedOrigins.Add(("Tôi", "GPS_CURRENT"));
+            parsedOrigins.Add(("Tôi", "GPS_CURRENT", "speaker"));
         }
 
         var resolvedOrigins = new List<MeetingSearchOriginItem>();
@@ -608,9 +614,10 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 
         for (int i = 0; i < parsedOrigins.Count; i++)
         {
-            var (oName, oLoc) = parsedOrigins[i];
+            var (oName, oLoc, oRole) = parsedOrigins[i];
             var isGpsCurrent = string.Equals(oLoc, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
-            var isMe = isGpsCurrent || oName.Contains("Tôi", StringComparison.OrdinalIgnoreCase);
+            var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase);
+            var isMe = isGpsCurrent || isSpeaker;
             var name = isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : $"Người {i + 1}");
 
             if (isGpsCurrent || string.IsNullOrWhiteSpace(oLoc))

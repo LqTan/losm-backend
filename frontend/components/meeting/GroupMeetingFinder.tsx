@@ -54,6 +54,7 @@ export interface OriginItem {
   lat: number;
   lng: number;
   avatarUrl?: string;
+  isMe?: boolean;
 }
 
 export interface FriendWithLocation {

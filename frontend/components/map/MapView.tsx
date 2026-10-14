@@ -99,6 +99,7 @@ export interface MapOrigin {
   lat: number;
   lng: number;
   avatarUrl?: string;
+  isMe?: boolean;
 }
 
 interface Props {
@@ -243,7 +244,7 @@ export default function MapView({
       {groupOrigins &&
         groupOrigins.map((orig, idx) => {
           const color = ORIGIN_COLORS[idx % ORIGIN_COLORS.length];
-          const isMe = idx === 0 || orig.name.includes("Tôi");
+          const isMe = Boolean(orig.isMe || orig.name?.trim().toLowerCase() === "tôi");
           const avatar = isMe ? (orig.avatarUrl || currentUserAvatar) : orig.avatarUrl;
 
           return (
