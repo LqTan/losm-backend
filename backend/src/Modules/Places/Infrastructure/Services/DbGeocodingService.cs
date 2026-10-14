@@ -1,16 +1,27 @@
+using System.Globalization;
+using System.Text.Json;
+using Areas.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Places.Application.Abstractions;
+using Places.Domain.Entities;
 using Places.Infrastructure.Persistence;
 
 namespace Places.Infrastructure.Services;
 
 public sealed class DbGeocodingService : IGeocodingService
 {
-    private readonly PlacesDbContext _db;
+    private static readonly HttpClient HttpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(5)
+    };
 
-    public DbGeocodingService(PlacesDbContext db)
+    private readonly PlacesDbContext _db;
+    private readonly IAreaRepository _areaRepo;
+
+    public DbGeocodingService(PlacesDbContext db, IAreaRepository areaRepo)
     {
         _db = db;
+        _areaRepo = areaRepo;
     }
 
     public async Task<GeocodeResult?> GeocodeAsync(
@@ -20,20 +31,22 @@ public sealed class DbGeocodingService : IGeocodingService
         if (string.IsNullOrWhiteSpace(query)) return null;
 
         var q = query.Trim();
-        var match = await _db.Places
-            .AsNoTracking()
-            .Where(p => EF.Functions.Like(p.Name, $"%{q}%"))
-            .OrderBy(p => p.Name.Length)
-            .FirstOrDefaultAsync(cancellationToken);
 
-        if (match is null && q.Contains("ubnd", StringComparison.OrdinalIgnoreCase))
+        // 1. Tra cứu trong cơ sở dữ liệu Places với thuật toán chấm điểm Tầng 1 (Token Overlap & Match Scoring)
+        var candidates = await _db.Places
+            .AsNoTracking()
+            .Where(p => !p.IsNotSafe && (EF.Functions.Like(p.Name, $"%{q}%") || (p.Address != null && EF.Functions.Like(p.Address, $"%{q}%"))))
+            .Take(30)
+            .ToListAsync(cancellationToken);
+
+        Place? match = null;
+        if (candidates.Count > 0)
         {
-            var alt = q.Replace("ubnd", "ủy ban nhân dân", StringComparison.OrdinalIgnoreCase);
-            match = await _db.Places
-                .AsNoTracking()
-                .Where(p => EF.Functions.Like(p.Name, $"%{alt}%"))
-                .OrderBy(p => p.Name.Length)
-                .FirstOrDefaultAsync(cancellationToken);
+            match = candidates
+                .Select(p => new { Place = p, Score = CalculatePlaceScore(p, q) })
+                .OrderByDescending(x => x.Score)
+                .Select(x => x.Place)
+                .FirstOrDefault();
         }
 
         if (match is not null)
@@ -48,45 +61,151 @@ public sealed class DbGeocodingService : IGeocodingService
                 Box: null);
         }
 
-        // Fallback for well-known locations / districts in HCMC
-        var lower = q.ToLowerInvariant();
-        if (lower.Contains("bến thành"))
-            return new GeocodeResult("Chợ Bến Thành", "Chợ Bến Thành, Quận 1", 10.7725, 106.6980, "Chợ", "landmark", null);
-        if (lower.Contains("ubnd") && (lower.Contains("quận 1") || lower.Contains("q1") || lower.Contains("q.1")))
-            return new GeocodeResult("UBND Quận 1", "47 Lê Duẩn, Bến Nghé, Quận 1", 10.7782, 106.7011, "Cơ quan", "landmark", null);
-        if (lower.Contains("đức bà"))
-            return new GeocodeResult("Nhà thờ Đức Bà", "01 Công xã Paris, Bến Nghé, Quận 1", 10.7797, 106.6990, "Nhà thờ", "landmark", null);
-        if (lower.Contains("độc lập") || lower.Contains("dinh"))
-            return new GeocodeResult("Dinh Độc Lập", "135 Nam Kỳ Khởi Nghĩa, Bến Thành, Quận 1", 10.7770, 106.6953, "Di tích", "landmark", null);
-        if (lower.Contains("nguyễn huệ"))
-            return new GeocodeResult("Phố đi bộ Nguyễn Huệ", "Nguyễn Huệ, Bến Nghé, Quận 1", 10.7745, 106.7037, "Phố đi bộ", "landmark", null);
-        if (lower.Contains("con rùa"))
-            return new GeocodeResult("Hồ Con Rùa", "Công trường Quốc Tế, Quận 3", 10.7828, 106.6958, "Địa danh", "landmark", null);
-        if (lower.Contains("landmark 81") || lower.Contains("landmark"))
-            return new GeocodeResult("Landmark 81", "720A Điện Biên Phủ, Bình Thạnh", 10.7950, 106.7219, "Trung tâm thương mại", "landmark", null);
-        if (lower.Contains("hàng xanh"))
-            return new GeocodeResult("Ngã tư Hàng Xanh", "Bình Thạnh, TP.HCM", 10.8016, 106.7114, "Giao lộ", "landmark", null);
-        if (lower.Contains("quận 1") || lower.Contains("q1") || lower.Contains("q.1"))
-            return new GeocodeResult("Quận 1", "Trung tâm Quận 1, TP.HCM", 10.7769, 106.7009, "Khu vực", "district", null);
-        if (lower.Contains("quận 3") || lower.Contains("q3") || lower.Contains("q.3"))
-            return new GeocodeResult("Quận 3", "Quận 3, TP.HCM", 10.7828, 106.6958, "Khu vực", "district", null);
-        if (lower.Contains("quận 5") || lower.Contains("q5") || lower.Contains("q.5") || lower.Contains("chợ lớn"))
-            return new GeocodeResult("Quận 5", "Quận 5, TP.HCM", 10.7544, 106.6633, "Khu vực", "district", null);
-        if (lower.Contains("bình thạnh"))
-            return new GeocodeResult("Bình Thạnh", "Bình Thạnh, TP.HCM", 10.8016, 106.7114, "Khu vực", "district", null);
-        if (lower.Contains("phú nhuận"))
-            return new GeocodeResult("Phú Nhuận", "Phú Nhuận, TP.HCM", 10.7977, 106.6872, "Khu vực", "district", null);
-        if (lower.Contains("quận 10") || lower.Contains("q10") || lower.Contains("q.10"))
-            return new GeocodeResult("Quận 10", "Quận 10, TP.HCM", 10.7711, 106.6698, "Khu vực", "district", null);
-        if (lower.Contains("tân bình"))
-            return new GeocodeResult("Tân Bình", "Tân Bình, TP.HCM", 10.7941, 106.6612, "Khu vực", "district", null);
-        if (lower.Contains("gò vấp"))
-            return new GeocodeResult("Gò Vấp", "Gò Vấp, TP.HCM", 10.8384, 106.6651, "Khu vực", "district", null);
-        if (lower.Contains("quận 7") || lower.Contains("q7") || lower.Contains("q.7"))
-            return new GeocodeResult("Quận 7", "Quận 7, TP.HCM", 10.7292, 106.7126, "Khu vực", "district", null);
-        if (lower.Contains("thủ đức") || lower.Contains("thảo điền"))
-            return new GeocodeResult("Thủ Đức", "TP. Thủ Đức, TP.HCM", 10.8038, 106.7369, "Khu vực", "district", null);
+        // 2. Tra cứu động trong bảng Areas của hệ thống (nếu query là tên khu vực/quận/huyện)
+        try
+        {
+            var allAreas = await _areaRepo.GetAllAsync(cancellationToken);
+            var qLower = q.ToLowerInvariant();
+            var matchedArea = allAreas.FirstOrDefault(a =>
+                a.Name.Equals(q, StringComparison.OrdinalIgnoreCase) ||
+                a.Name.ToLowerInvariant().Contains(qLower) ||
+                qLower.Contains(a.Name.ToLowerInvariant()));
+
+            if (matchedArea is not null)
+            {
+                var centerLat = (matchedArea.BboxMinLat + matchedArea.BboxMaxLat) / 2.0;
+                var centerLng = (matchedArea.BboxMinLng + matchedArea.BboxMaxLng) / 2.0;
+                return new GeocodeResult(
+                    Name: matchedArea.Name,
+                    DisplayName: $"{matchedArea.Name}, TP.HCM",
+                    Latitude: centerLat,
+                    Longitude: centerLng,
+                    Category: "Khu vực",
+                    Type: "district",
+                    Box: null);
+            }
+        }
+        catch
+        {
+            // Bỏ qua lỗi query Areas nếu có
+        }
+
+        // 3. Chỉ dùng dữ liệu đã có trong DB nội bộ (Places & Areas), không gọi dịch vụ ngoài (Nominatim/Photon)
+        return null;
+    }
+
+    private static async Task<GeocodeResult?> GeocodeViaNominatimAsync(string query, CancellationToken cancellationToken)
+    {
+        var searchUrl = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(query)}&format=json&limit=1";
+        using var req = new HttpRequestMessage(HttpMethod.Get, searchUrl);
+        req.Headers.Add("User-Agent", "losm-backend/1.0 (contact@losm.duckdns.org)");
+
+        using var resp = await HttpClient.SendAsync(req, cancellationToken);
+        if (!resp.IsSuccessStatusCode) return null;
+
+        var json = await resp.Content.ReadAsStringAsync(cancellationToken);
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var first = doc.RootElement[0];
+        if (first.TryGetProperty("lat", out var latProp) &&
+            first.TryGetProperty("lon", out var lonProp) &&
+            double.TryParse(latProp.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var lat) &&
+            double.TryParse(lonProp.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var lon))
+        {
+            var displayName = first.TryGetProperty("display_name", out var dnProp) ? dnProp.GetString() ?? query : query;
+            var name = first.TryGetProperty("name", out var nameProp) && !string.IsNullOrWhiteSpace(nameProp.GetString())
+                ? nameProp.GetString()!
+                : query;
+
+            return new GeocodeResult(
+                Name: name,
+                DisplayName: displayName,
+                Latitude: lat,
+                Longitude: lon,
+                Category: "Địa danh",
+                Type: "landmark",
+                Box: null
+            );
+        }
 
         return null;
+    }
+
+    private static int CalculatePlaceScore(Places.Domain.Entities.Place p, string query)
+    {
+        var q = query.Trim();
+        var qLower = q.ToLowerInvariant();
+        var pNameLower = p.Name.ToLowerInvariant();
+        var pAddressLower = (p.Address ?? string.Empty).ToLowerInvariant();
+
+        int score = 0;
+
+        // 1. Khớp chính xác hoàn toàn tên địa điểm (Exact Match)
+        if (pNameLower == qLower)
+        {
+            score += 1000;
+        }
+        // 2. Khớp tiền tố (StartsWith)
+        else if (pNameLower.StartsWith(qLower))
+        {
+            score += 500;
+        }
+        // 3. Khớp chuỗi con (Contains)
+        else if (pNameLower.Contains(qLower))
+        {
+            score += 200;
+        }
+
+        // 4. Token Overlap Matching (Độ phủ từ khoá thuần C#, không hardcode)
+        var queryWords = qLower.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (queryWords.Length > 0)
+        {
+            int matchedWordsInName = 0;
+            int matchedWordsInAddress = 0;
+
+            foreach (var word in queryWords)
+            {
+                if (pNameLower.Contains(word))
+                {
+                    matchedWordsInName++;
+                }
+                if (pAddressLower.Contains(word))
+                {
+                    matchedWordsInAddress++;
+                }
+            }
+
+            // Nếu toàn bộ các từ trong câu query đều xuất hiện trong tên địa điểm
+            if (matchedWordsInName == queryWords.Length)
+            {
+                score += 300;
+            }
+            else
+            {
+                // Điểm theo tỷ lệ phần trăm từ khoá khớp
+                score += (int)((matchedWordsInName / (double)queryWords.Length) * 150);
+            }
+
+            // Nếu các từ trong query xuất hiện trong địa chỉ (ví dụ: query "Nguyễn Huệ" khớp địa chỉ "Nguyễn Huệ")
+            if (matchedWordsInAddress == queryWords.Length)
+            {
+                score += 150;
+            }
+        }
+
+        // 5. Khớp địa chỉ nguyên cụm
+        if (pAddressLower.Contains(qLower))
+        {
+            score += 100;
+        }
+
+        // 6. Tie-breaker: Ưu tiên nhẹ địa điểm có tên ngắn, gọn khi cùng mức điểm
+        score -= Math.Min(p.Name.Length, 50);
+
+        return score;
     }
 }

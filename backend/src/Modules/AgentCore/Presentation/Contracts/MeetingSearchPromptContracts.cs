@@ -16,10 +16,11 @@ public sealed record MeetingFriendInput(
 
 public sealed record MeetingSearchPromptResponse(
     string Query,
-    MeetingSearchCentroid Centroid,
+    MeetingSearchCentroid? Centroid,
     IReadOnlyList<MeetingSearchOriginItem> Origins,
     IReadOnlyList<MeetingPlaceResultDto> Results,
-    string? AiInsight
+    string? AiInsight,
+    IReadOnlyList<string>? SupportedAreas = null
 );
 
 public sealed record MeetingSearchCentroid(

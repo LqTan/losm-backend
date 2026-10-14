@@ -115,8 +115,9 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
         );
         residual = string.Join(" ", residual.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
-        // 3. Xây dựng truy vấn cơ sở theo vùng địa lý
+        // 3. Xây dựng truy vấn cơ sở theo vùng địa lý (chỉ lấy địa điểm an toàn, hợp lệ)
         var baseQuery = _db.Places.AsNoTracking().Where(p =>
+            !p.IsNotSafe &&
             p.Latitude >= latitude - latDelta &&
             p.Latitude <= latitude + latDelta &&
             p.Longitude >= longitude - lngDelta &&
@@ -174,6 +175,7 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
         if (candidates.Count == 0 && !string.IsNullOrWhiteSpace(residual) && matchedCategories is not null)
         {
             var categoryFallbackQuery = _db.Places.AsNoTracking().Where(p =>
+                !p.IsNotSafe &&
                 p.Latitude >= latitude - latDelta &&
                 p.Latitude <= latitude + latDelta &&
                 p.Longitude >= longitude - lngDelta &&
@@ -189,6 +191,7 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
         if (candidates.Count == 0 && !string.IsNullOrWhiteSpace(clean))
         {
             var radiusFallbackQuery = _db.Places.AsNoTracking().Where(p =>
+                !p.IsNotSafe &&
                 p.Latitude >= latitude - latDelta &&
                 p.Latitude <= latitude + latDelta &&
                 p.Longitude >= longitude - lngDelta &&

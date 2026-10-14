@@ -53,6 +53,24 @@ public sealed class AreasController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("search")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Search(
+        [FromQuery] string query,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Ok(Array.Empty<AreaResponse>());
+
+        var all = await _get.HandleAsync(null, null, ct);
+        var q = query.Trim().ToLowerInvariant();
+        var matches = all
+            .Where(a => a.Name.ToLowerInvariant().Contains(q) || q.Contains(a.Name.ToLowerInvariant()))
+            .ToList();
+
+        return Ok(matches);
+    }
+
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create(

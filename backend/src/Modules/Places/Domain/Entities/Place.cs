@@ -14,7 +14,16 @@ public class Place
     public string? Category { get; private set; }
     public string Source { get; private set; } = null!;
 
+    public bool IsNotSafe { get; private set; } = false;
+    public string? NotSafeReason { get; private set; }
+
     private Place() { }
+
+    public void MarkAsNotSafe(string? reason = null)
+    {
+        IsNotSafe = true;
+        NotSafeReason = reason;
+    }
 
     public Place(
         string externalId,

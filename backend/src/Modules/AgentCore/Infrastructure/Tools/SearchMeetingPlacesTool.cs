@@ -47,6 +47,14 @@ public sealed class SearchMeetingPlacesTool
 
     public override bool SuppliesPlaces => true;
 
+    public override ToolDisplay Display => new(
+        DisplayName: "Tìm điểm hẹn nhóm",
+        CallingMessage: "Đang tính toán lộ trình OSRM và tìm điểm hẹn công bằng...",
+        SuccessMessage: "Đã tìm thấy các điểm hẹn tối ưu cho cả nhóm",
+        FailedMessage: "Không tìm thấy điểm hẹn phù hợp",
+        PendingConfirmationMessage: "Chờ bạn xác nhận"
+    );
+
     protected override async Task<string> ExecuteAsync(
         SearchMeetingPlacesToolArguments arguments,
         CancellationToken cancellationToken)
@@ -143,6 +151,10 @@ public sealed class SearchMeetingPlacesTool
                 averageDistanceKm = r.AverageDistanceKm,
                 maxDistanceKm = r.MaxDistanceKm,
                 spreadKm = r.SpreadKm,
+                durationMinutesByOrigin = r.DurationMinutesByOrigin,
+                averageDurationMinutes = r.AverageDurationMinutes,
+                spreadMinutes = r.SpreadMinutes,
+                isRoadRouting = r.IsRoadRouting,
                 relevanceScore = r.RelevanceScore,
                 distanceScore = r.DistanceScore,
                 fairnessScore = r.FairnessScore,

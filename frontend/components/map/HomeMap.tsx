@@ -5,7 +5,7 @@ import SearchBar from "@/components/search/SearchBar";
 import ResultsSidebar from "@/components/search/ResultsSidebar";
 import PlaceCard from "../place/PlaceCard";
 import FairMeetingModal from "../meeting/FairMeetingModal";
-import GroupMeetingFinder, { OriginItem } from "../meeting/GroupMeetingFinder";
+import type { OriginItem } from "../meeting/GroupMeetingFinder";
 import AiChatWidget from "../ai/AiChatWidget";
 import UserNavDropdown from "../user/UserNavDropdown";
 import { useCallback, useEffect, useState } from "react";
@@ -64,8 +64,9 @@ export default function HomeMap() {
   // User location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Group Meeting Finder state
-  const [isGroupMeetingOpen, setIsGroupMeetingOpen] = useState(false);
+  // AI Assistant state (Tích hợp Điểm hẹn nhóm)
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [assistantTab, setAssistantTab] = useState<"chat" | "meeting">("chat");
   const [groupOrigins, setGroupOrigins] = useState<OriginItem[]>([]);
   const [centroid, setCentroid] = useState<{ lat: number; lng: number } | null>(null);
   const [activeMeetingPlace, setActiveMeetingPlace] = useState<MeetingPlace | null>(null);
@@ -477,7 +478,7 @@ export default function HomeMap() {
     setSelectedPlace(p);
     setFlyToTarget({ lat: place.latitude, lng: place.longitude });
     if (shouldCloseModal) {
-      setIsGroupMeetingOpen(false);
+      setIsAssistantOpen(false);
     }
   }
 
@@ -487,6 +488,18 @@ export default function HomeMap() {
       setMeetingParticipants(participants);
     }
     setIsMeetingModalOpen(true);
+  }
+
+  function handleResetChatAndMap() {
+    setPlaces([]);
+    setHasSearched(false);
+    setSelectedPlace(null);
+    setIsSidebarOpen(false);
+    setActiveMeetingPlace(null);
+    setGroupOrigins([]);
+    setMeetingResults([]);
+    setCentroid(null);
+    setNavigationRoute(null);
   }
 
   function handleClearMeetingMode() {
@@ -521,12 +534,15 @@ export default function HomeMap() {
         />
       </div>
 
-      {/* Floating Group Meeting Trigger Button (Góc dưới bên phải) */}
+      {/* Floating Group Meeting Trigger Button (Góc dưới bên phải - Mở Trợ lý AI ở tab Điểm hẹn nhóm) */}
       <button
         type="button"
-        onClick={() => setIsGroupMeetingOpen(true)}
-        className="fixed right-5 bottom-40 z-[1000] flex items-center gap-3 rounded-2xl bg-card/95 border border-border shadow-lg backdrop-blur-md px-3.5 py-2.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/50 transition-all active:scale-95 group"
-        title="Bạn muốn tìm điểm hẹn chung?"
+        onClick={() => {
+          setAssistantTab("meeting");
+          setIsAssistantOpen(true);
+        }}
+        className="fixed right-5 bottom-40 z-[1000] flex items-center gap-3 rounded-2xl bg-card/95 border border-border shadow-lg backdrop-blur-md px-3.5 py-2.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/50 transition-all active:scale-95 group cursor-pointer"
+        title="Bạn muốn tìm điểm hẹn chung? Mở Trợ lý AI"
       >
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition">
           <Users className="h-4 w-4" />
@@ -541,19 +557,8 @@ export default function HomeMap() {
         </div>
       </button>
 
-      {/* Group Meeting Finder Modal (always mounted to preserve search state when viewing on map) */}
-      <GroupMeetingFinder
-        userLocation={userLocation}
-        isOpen={isGroupMeetingOpen}
-        activeMeetingPlaceId={activeMeetingPlace?.placeId}
-        onClose={() => setIsGroupMeetingOpen(false)}
-        onSearchResults={handleGroupSearchResults}
-        onSelectMeetingPlace={handleSelectGroupMeetingPlace}
-        onScheduleMeeting={handleScheduleFromGroup}
-      />
-
       {/* Active Meeting Place Quick Indicator Banner */}
-      {activeMeetingPlace && !isGroupMeetingOpen && (
+      {activeMeetingPlace && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[990] flex items-center gap-2 rounded-full border border-primary/30 bg-card/95 pl-4 pr-2 py-1.5 shadow-xl backdrop-blur-md text-xs animate-in fade-in slide-in-from-top-2">
           <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="font-medium text-foreground">
@@ -564,9 +569,12 @@ export default function HomeMap() {
 
           <button
             type="button"
-            onClick={() => setIsGroupMeetingOpen(true)}
-            className="font-semibold text-primary hover:underline flex items-center gap-0.5 text-xs"
-            title="Mở lại danh sách điểm hẹn"
+            onClick={() => {
+              setAssistantTab("meeting");
+              setIsAssistantOpen(true);
+            }}
+            className="font-semibold text-primary hover:underline flex items-center gap-0.5 text-xs cursor-pointer"
+            title="Mở lại danh sách điểm hẹn trong Trợ lý AI"
           >
             <span>Danh sách</span>
           </button>
@@ -574,7 +582,7 @@ export default function HomeMap() {
           <button
             type="button"
             onClick={handleClearMeetingMode}
-            className="ml-1 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+            className="ml-1 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition cursor-pointer"
             title="Hủy xem điểm hẹn (xóa lộ trình & tâm điểm trên bản đồ)"
             aria-label="Hủy xem điểm hẹn"
           >
@@ -669,11 +677,20 @@ export default function HomeMap() {
         />
       )}
 
-      {/* Conversational AI Chat Widget */}
+      {/* Conversational AI Chat Widget (Tích hợp Điểm hẹn nhóm, phóng to full màn hình & tạo chat mới) */}
       <AiChatWidget
         userLocation={userLocation}
         onSelectPlaceOnMap={handleSelectPlaceFromModalOrChat}
         onOpenMeetingModal={() => setIsMeetingModalOpen(true)}
+        onResetMap={handleResetChatAndMap}
+        onGroupSearchResults={handleGroupSearchResults}
+        onSelectMeetingPlace={handleSelectGroupMeetingPlace}
+        onScheduleMeeting={handleScheduleFromGroup}
+        activeMeetingPlaceId={activeMeetingPlace?.placeId}
+        isOpenControlled={isAssistantOpen}
+        onCloseControlled={() => setIsAssistantOpen(false)}
+        controlledTab={assistantTab}
+        onTabChange={(tab) => setAssistantTab(tab)}
       />
     </main>
   );

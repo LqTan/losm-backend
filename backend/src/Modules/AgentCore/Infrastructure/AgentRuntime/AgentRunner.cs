@@ -22,6 +22,7 @@ public sealed class AgentRunner : IAgentRunner
     private readonly ILastSearchContextStore _lastSearchContextStore;
     private readonly ITuningProvider _tuning;
     private readonly ILogger<AgentRunner> _logger;
+    private readonly Areas.Application.Abstractions.IAreaRepository? _areaRepository;
 
     public AgentRunner(
         IAgentModelClient modelClient,
@@ -32,7 +33,8 @@ public sealed class AgentRunner : IAgentRunner
         IPendingActionStore pendingActionStore,
         ILastSearchContextStore lastSearchContextStore,
         ITuningProvider tuning,
-        ILogger<AgentRunner> logger
+        ILogger<AgentRunner> logger,
+        Areas.Application.Abstractions.IAreaRepository? areaRepository = null
     )
     {
         _modelClient = modelClient;
@@ -44,6 +46,7 @@ public sealed class AgentRunner : IAgentRunner
         _lastSearchContextStore = lastSearchContextStore;
         _tuning = tuning;
         _logger = logger;
+        _areaRepository = areaRepository;
     }
 
     public Task<AgentRunResult> RunAsync(
@@ -186,6 +189,37 @@ public sealed class AgentRunner : IAgentRunner
         await _sessionRepository.UpdateAsync(session, cancellationToken);
 
         var messages = BuildModelMessages(session);
+
+        if (_areaRepository != null)
+        {
+            try
+            {
+                var allAreas = await _areaRepository.GetAllAsync(cancellationToken);
+                var activeAreaNames = allAreas.Where(a => a.IsActive).Select(a => a.Name).ToList();
+                if (activeAreaNames.Count > 0)
+                {
+                    var areasDesc = string.Join(", ", activeAreaNames);
+                    messages.Insert(
+                        0,
+                        new AgentModelMessage(
+                            AgentModelRole.System,
+                            $"NGỮ CẢNH DỮ LIỆU ĐỘNG CỦA HỆ THỐNG:\n" +
+                            $"- Cơ sở dữ liệu của hệ thống hiện tại CHỈ MỚI CÓ dữ liệu địa điểm tại các khu vực được kích hoạt: {areasDesc}.\n" +
+                            $"- Đối với các địa điểm xuất phát hoặc yêu cầu tìm kiếm ngoài {areasDesc}, hệ thống chưa có dữ liệu toạ độ hoặc địa điểm.\n" +
+                            $"- Khi công cụ (search_places, search_meeting_places, geocode_place) không tìm thấy kết quả hoặc trả về rỗng [] / geocode_failed, bạn PHẢI hiểu là địa điểm đó nằm ngoài phạm vi dữ liệu hệ thống ({areasDesc}), tuyệt đối không tự bịa toạ độ, và giải thích rõ ràng cho người dùng biết phạm vi dữ liệu để xin xác nhận hoặc đề nghị người dùng chọn lại địa điểm.\n" +
+                            $"- KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ĐỊA ĐIỂM (Data Integrity Check):\n" +
+                            $"  1. Khi nhận danh sách địa điểm từ công cụ, hãy kiểm tra tính nhất quán giữa Tên, Địa chỉ và Khu vực ({areasDesc}).\n" +
+                            $"  2. NẾU phát hiện địa điểm có toạ độ cắm trong {areasDesc} nhưng tên đường hoặc địa chỉ ghi rõ thuộc quận khác (ví dụ: Tân Phú, Bình Tân, Quận 4, Quận 12...) hoặc toạ độ địa danh bị cắm sai lệch nghiêm trọng sang nơi khác, bạn PHẢI gọi công cụ 'flag_invalid_place' để đánh dấu loại bỏ địa điểm đó khỏi hệ thống, đồng thời không đưa vào gợi ý cho người dùng.\n" +
+                            $"  3. PHÂN BIỆT RÕ: Địa điểm chỉ đơn thuần 'không hợp gu / không đúng yêu cầu' của người dùng thì KHÔNG gọi flag_invalid_place; CHỈ gọi flag_invalid_place khi toạ độ hoặc địa chỉ bị SAI / LỆCH rõ ràng."
+                        )
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load active areas for AgentRunner dynamic context.");
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(approvedPlan))
         {

@@ -30,6 +30,14 @@ public sealed class PlaceConfiguration : IEntityTypeConfiguration<Place>
         builder.Property(x => x.Category)
             .HasMaxLength(100);
 
+        builder.Property(x => x.IsNotSafe)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.NotSafeReason)
+            .HasMaxLength(500);
+
+        builder.HasIndex(x => x.IsNotSafe);
         builder.HasIndex(x => x.Source);
         builder.HasIndex(x => x.ExternalId);
         builder.HasIndex(x => new { x.Latitude, x.Longitude });

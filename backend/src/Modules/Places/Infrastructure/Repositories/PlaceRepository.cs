@@ -43,6 +43,7 @@ public sealed class PlaceRepository : IPlaceRepository
         var containsMatches = await _dbContext.Places
             .AsNoTracking()
             .Where(x =>
+                !x.IsNotSafe &&
                 x.Name != null &&
                 EF.Functions.Like(x.Name, pattern))
             .OrderBy(x => x.Name.Length)
@@ -56,6 +57,7 @@ public sealed class PlaceRepository : IPlaceRepository
 
         return await _dbContext.Places
             .AsNoTracking()
+            .Where(x => !x.IsNotSafe)
             .OrderBy(x => x.Name)
             .Take(limit)
             .ToListAsync(cancellationToken);

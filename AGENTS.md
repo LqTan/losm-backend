@@ -126,8 +126,19 @@ Tests: call the endpoint with various lat/lon combinations, verify:
 ### Khi cần chạy lệnh bị cấm
 Báo user kèm lý do + đề xuất command cụ thể, đợi user chạy rồi kêu kiểm tra tiếp.
 
+### Geocoding & Dữ liệu địa điểm
+- **TUYỆT ĐỐI KHÔNG gọi API bên ngoài (Nominatim, Photon, v.v.)** khi geocode hoặc tìm kiếm địa điểm, dù cấu hình vẫn giữ nguyên trong `appsettings.*.json` (cấm xóa cấu hình).
+- Hệ thống chỉ dùng **100% dữ liệu địa điểm nội bộ từ backend** (`Places` và `Areas`).
+- **Phạm vi khu vực hoạt động (Areas)**: Nghiệp vụ quản lý khu vực **LUÔN LUÔN là cấp QUẬN** (tên quận như "Quận 1" + `Bbox`). Hệ thống **không phân cấp level hay phường**.
+- Khi geocode không ra toạ độ hoặc địa điểm nằm ngoài các khu vực đang kích hoạt (`IAreaRepository`), **tuyệt đối không tự ý bịa toạ độ ảo**. Phải báo rõ phạm vi dữ liệu hệ thống đang có và xin xác nhận từ người dùng.
+- **Cơ chế xác thực dữ liệu địa điểm (2-Tier Data Integrity)**:
+  - **Tầng 1 (C# Rule-based Scoring)**: Lọc trùng lặp & chấm điểm ưu tiên danh mục biểu tượng/công cộng (`historic_site`, `market`, `shopping_mall`, `public_plaza`, v.v.) hơn dịch vụ nhỏ lẻ (`grocery_store`, `atm`, `spa`, `bank`). Tự động phát hiện và loại bỏ các địa điểm có toạ độ nằm trong Bbox của quận nhưng địa chỉ ghi rõ thuộc quận khác (ngoại khu).
+  - **Tầng 2 (MiniMax Integrity Verification & Tool `flag_invalid_place`)**: MiniMax kiểm tra tính toàn vẹn dữ liệu trước khi đưa ra gợi ý. Nếu phát hiện địa điểm có toạ độ sai/lệch vùng nghiêm trọng, MiniMax gọi tool `flag_invalid_place` để đánh dấu `IsNotSafe = true` lưu vào DB và loại khỏi kết quả. Phân biệt rõ: địa điểm chỉ "không hợp gu" thì không gắn cờ; chỉ gắn cờ khi toạ độ hoặc địa chỉ bị SAI / LỆCH rõ ràng.
+  - Các truy vấn tìm kiếm/geocode luôn lọc bỏ các bản ghi `IsNotSafe = true`.
+
 ### Workflow bàn giao
 1. Implement code + build pass locally
 2. Báo user: "build pass, cần chạy `<command>` để pick up code"
 3. User chạy, restart, xác nhận xong
 4. Mình test qua curl + verify end-to-end
+

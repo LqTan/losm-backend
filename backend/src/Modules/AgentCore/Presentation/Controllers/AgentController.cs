@@ -397,6 +397,7 @@ public sealed class AgentController : ControllerBase
         [FromBody] MeetingSearchPromptRequest request,
         [FromServices] IAgentModelClient modelClient,
         [FromServices] IGeocodingService geocodingService,
+        [FromServices] Areas.Application.Abstractions.IAreaRepository areaRepo,
         [FromServices] SearchMeetingPlacesHandler meetingPlacesHandler,
         [FromServices] ILogger<AgentController> logger,
         CancellationToken cancellationToken
@@ -407,25 +408,29 @@ public sealed class AgentController : ControllerBase
             return BadRequest("Yêu cầu không được để trống.");
         }
 
-        var systemInstruction = """
-Bạn là chuyên gia bóc tách thông tin địa điểm và người tham gia họp nhóm.
-Nhiệm vụ: Phân tích câu yêu cầu họp nhóm bằng tiếng Việt từ người dùng.
-Hãy xác định:
-1. "query": Thể loại hoặc loại hình địa điểm cần tìm (ví dụ: 'quán ăn', 'quán cà phê', 'quán lẩu', 'nhà hàng', 'trà sữa'...). Mặc định là 'quán cà phê' nếu người dùng không nói rõ.
-2. "origins": Danh sách tất cả những người tham gia cùng vị trí/địa danh xuất phát của họ:
-   - Đối với người nói ("tôi", "mình"):
-     * Nếu có nêu địa điểm (ví dụ: "tôi đang ở Chợ Bến Thành"), đặt name = "Tôi", location = "Chợ Bến Thành".
-     * Nếu không nói rõ địa điểm hoặc nói "ở vị trí của tôi", đặt name = "Tôi", location = "GPS_CURRENT".
-   - Đối với những người còn lại ("bạn tôi", "bạn A", v.v.):
-     * Đặt name = "Người 1", "Người 2"... (hoặc tên riêng nếu có trong câu)
-     * location = tên địa danh cụ thể được nhắc tới (ví dụ: "UBND Quận 1", "Nhà thờ Đức Bà", v.v.).
+        var allAreas = await areaRepo.GetAllAsync(cancellationToken);
+        var activeAreaNames = allAreas.Where(a => a.IsActive).Select(a => a.Name).ToList();
+        if (activeAreaNames.Count == 0)
+        {
+            activeAreaNames.Add("Quận 1");
+        }
+        var areasDescription = string.Join(", ", activeAreaNames);
 
-Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc sau, không kèm bất kỳ giải thích nào khác:
+        var systemInstruction = """
+Bạn là chuyên gia phân tích yêu cầu điều phối điểm hẹn nhóm.
+Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xuất đúng 2 thông tin dưới dạng JSON:
+1. "query": Thể loại địa điểm người dùng muốn tìm (ví dụ: 'công viên', 'quán cà phê', 'quán ăn', 'quán lẩu'...). Trích xuất đúng từ khoá người dùng yêu cầu (mặc định 'quán cà phê' nếu không rõ).
+2. "origins": Danh sách tất cả thành viên và địa điểm/vị trí xuất phát:
+   - Trích xuất đúng số lượng thành viên và tên địa điểm xuất phát mà người dùng đã đề cập.
+   - TUYỆT ĐỐI KHÔNG tự động chèn thêm "GPS_CURRENT" nếu người dùng đã nêu đủ các điểm xuất phát.
+   - CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi".
+
+Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 {
-  "query": "quán ăn",
+  "query": "thể loại địa điểm",
   "origins": [
-    { "name": "Tôi", "location": "Chợ Bến Thành" },
-    { "name": "Người 1", "location": "UBND Quận 1" }
+    { "name": "Người 1", "location": "Điểm xuất phát 1" },
+    { "name": "Người 2", "location": "Điểm xuất phát 2" }
   ]
 }
 """;
@@ -476,60 +481,109 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc sau, k
         // Fallback if AI returned no origins
         if (parsedOrigins.Count == 0)
         {
-            parsedOrigins.Add(("Tôi", "GPS_CURRENT"));
-            parsedOrigins.Add(("Người 1", "UBND Quận 1"));
+            parsedOrigins.Add(("Người 1", "Bến Thành"));
+            parsedOrigins.Add(("Người 2", "UBND Quận 1"));
         }
         else if (parsedOrigins.Count == 1)
         {
-            parsedOrigins.Add(("Người 1", "UBND Quận 1"));
+            parsedOrigins.Add(("Người 2", "UBND Quận 1"));
         }
 
         var myLat = request.UserLatitude ?? 10.7769;
         var myLng = request.UserLongitude ?? 106.7009;
 
         var resolvedOrigins = new List<MeetingSearchOriginItem>();
+        var unresolvedOrigins = new List<(string Name, string Location)>();
 
         for (int i = 0; i < parsedOrigins.Count; i++)
         {
             var (oName, oLoc) = parsedOrigins[i];
-            var isMe = i == 0 || oName.Contains("Tôi", StringComparison.OrdinalIgnoreCase);
-            var name = isMe ? "Tôi" : (string.IsNullOrWhiteSpace(oName) ? $"Người {i}" : oName);
+            var isGpsCurrent = string.Equals(oLoc, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
+            var isMe = isGpsCurrent || oName.Contains("Tôi", StringComparison.OrdinalIgnoreCase);
+            var name = isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : $"Người {i + 1}");
 
-            double lat;
-            double lng;
-            string address;
-
-            if (string.Equals(oLoc, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(oLoc))
+            if (isGpsCurrent || string.IsNullOrWhiteSpace(oLoc))
             {
-                lat = myLat;
-                lng = myLng;
-                address = "Vị trí GPS hiện tại";
+                resolvedOrigins.Add(new MeetingSearchOriginItem(
+                    Id: isMe ? "me" : $"orig_{i}",
+                    Name: name,
+                    Address: "Vị trí GPS hiện tại",
+                    Lat: myLat,
+                    Lng: myLng,
+                    AvatarUrl: null,
+                    IsMe: isMe
+                ));
             }
             else
             {
                 var geocoded = await geocodingService.GeocodeAsync(oLoc, cancellationToken);
                 if (geocoded is not null)
                 {
-                    lat = geocoded.Latitude;
-                    lng = geocoded.Longitude;
-                    address = geocoded.DisplayName ?? oLoc;
+                    resolvedOrigins.Add(new MeetingSearchOriginItem(
+                        Id: isMe ? "me" : $"orig_{i}",
+                        Name: name,
+                        Address: geocoded.DisplayName ?? oLoc,
+                        Lat: geocoded.Latitude,
+                        Lng: geocoded.Longitude,
+                        AvatarUrl: null,
+                        IsMe: isMe
+                    ));
                 }
                 else
                 {
-                    lat = myLat + (i * 0.012);
-                    lng = myLng + (i * 0.012);
-                    address = oLoc;
+                    unresolvedOrigins.Add((name, oLoc));
                 }
             }
+        }
 
-            resolvedOrigins.Add(new MeetingSearchOriginItem(
-                Id: isMe ? "me" : $"orig_{i}",
-                Name: name,
-                Address: address,
-                Lat: lat,
-                Lng: lng,
-                AvatarUrl: null,
-                IsMe: isMe
+        // Nếu có điểm xuất phát không tìm thấy trong dữ liệu hệ thống (nằm ở quận khác hoặc chưa có toạ độ),
+        // TUYỆT ĐỐI KHÔNG tự bịa toạ độ, mà yêu cầu AI giải thích rõ ràng phạm vi dữ liệu hiện tại và xin xác nhận.
+        if (unresolvedOrigins.Count > 0)
+        {
+            var unresolvablePrompt = $$"""
+Người dùng muốn tìm điểm hẹn nhóm: "{{request.Prompt}}".
+Cơ sở dữ liệu hệ thống hiện tại CHỈ MỚI CÓ DỮ LIỆU tại các khu vực được kích hoạt: {{areasDescription}}.
+Các điểm xuất phát sau đây không tìm thấy trong cơ sở dữ liệu hệ thống: {{string.Join(", ", unresolvedOrigins.Select(u => $"{u.Name} ({u.Location})"))}}.
+
+Nhiệm vụ của bạn:
+- Giải thích rõ ràng, lịch sự cho người dùng biết rằng cơ sở dữ liệu hệ thống hiện tại chỉ mới có dữ liệu tại: {{areasDescription}}.
+- Chỉ ra cụ thể những điểm xuất phát nào chưa có toạ độ trong dữ liệu hệ thống để người dùng nắm rõ.
+- Do thiếu toạ độ chính xác từ dữ liệu, hệ thống không thể tự ý tính toán điểm hẹn hay lộ trình một cách tuỳ tiện.
+- Đề nghị người dùng xác nhận hoặc chọn lại các điểm xuất phát nằm trong phạm vi khu vực hệ thống đang hỗ trợ ({{areasDescription}}).
+- Trả lời bằng giọng điệu tự nhiên, thông minh, súc tích (1-2 đoạn ngắn), không dùng văn mẫu máy móc.
+""";
+
+            var insightMessages = new List<AgentModelMessage>
+            {
+                new(AgentModelRole.System, "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh."),
+                new(AgentModelRole.User, unresolvablePrompt)
+            };
+
+            string unresolvableInsight;
+            try
+            {
+                var insightResp = await modelClient.SendAsync(insightMessages, [], cancellationToken);
+                unresolvableInsight = insightResp.AssistantMessage?.Content?.Trim() ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to call MiniMax for unresolved origins insight.");
+                unresolvableInsight = string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(unresolvableInsight))
+            {
+                var missingList = string.Join(", ", unresolvedOrigins.Select(u => u.Location));
+                unresolvableInsight = $"Hệ thống hiện tại chỉ mới có dữ liệu địa điểm tại các khu vực: {areasDescription}. Các điểm xuất phát ({missingList}) hiện chưa có trong cơ sở dữ liệu nên không thể tính toán toạ độ và lộ trình chính xác. Bạn vui lòng xác nhận hoặc chọn điểm xuất phát trong phạm vi các khu vực hệ thống hỗ trợ nhé!";
+            }
+
+            return Ok(new MeetingSearchPromptResponse(
+                Query: parsedQuery,
+                Centroid: null,
+                Origins: resolvedOrigins,
+                Results: [],
+                AiInsight: unresolvableInsight,
+                SupportedAreas: activeAreaNames
             ));
         }
 
@@ -567,8 +621,77 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc sau, k
         if (searchResult.Results.Count > 0)
         {
             var top = searchResult.Results[0];
-            insight = $"Hệ thống đã tính toán điểm hẹn công bằng nhất cho nhóm {resolvedOrigins.Count} người là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). " +
-                      $"Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+            try
+            {
+                var originsSummary = string.Join(", ", resolvedOrigins.Select(o => $"{o.Name} ({o.Address})"));
+                var timeSummary = top.DurationMinutesByOrigin != null && top.DurationMinutesByOrigin.Count == resolvedOrigins.Count
+                    ? string.Join(", ", resolvedOrigins.Select((o, idx) => $"{o.Name}: ~{top.DurationMinutesByOrigin[idx]:F0} phút"))
+                    : $"khoảng cách trung bình {top.AverageDistanceKm:F1} km";
+
+                var insightMessages = new List<AgentModelMessage>
+                {
+                    new(AgentModelRole.System, "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh. " +
+                        "Dựa trên kết quả tính toán lộ trình thực tế, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho người dùng. " +
+                        "Nêu điểm hẹn tối ưu nhất, thời gian di chuyển của các thành viên hoặc vì sao điểm này công bằng, thuận tiện. " +
+                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt."),
+                    new(AgentModelRole.User, $"Nhóm gồm: {originsSummary}. " +
+                        $"Hệ thống đang có dữ liệu tại: {areasDescription}. " +
+                        $"Điểm hẹn tối ưu nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
+                        $"Thời gian di chuyển ước tính: {timeSummary}. Độ công bằng: {Math.Round(top.FairnessScore * 100)}%. " +
+                        $"Hãy tư vấn ngắn gọn và tự nhiên cho nhóm.")
+                };
+
+                var insightResp = await modelClient.SendAsync(insightMessages, [], cancellationToken);
+                var rawInsight = insightResp.AssistantMessage?.Content?.Trim();
+                if (!string.IsNullOrWhiteSpace(rawInsight))
+                {
+                    insight = rawInsight;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to generate AI insight with MiniMax, using calculated fallback.");
+            }
+
+            if (string.IsNullOrWhiteSpace(insight))
+            {
+                insight = $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). " +
+                          $"Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+            }
+        }
+        else
+        {
+            var emptySearchPrompt = $$"""
+Người dùng muốn tìm: "{{parsedQuery}}" cho nhóm {{resolvedOrigins.Count}} người.
+Hệ thống đang có dữ liệu tại: {{areasDescription}}.
+Tâm điểm nhóm đã được tính toán nhưng không tìm thấy địa điểm nào phù hợp với từ khoá '{{parsedQuery}}' trong cơ sở dữ liệu và bán kính tìm kiếm.
+Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi thể loại địa điểm (ví dụ cà phê, quán ăn) hoặc nới rộng bán kính tìm kiếm.
+""";
+
+            var insightMessages = new List<AgentModelMessage>
+            {
+                new(AgentModelRole.System, "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh."),
+                new(AgentModelRole.User, emptySearchPrompt)
+            };
+
+            string emptyInsight;
+            try
+            {
+                var insightResp = await modelClient.SendAsync(insightMessages, [], cancellationToken);
+                emptyInsight = insightResp.AssistantMessage?.Content?.Trim() ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to call MiniMax for empty search insight.");
+                emptyInsight = string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(emptyInsight))
+            {
+                emptyInsight = $"Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện không tìm thấy địa điểm '{parsedQuery}' nào phù hợp cho nhóm. Bạn thử đổi sang thể loại khác như quán cà phê hoặc quán ăn xem sao nhé!";
+            }
+
+            insight = emptyInsight;
         }
 
         var resultDtos = searchResult.Results.Select(r => new MeetingPlaceResultDto(
@@ -598,7 +721,8 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc sau, k
             Centroid: new MeetingSearchCentroid(searchResult.CentroidLatitude, searchResult.CentroidLongitude),
             Origins: resolvedOrigins,
             Results: resultDtos,
-            AiInsight: insight
+            AiInsight: insight,
+            SupportedAreas: activeAreaNames
         );
 
         return Ok(response);
