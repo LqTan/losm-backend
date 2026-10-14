@@ -71,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IAgentTool, RetryMeetingEmailsTool>();
         services.AddScoped<IAgentTool, GetSupportedAreasTool>();
         services.AddScoped<IAgentTool, FlagInvalidPlaceTool>();
+        services.AddScoped<IAgentTool, GetDirectionsTool>();
 
         services.AddScoped<IAgentToolRegistry, AgentToolRegistry>();
 

@@ -25,6 +25,7 @@ import {
   Maximize2,
   Minimize2,
   MessageSquare,
+  Navigation2,
   Plus,
   RotateCcw,
   Search,
@@ -54,12 +55,27 @@ interface AttachedPlace {
   category?: string;
 }
 
+export interface AttachedRoute {
+  originName: string;
+  originLatitude: number;
+  originLongitude: number;
+  destinationName: string;
+  destinationLatitude: number;
+  destinationLongitude: number;
+  memberName?: string | null;
+  distanceKm: number;
+  durationMinutes: number;
+  summary?: string | null;
+  coordinates: [number, number][];
+}
+
 interface ChatMessage {
   id: string;
   sender: "user" | "ai";
   text: string;
   steps?: ActivityStep[];
   attachedPlaces?: AttachedPlace[];
+  attachedRoute?: AttachedRoute;
   timestamp: string;
 }
 
@@ -129,6 +145,7 @@ interface Props {
   ) => void;
   onSelectMeetingPlace?: (place: MeetingPlace, shouldCloseModal?: boolean) => void;
   onScheduleMeeting?: (place: Place, participants?: Array<{ name: string; email: string }>) => void;
+  onRouteReceived?: (route: AttachedRoute) => void;
   activeMeetingPlaceId?: string | null;
   isOpenControlled?: boolean;
   onCloseControlled?: () => void;
@@ -263,6 +280,7 @@ export default function AiChatWidget({
   onGroupSearchResults,
   onSelectMeetingPlace,
   onScheduleMeeting,
+  onRouteReceived,
   activeMeetingPlaceId,
   isOpenControlled,
   onCloseControlled,
@@ -584,6 +602,7 @@ export default function AiChatWidget({
         answer?: string;
         steps?: ActivityStep[];
         attachedPlaces?: AttachedPlace[];
+        attachedRoute?: AttachedRoute;
       } | null = null;
       let streamError: string | null = null;
 
@@ -628,6 +647,10 @@ export default function AiChatWidget({
         setSessionId(finalResult.sessionId);
       }
 
+      if (finalResult?.attachedRoute) {
+        onRouteReceived?.(finalResult.attachedRoute);
+      }
+
       const answerText =
         finalResult?.answer ||
         "Tôi đã tìm kiếm các địa điểm phù hợp theo yêu cầu của bạn.";
@@ -642,6 +665,7 @@ export default function AiChatWidget({
         text: answerText,
         steps: finalSteps,
         attachedPlaces: finalResult?.attachedPlaces || [],
+        attachedRoute: finalResult?.attachedRoute,
         timestamp: new Date().toLocaleTimeString("vi-VN", {
           hour: "2-digit",
           minute: "2-digit",
@@ -657,10 +681,15 @@ export default function AiChatWidget({
           answer: string;
           steps?: ActivityStep[];
           attachedPlaces?: AttachedPlace[];
+          attachedRoute?: AttachedRoute;
         }>("/api/agent", body, getToken());
 
         if (res?.sessionId) {
           setSessionId(res.sessionId);
+        }
+
+        if (res?.attachedRoute) {
+          onRouteReceived?.(res.attachedRoute);
         }
 
         const aiMsg: ChatMessage = {
@@ -669,6 +698,7 @@ export default function AiChatWidget({
           text: res?.answer || "Tôi đã tìm kiếm các địa điểm phù hợp theo yêu cầu của bạn.",
           steps: cleanStepsForMessage(res?.steps || []),
           attachedPlaces: res?.attachedPlaces || [],
+          attachedRoute: res?.attachedRoute,
           timestamp: new Date().toLocaleTimeString("vi-VN", {
             hour: "2-digit",
             minute: "2-digit",
@@ -1183,6 +1213,38 @@ export default function AiChatWidget({
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+
+                        {/* Thẻ tuyến đường được AI tính toán qua tool get_directions */}
+                        {msg.attachedRoute && (
+                          <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-xs">
+                            <div className="flex items-center justify-between text-blue-600 font-semibold text-[11px] mb-1">
+                              <span className="flex items-center gap-1">
+                                <Navigation2 className="h-3.5 w-3.5" />
+                                Tuyến đường cho: {msg.attachedRoute.memberName || msg.attachedRoute.originName}
+                              </span>
+                              <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700">
+                                ~{Math.round(msg.attachedRoute.durationMinutes)} phút ({msg.attachedRoute.distanceKm.toFixed(1)} km)
+                              </Badge>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              Từ <strong className="text-foreground">{msg.attachedRoute.originName}</strong> đến <strong className="text-foreground">{msg.attachedRoute.destinationName}</strong>
+                              {msg.attachedRoute.summary && <span> (qua {msg.attachedRoute.summary})</span>}
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-border/40 flex justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  onRouteReceived?.(msg.attachedRoute!);
+                                  toast.success(`Đã hiển thị tuyến đường của ${msg.attachedRoute!.memberName || msg.attachedRoute!.originName} lên bản đồ!`);
+                                }}
+                                className="h-6 text-[10px] px-2 gap-1 text-blue-600 hover:text-blue-700 border-blue-200 cursor-pointer"
+                              >
+                                <Compass className="h-3 w-3" /> Xem lại tuyến đường trên bản đồ
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>

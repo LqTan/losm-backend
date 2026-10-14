@@ -7,5 +7,6 @@ public sealed record AgentRunResult(
     string Answer,
     IReadOnlyList<AgentActivityStep> Steps,
     IReadOnlyList<PendingAgentAction> PendingActions,
-    IReadOnlyList<AttachedPlace> AttachedPlaces
+    IReadOnlyList<AttachedPlace> AttachedPlaces,
+    AttachedRoute? AttachedRoute = null
 );

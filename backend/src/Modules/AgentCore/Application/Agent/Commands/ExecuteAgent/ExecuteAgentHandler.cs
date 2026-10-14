@@ -31,7 +31,8 @@ public sealed class ExecuteAgentHandler
             result.Answer,
             result.Steps,
             result.PendingActions,
-            result.AttachedPlaces
+            result.AttachedPlaces,
+            result.AttachedRoute
         );
     }
 }

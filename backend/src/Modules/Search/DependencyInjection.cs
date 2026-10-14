@@ -25,6 +25,7 @@ public static class DependencyInjection
         }
 
         services.AddHttpClient<IOsrmTableService, OsrmTableService>();
+        services.AddHttpClient<IOsrmRouteService, OsrmRouteService>();
 
         services.AddScoped<SearchPlacesHandler>();
         services.AddScoped<SearchMeetingPlacesHandler>();

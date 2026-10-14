@@ -210,7 +210,12 @@ public sealed class AgentRunner : IAgentRunner
                             $"- KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ĐỊA ĐIỂM (Data Integrity Check):\n" +
                             $"  1. Khi nhận danh sách địa điểm từ công cụ, hãy kiểm tra tính nhất quán giữa Tên, Địa chỉ và Khu vực ({areasDesc}).\n" +
                             $"  2. NẾU phát hiện địa điểm có toạ độ cắm trong {areasDesc} nhưng tên đường hoặc địa chỉ ghi rõ thuộc quận khác (ví dụ: Tân Phú, Bình Tân, Quận 4, Quận 12...) hoặc toạ độ địa danh bị cắm sai lệch nghiêm trọng sang nơi khác, bạn PHẢI gọi công cụ 'flag_invalid_place' để đánh dấu loại bỏ địa điểm đó khỏi hệ thống, đồng thời không đưa vào gợi ý cho người dùng.\n" +
-                            $"  3. PHÂN BIỆT RÕ: Địa điểm chỉ đơn thuần 'không hợp gu / không đúng yêu cầu' của người dùng thì KHÔNG gọi flag_invalid_place; CHỈ gọi flag_invalid_place khi toạ độ hoặc địa chỉ bị SAI / LỆCH rõ ràng."
+                            $"  3. PHÂN BIỆT RÕ: Địa điểm chỉ đơn thuần 'không hợp gu / không đúng yêu cầu' của người dùng thì KHÔNG gọi flag_invalid_place; CHỈ gọi flag_invalid_place khi toạ độ hoặc địa chỉ bị SAI / LỆCH rõ ràng.\n" +
+                            $"- CHỈ ĐƯỜNG VÀ TÍNH TOÁN LỘ TRÌNH (get_directions):\n" +
+                            $"  Khi người dùng hỏi đường đi, chỉ đường, hỏi cách di chuyển hoặc lộ trình cho một thành viên/người cụ thể (ví dụ: 'Chỉ đường cho người ở Bến Thành', 'Chỉ đường cho Người 1', 'Đường đi từ Chợ Bến Thành tới quán Highlands'):\n" +
+                            $"  1. Nhìn vào lịch sử hội thoại gần nhất để xác định điểm xuất phát của người đó (origin) và địa điểm đến (destination).\n" +
+                            $"  2. Gọi công cụ 'get_directions' với origin, destination và member_name. TUYỆT ĐỐI KHÔNG tự ước lượng toạ độ hay đường đi mà không gọi công cụ này.\n" +
+                            $"  3. Dựa trên kết quả công cụ trả về (quãng đường km, thời gian phút, tên đường chính), trả lời tự nhiên, súc tích và giải thích tuyến đường cho người dùng."
                         )
                     );
                 }
@@ -271,6 +276,7 @@ public sealed class AgentRunner : IAgentRunner
         var order = new Counter();
         var attachedPlaces = new List<AttachedPlace>();
         var attachedPlaceIds = new HashSet<Guid>();
+        AttachedRoute? attachedRoute = null;
 
         for (var step = 0; step < maxSteps; step++)
         {
@@ -355,7 +361,8 @@ public sealed class AgentRunner : IAgentRunner
                     validatedAnswer,
                     activity,
                     pending,
-                    attachedPlaces
+                    attachedPlaces,
+                    attachedRoute
                 );
             }
 
@@ -380,6 +387,26 @@ public sealed class AgentRunner : IAgentRunner
                     {
                         attachedPlaceIds.Add(place.PlaceId);
                         attachedPlaces.Add(place);
+                    }
+
+                    if (tool.Name == "get_directions")
+                    {
+                        try
+                        {
+                            using var routeDoc = JsonDocument.Parse(execution.Result);
+                            if (routeDoc.RootElement.TryGetProperty("route", out var routeProp) &&
+                                routeProp.ValueKind == JsonValueKind.Object)
+                            {
+                                attachedRoute = JsonSerializer.Deserialize<AttachedRoute>(
+                                    routeProp.GetRawText(),
+                                    new JsonSerializerOptions(JsonSerializerDefaults.Web)
+                                );
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse AttachedRoute from get_directions result.");
+                        }
                     }
                 }
 
@@ -424,7 +451,8 @@ public sealed class AgentRunner : IAgentRunner
             fallbackAnswer,
             activity,
             pendingActions,
-            attachedPlaces
+            attachedPlaces,
+            attachedRoute
         );
     }
 

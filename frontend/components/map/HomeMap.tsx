@@ -6,7 +6,7 @@ import ResultsSidebar from "@/components/search/ResultsSidebar";
 import PlaceCard from "../place/PlaceCard";
 import FairMeetingModal from "../meeting/FairMeetingModal";
 import type { OriginItem } from "../meeting/GroupMeetingFinder";
-import AiChatWidget from "../ai/AiChatWidget";
+import AiChatWidget, { type AttachedRoute } from "../ai/AiChatWidget";
 import UserNavDropdown from "../user/UserNavDropdown";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -87,6 +87,7 @@ export default function HomeMap() {
     durationMinutes: number;
   } | null>(null);
   const [loadingDirections, setLoadingDirections] = useState(false);
+  const [selectedRouteOriginId, setSelectedRouteOriginId] = useState<string | null>(null);
 
   async function fallbackIpLocation(): Promise<boolean> {
     try {
@@ -285,6 +286,7 @@ export default function HomeMap() {
   function handleSelectPlace(place: PlaceType) {
     if (selectedPlace?.id !== place.id) {
       setNavigationRoute(null);
+      setSelectedRouteOriginId(null);
     }
     setSelectedPlace(place);
     setFlyToTarget({ lat: place.latitude, lng: place.longitude });
@@ -360,24 +362,38 @@ export default function HomeMap() {
     handleSelectPlace(targetPlace);
   }
 
-  async function handleGetDirections(place: PlaceType) {
-    let origin = userLocation;
-    if (!origin) {
-      if (typeof window !== "undefined" && navigator.geolocation) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 4000,
+  async function handleGetDirections(place: PlaceType, customOrigin?: OriginItem) {
+    let origin: { lat: number; lng: number } | null = null;
+    let originLabel = "vị trí của bạn";
+
+    if (customOrigin) {
+      origin = { lat: customOrigin.lat, lng: customOrigin.lng };
+      setSelectedRouteOriginId(customOrigin.id);
+      originLabel = customOrigin.name;
+    } else if (groupOrigins.length > 0) {
+      origin = { lat: groupOrigins[0].lat, lng: groupOrigins[0].lng };
+      setSelectedRouteOriginId(groupOrigins[0].id);
+      originLabel = groupOrigins[0].name;
+    } else {
+      setSelectedRouteOriginId(null);
+      origin = userLocation;
+      if (!origin) {
+        if (typeof window !== "undefined" && navigator.geolocation) {
+          try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: false,
+                timeout: 4000,
+              });
             });
-          });
-          origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setUserLocation(origin);
-        } catch {
+            origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setUserLocation(origin);
+          } catch {
+            origin = DEFAULT_COORDS;
+          }
+        } else {
           origin = DEFAULT_COORDS;
         }
-      } else {
-        origin = DEFAULT_COORDS;
       }
     }
 
@@ -404,10 +420,10 @@ export default function HomeMap() {
         });
 
         toast.success(
-          `Đã tìm thấy lộ trình: ${distanceKm.toFixed(1)} km (~${Math.round(durationMinutes)} phút lái xe)`
+          `Đã tìm thấy lộ trình từ ${originLabel}: ${distanceKm.toFixed(1)} km (~${Math.round(durationMinutes)} phút lái xe)`
         );
       } else {
-        toast.error("Không tìm thấy tuyến đường khả dụng từ vị trí hiện tại.");
+        toast.error(`Không tìm thấy tuyến đường khả dụng từ ${originLabel}.`);
       }
     } catch (err) {
       console.error("OSRM Route Error:", err);
@@ -419,6 +435,18 @@ export default function HomeMap() {
 
   function handleClearDirections() {
     setNavigationRoute(null);
+    setSelectedRouteOriginId(null);
+  }
+
+  function handleAiRouteReceived(route: AttachedRoute) {
+    setNavigationRoute({
+      coordinates: route.coordinates,
+      distanceKm: route.distanceKm,
+      durationMinutes: route.durationMinutes,
+    });
+    const label = route.memberName || route.originName || "thành viên";
+    const dest = route.destinationName || "địa điểm";
+    toast.success(`Đã hiển thị đường đi của ${label} đến ${dest} (${route.distanceKm.toFixed(1)} km)`);
   }
 
   function handleGroupSearchResults(
@@ -500,6 +528,7 @@ export default function HomeMap() {
     setMeetingResults([]);
     setCentroid(null);
     setNavigationRoute(null);
+    setSelectedRouteOriginId(null);
   }
 
   function handleClearMeetingMode() {
@@ -508,6 +537,8 @@ export default function HomeMap() {
     setMeetingResults([]);
     setCentroid(null);
     setSelectedPlace(null);
+    setNavigationRoute(null);
+    setSelectedRouteOriginId(null);
   }
 
   return (
@@ -655,9 +686,11 @@ export default function HomeMap() {
           groupOrigins={groupOrigins}
           navigationRoute={navigationRoute}
           loadingDirections={loadingDirections}
+          selectedRouteOriginId={selectedRouteOriginId}
           onClose={() => {
             setSelectedPlace(null);
             setNavigationRoute(null);
+            setSelectedRouteOriginId(null);
           }}
           onScheduleMeeting={() => setIsMeetingModalOpen(true)}
           onGetDirections={handleGetDirections}
@@ -688,6 +721,7 @@ export default function HomeMap() {
         onGroupSearchResults={handleGroupSearchResults}
         onSelectMeetingPlace={handleSelectGroupMeetingPlace}
         onScheduleMeeting={handleScheduleFromGroup}
+        onRouteReceived={handleAiRouteReceived}
         activeMeetingPlaceId={activeMeetingPlace?.placeId}
         isOpenControlled={isAssistantOpen}
         onCloseControlled={() => setIsAssistantOpen(false)}

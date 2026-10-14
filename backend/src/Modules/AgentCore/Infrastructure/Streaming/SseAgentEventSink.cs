@@ -47,7 +47,8 @@ public sealed class SseAgentEventSink : IAgentEventSink
                 answer = result.Answer,
                 steps = result.Steps,
                 pendingActions = result.PendingActions,
-                attachedPlaces = result.AttachedPlaces
+                attachedPlaces = result.AttachedPlaces,
+                attachedRoute = result.AttachedRoute
             },
             JsonOptions
         );
