@@ -317,27 +317,7 @@ export function GroupMeetingContent({
       }
 
       const items = res?.results ?? [];
-      const returnedOrigins: OriginItem[] =
-        res?.origins && res.origins.length > 0
-          ? res.origins
-          : [
-              {
-                id: "me",
-                name: currentUser?.username ? `${currentUser.username} (Tôi)` : "Tôi",
-                address: userLocation ? "GPS Hiện tại" : "Quận 1 (Trung tâm)",
-                lat: myLat,
-                lng: myLng,
-                avatarUrl: currentUser?.avatarUrl,
-              },
-              ...selectedFriends.map((f) => ({
-                id: f.id,
-                name: f.name,
-                address: f.addressName,
-                lat: f.lat,
-                lng: f.lng,
-                avatarUrl: f.avatarUrl,
-              })),
-            ];
+      const returnedOrigins: OriginItem[] = res?.origins ?? [];
 
       setResults(items);
       setActiveOrigins(returnedOrigins);

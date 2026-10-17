@@ -417,47 +417,65 @@ public sealed class AgentController : ControllerBase
         }
         var areasDescription = string.Join(", ", activeAreaNames);
 
-        var systemInstruction = """
-Bạn là trợ lý AI thông minh của nền tảng bản đồ LOSM.
-Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xuất thông tin dưới dạng JSON:
-1. "intent": "directions" (nếu người dùng hỏi đường đi, chỉ đường, cách di chuyển) hoặc "search" (mặc định cho tất cả yêu cầu tìm kiếm, gợi ý địa điểm cá nhân hoặc điểm hẹn nhóm).
-2. "query": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán lẩu', 'công viên', 'quán cơm'... hoặc tên quán cụ thể). Mặc định 'quán cà phê' nếu không rõ.
-3. "target_category": Nhóm thể loại mục tiêu. BẮT BUỘC chọn chính xác 1 trong 13 nhóm sau nếu phù hợp:
-   - "cafe": quán cà phê, trà, trà sữa, đồ uống giải khát...
-   - "viet": nhà hàng, quán ăn món Việt, bún, phở, cơm tấm...
-   - "japanese": nhà hàng Nhật Bản, sushi, ramen, sashimi...
-   - "korean": nhà hàng Hàn Quốc, đồ nướng/lẩu Hàn...
-   - "thai": nhà hàng Thái Lan, món Thái, tomyum...
-   - "seafood": hải sản, quán ốc, hải sản tươi sống...
-   - "western": món Âu, món Ý, món Pháp, pizza, steak, pasta, burger...
-   - "vegetarian": đồ chay, quán chay, thuần chay...
-   - "chinese": nhà hàng Trung Hoa, dim sum, lẩu Trung Hoa...
-   - "bbq_hotpot": quán nướng, quán lẩu, buffet nướng lẩu nói chung...
-   - "bookstore": nhà sách, hiệu sách, tiệm sách truyện...
-   - "library": thư viện đọc sách...
-   - "park": công viên, vườn hoa, quảng trường công viên...
-   * LƯU Ý ĐẶC BIỆT: Nếu nhu cầu của người dùng KHÔNG THUỘC bất kỳ nhóm nào trong 13 nhóm trên (ví dụ: cây xăng, tiệm sửa xe, bệnh viện, ngân hàng, rạp phim, tiệm giặt, trạm y tế, khách sạn...), BẮT BUỘC trả về "other".
-4. "specific_preference": Nếu người dùng có sở thích cụ thể về món ăn hoặc thương hiệu/thể loại con (ví dụ: "ramen", "sushi", "dim sum", "pizza", "món ý", "món pháp", "bún bò"...), hãy điền vào đây. Nếu không có hoặc yêu cầu chung chung, trả về chuỗi rỗng "".
-5. "origins": Danh sách tất cả thành viên và địa điểm xuất phát:
-   - "name": Tên hoặc định danh người đó (ví dụ: 'Tôi', 'Người 1', 'Bạn Nam').
-   - "place_name": Tên địa danh / cơ sở xuất phát (ví dụ: 'Dinh Độc Lập', 'Chợ Bến Thành', 'Bưu điện Trung tâm Sài Gòn', 'Công viên Tao Đàn'). CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi". Tuyệt đối KHÔNG tự ý nối thêm đuôi quận huyện như ', Quận 1'.
-   - "address": Số nhà hoặc tên đường đi kèm nếu có (ví dụ: '135 Nam Kỳ Khởi Nghĩa', '2 Công xã Paris', 'đường Trương Định'). Nếu không có số nhà/đường, để chuỗi rỗng "".
-   - "role": Vai trò của chủ thể ("speaker" hoặc "member"):
-     + "speaker": Khi người dùng tự chỉ định rõ ràng bản thân mình đang ở vị trí đó (chủ thể ngôi thứ nhất gắn liền với vị trí).
-     + "member": Dành cho bạn bè, người khác, hoặc khi người dùng chỉ liệt kê danh sách các điểm trong nhóm một cách khách quan.
-   - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân: để "origins" rỗng [].
-6. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
+        var systemInstruction = $$"""
+Bạn là trợ lý NLU/NLP (Natural Language Understanding) thông minh của nền tảng bản đồ LOSM.
+Cơ sở dữ liệu hệ thống hiện tại CHỈ MỚI CÓ dữ liệu địa điểm tại các khu vực được kích hoạt: {{areasDescription}}.
+
+Nhiệm vụ: Phân tích toàn diện câu yêu cầu bằng ngôn ngữ tự nhiên của người dùng, xác định rõ: Ý định (Intent), Chủ thể & Số lượng người (Party Size), Phân loại vị trí (Location Type), Địa danh/Mốc (Search Anchor), và Điểm xuất phát (Origins).
+
+QUY TẮC PHÂN TÍCH & TRÍCH XUẤT CẤU TRÚC JSON:
+1. "intent":
+   - "directions": khi người dùng muốn tìm đường đi, chỉ đường, hỏi cách di chuyển từ đâu tới đâu.
+   - "search": khi người dùng muốn tìm kiếm địa điểm, quán ăn, cà phê, điểm hẹn, hoặc gợi ý nơi chốn.
+
+2. "party_size": Số lượng người tham gia được xác định từ ngữ cảnh:
+   - 1: nếu là cá nhân đi một mình, hoặc không nói số lượng cụ thể (ví dụ: "tìm giúp tôi quán bún bò", "quán cà phê gần tôi").
+   - 2, 3, 4...: nếu người dùng nói rõ số lượng người hoặc đếm được các thành viên (ví dụ: "nhóm 3 người", "Tôi và bạn tôi", "Tôi ở A, Nam ở B").
+
+3. "location_type": BẮT BUỘC chọn chính xác 1 trong 4 loại sau:
+   - "landmark": Người dùng muốn tìm kiếm xung quanh một MỐC ĐỊA DANH / CÔNG TRÌNH cụ thể (ví dụ: "gần Nhà thờ Đức Bà", "quanh Bitexco", "gần Chợ Bến Thành", "quanh phố đi bộ Nguyễn Huệ").
+   - "current_location": Người dùng muốn tìm kiếm xung quanh VỊ TRÍ HIỆN TẠI CỦA CHÍNH HỌ (ví dụ: "gần tôi", "quanh đây", "chỗ tôi", "vị trí của tôi", "gần chỗ tôi đang đứng", "ở đây có quán nào...").
+   - "custom_origins": Người dùng cung cấp ĐIỂM XUẤT PHÁT CỤ THỂ của bản thân hoặc từng thành viên trong nhóm (ví dụ: "Tôi đang ở Chợ Bến Thành", "Tôi ở Bến Thành, Nam ở Landmark 81").
+   - "unspecified": Người dùng HOÀN TOÀN KHÔNG CUNG CẤP bất kỳ thông tin vị trí, mốc địa danh hay điểm xuất phát nào (ví dụ: "tìm giúp tôi quán bún bò", "tìm quán cafe yên tĩnh", "chỉ đường giúp tôi", "chỗ nào ăn trưa ngon").
+
+4. "search_anchor":
+   - Nếu location_type là "landmark": Trích xuất chính xác tên mốc địa danh (ví dụ: "Nhà thờ Đức Bà", "Tòa nhà Bitexco", "Chợ Bến Thành").
+   - Nếu không phải "landmark", để chuỗi rỗng "".
+
+5. "origins": Danh sách điểm xuất phát:
+   - Nếu location_type là "current_location": Trả về [{"name": "Tôi", "place_name": "GPS_CURRENT", "role": "speaker"}].
+   - Nếu location_type là "custom_origins": Trả về danh sách từng người kèm địa điểm xuất phát (ví dụ: [{"name": "Tôi", "place_name": "Chợ Bến Thành", "role": "speaker"}, {"name": "Nam", "place_name": "Landmark 81", "role": "member"}]).
+   - Nếu location_type là "landmark" hoặc "unspecified": TUYỆT ĐỐI ĐỂ RỖNG [] (Không tự tiện thêm "Tôi" hay bất kỳ ai).
+
+6. "needs_clarification": true hoặc false.
+   - BẮT BUỘC đặt true khi location_type là "unspecified" (vì hệ thống không thể biết người dùng muốn tìm ở đâu nếu không có vị trí hay mốc địa danh).
+   - BẮT BUỘC đặt true khi intent là "directions" nhưng thiếu điểm xuất phát hoặc điểm đến.
+   - Đặt false khi location_type là "landmark", "current_location", hoặc "custom_origins".
+
+7. "clarification_question":
+   - Khi needs_clarification là true: Đặt câu hỏi ngắn gọn, lịch sự (1 câu) hỏi người dùng muốn tìm ở khu vực nào (ví dụ: {{areasDescription}}) hoặc gần địa danh nào.
+   - Khi needs_clarification là false: Để chuỗi rỗng "".
+
+8. "query": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán bún bò', 'công viên'...). Mặc định 'quán cà phê' nếu không rõ.
+
+9. "target_category": Chọn 1 trong 13 nhóm ("cafe", "viet", "japanese", "korean", "thai", "seafood", "western", "vegetarian", "chinese", "bbq_hotpot", "bookstore", "library", "park") hoặc "other".
+
+10. "specific_preference": Sở thích cụ thể về món ăn/thương hiệu con (ví dụ: "bún bò", "ramen", "dim sum", "pizza", "highlands"...). Nếu không có, trả về "".
+
+11. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
 
 Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 {
   "intent": "search",
-  "query": "thể loại hoặc tên địa điểm",
-  "target_category": "cafe",
-  "specific_preference": "",
-  "origins": [
-    { "name": "Người 1", "place_name": "Chợ Bến Thành", "address": "", "role": "member" },
-    { "name": "Người 2", "place_name": "Dinh Độc Lập", "address": "135 Nam Kỳ Khởi Nghĩa", "role": "member" }
-  ],
+  "party_size": 1,
+  "location_type": "landmark",
+  "search_anchor": "Nhà thờ Đức Bà",
+  "origins": [],
+  "needs_clarification": false,
+  "clarification_question": "",
+  "query": "quán bún bò",
+  "target_category": "viet",
+  "specific_preference": "bún bò",
   "destination": ""
 }
 """;
@@ -466,6 +484,11 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         string parsedQuery = "quán cà phê";
         string? parsedTargetCategory = null;
         string? parsedSpecificPreference = null;
+        int partySize = 1;
+        string parsedLocationType = "unspecified";
+        string parsedSearchAnchor = "";
+        bool needsClarification = false;
+        string clarificationQuestion = "";
         string parsedDestination = "";
         var parsedOrigins = new List<(string Name, string PlaceName, string? Address, string Role)>();
 
@@ -493,6 +516,16 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 parsedIntent = iElem.GetString() ?? "search";
             }
 
+            if (doc.RootElement.TryGetProperty("party_size", out var psElem) && psElem.TryGetInt32(out var psVal))
+            {
+                partySize = Math.Max(1, psVal);
+            }
+
+            if (doc.RootElement.TryGetProperty("location_type", out var ltElem) && ltElem.ValueKind == JsonValueKind.String)
+            {
+                parsedLocationType = ltElem.GetString()?.Trim().ToLowerInvariant() ?? "unspecified";
+            }
+
             if (doc.RootElement.TryGetProperty("query", out var qElem) && qElem.ValueKind == JsonValueKind.String)
             {
                 parsedQuery = qElem.GetString() ?? "quán cà phê";
@@ -506,6 +539,22 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             if (doc.RootElement.TryGetProperty("specific_preference", out var spElem) && spElem.ValueKind == JsonValueKind.String)
             {
                 parsedSpecificPreference = spElem.GetString();
+            }
+
+            if (doc.RootElement.TryGetProperty("search_anchor", out var saElem) && saElem.ValueKind == JsonValueKind.String)
+            {
+                parsedSearchAnchor = saElem.GetString()?.Trim() ?? "";
+            }
+
+            if (doc.RootElement.TryGetProperty("needs_clarification", out var ncElem) &&
+                (ncElem.ValueKind == JsonValueKind.True || ncElem.ValueKind == JsonValueKind.False))
+            {
+                needsClarification = ncElem.GetBoolean();
+            }
+
+            if (doc.RootElement.TryGetProperty("clarification_question", out var cqElem) && cqElem.ValueKind == JsonValueKind.String)
+            {
+                clarificationQuestion = cqElem.GetString()?.Trim() ?? "";
             }
 
             if (doc.RootElement.TryGetProperty("destination", out var dElem) && dElem.ValueKind == JsonValueKind.String)
@@ -558,10 +607,24 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         var myLng = request.UserLongitude ?? 106.7009;
 
         // Xử lý Intent CHỈ ĐƯỜNG (Directions)
-        if (string.Equals(parsedIntent, "directions", StringComparison.OrdinalIgnoreCase) ||
-            request.Prompt.Contains("chỉ đường", StringComparison.OrdinalIgnoreCase) ||
-            request.Prompt.Contains("đường đi", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(parsedIntent, "directions", StringComparison.OrdinalIgnoreCase))
         {
+            if (needsClarification || string.Equals(parsedLocationType, "unspecified", StringComparison.OrdinalIgnoreCase))
+            {
+                var question = !string.IsNullOrWhiteSpace(clarificationQuestion)
+                    ? clarificationQuestion
+                    : "Bạn muốn tìm đường đi từ đâu đến địa điểm nào ạ?";
+
+                return Ok(new MeetingSearchPromptResponse(
+                    Query: parsedQuery,
+                    Centroid: null,
+                    Origins: [],
+                    Results: [],
+                    AiInsight: question,
+                    SupportedAreas: activeAreaNames
+                ));
+            }
+
             var destTarget = !string.IsNullOrWhiteSpace(parsedDestination) ? parsedDestination : parsedQuery;
             var originTarget = parsedOrigins.Count > 0 && !string.IsNullOrWhiteSpace(parsedOrigins[0].PlaceName)
                 ? parsedOrigins[0].PlaceName
@@ -659,52 +722,109 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         }
 
         // Xử lý Intent TÌM KIẾM / GỢI Ý ĐỊA ĐIỂM (Cá nhân hoặc Nhóm)
-        if (parsedOrigins.Count == 0)
+        var hasExplicitFriends = request.Friends is not null && request.Friends.Count > 0;
+
+        // Trường hợp 1: MiniMax phân tích thấy yêu cầu chưa rõ địa điểm (unspecified) hoặc cần hỏi lại:
+        // TUYỆT ĐỐI KHÔNG tự tiện lấy GPS cắm pin "Tôi", mà dừng lại hỏi người dùng làm rõ.
+        if (!hasExplicitFriends &&
+            (needsClarification || string.Equals(parsedLocationType, "unspecified", StringComparison.OrdinalIgnoreCase)) &&
+            parsedOrigins.Count == 0 &&
+            string.IsNullOrWhiteSpace(parsedSearchAnchor))
         {
-            parsedOrigins.Add(("Tôi", "GPS_CURRENT", null, "speaker"));
+            var question = !string.IsNullOrWhiteSpace(clarificationQuestion)
+                ? clarificationQuestion
+                : $"Bạn muốn tìm '{parsedQuery}' ở khu vực nào hoặc gần địa điểm cụ thể nào (ví dụ: {areasDescription})?";
+
+            return Ok(new MeetingSearchPromptResponse(
+                Query: parsedQuery,
+                Centroid: null,
+                Origins: [],
+                Results: [],
+                AiInsight: question,
+                SupportedAreas: activeAreaNames
+            ));
         }
 
         var resolvedOrigins = new List<MeetingSearchOriginItem>();
         var unresolvedOrigins = new List<(string Name, string Location)>();
 
-        for (int i = 0; i < parsedOrigins.Count; i++)
+        // Trường hợp 2: MiniMax xác định tìm kiếm quanh mốc địa danh (landmark)
+        if (string.Equals(parsedLocationType, "landmark", StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrWhiteSpace(parsedSearchAnchor) && parsedOrigins.Count == 0))
         {
-            var (oName, oPlace, oAddr, oRole) = parsedOrigins[i];
-            var isGpsCurrent = string.Equals(oPlace, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
-            var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase);
-            var isMe = isGpsCurrent || isSpeaker;
-            var name = isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : $"Người {i + 1}");
-
-            if (isGpsCurrent || string.IsNullOrWhiteSpace(oPlace))
+            var anchorName = !string.IsNullOrWhiteSpace(parsedSearchAnchor) ? parsedSearchAnchor : parsedQuery;
+            var geocodedAnchor = await geocodingService.GeocodeAsync(anchorName, null, cancellationToken);
+            if (geocodedAnchor is not null)
             {
                 resolvedOrigins.Add(new MeetingSearchOriginItem(
-                    Id: isMe ? "me" : $"orig_{i}",
-                    Name: name,
-                    Address: "Vị trí GPS hiện tại",
-                    Lat: myLat,
-                    Lng: myLng,
+                    Id: "anchor",
+                    Name: !string.IsNullOrWhiteSpace(geocodedAnchor.Name) ? geocodedAnchor.Name : anchorName,
+                    Address: geocodedAnchor.DisplayName ?? geocodedAnchor.Name ?? anchorName,
+                    Lat: geocodedAnchor.Latitude,
+                    Lng: geocodedAnchor.Longitude,
                     AvatarUrl: null,
-                    IsMe: isMe
+                    IsMe: false
                 ));
             }
             else
             {
-                var geocoded = await geocodingService.GeocodeAsync(oPlace, oAddr, cancellationToken);
-                if (geocoded is not null)
+                return Ok(new MeetingSearchPromptResponse(
+                    Query: parsedQuery,
+                    Centroid: null,
+                    Origins: [],
+                    Results: [],
+                    AiInsight: $"Hệ thống không tìm thấy toạ độ mốc địa danh '{anchorName}' trong các khu vực đang hỗ trợ ({areasDescription}). Bạn vui lòng chọn mốc địa danh khác hoặc kiểm tra lại nhé!",
+                    SupportedAreas: activeAreaNames
+                ));
+            }
+        }
+        else
+        {
+            // Trường hợp 3: Vị trí hiện tại của người dùng (current_location) hoặc danh sách điểm xuất phát (custom_origins)
+            if (string.Equals(parsedLocationType, "current_location", StringComparison.OrdinalIgnoreCase) && parsedOrigins.Count == 0)
+            {
+                parsedOrigins.Add(("Tôi", "GPS_CURRENT", null, "speaker"));
+            }
+
+            for (int i = 0; i < parsedOrigins.Count; i++)
+            {
+                var (oName, oPlace, oAddr, oRole) = parsedOrigins[i];
+                var isGpsCurrent = string.Equals(oPlace, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
+                var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase);
+                var isMe = isGpsCurrent || isSpeaker;
+                var name = isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : $"Người {i + 1}");
+
+                if (isGpsCurrent || string.IsNullOrWhiteSpace(oPlace))
                 {
                     resolvedOrigins.Add(new MeetingSearchOriginItem(
                         Id: isMe ? "me" : $"orig_{i}",
                         Name: name,
-                        Address: geocoded.DisplayName ?? (string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"),
-                        Lat: geocoded.Latitude,
-                        Lng: geocoded.Longitude,
+                        Address: "Vị trí GPS hiện tại",
+                        Lat: myLat,
+                        Lng: myLng,
                         AvatarUrl: null,
                         IsMe: isMe
                     ));
                 }
                 else
                 {
-                    unresolvedOrigins.Add((name, string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"));
+                    var geocoded = await geocodingService.GeocodeAsync(oPlace, oAddr, cancellationToken);
+                    if (geocoded is not null)
+                    {
+                        resolvedOrigins.Add(new MeetingSearchOriginItem(
+                            Id: isMe ? "me" : $"orig_{i}",
+                            Name: name,
+                            Address: geocoded.DisplayName ?? (string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"),
+                            Lat: geocoded.Latitude,
+                            Lng: geocoded.Longitude,
+                            AvatarUrl: null,
+                            IsMe: isMe
+                        ));
+                    }
+                    else
+                    {
+                        unresolvedOrigins.Add((name, string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"));
+                    }
                 }
             }
         }
@@ -793,6 +913,8 @@ Nhiệm vụ của bạn:
         var searchResult = await meetingPlacesHandler.HandleAsync(queryObj, cancellationToken);
 
         string? insight = null;
+        var isAnchorSearch = resolvedOrigins.Count == 1 && resolvedOrigins[0].Id == "anchor";
+
         if (searchResult.Results.Count > 0)
         {
             var top = searchResult.Results[0];
@@ -801,25 +923,44 @@ Nhiệm vụ của bạn:
                 var originsSummary = string.Join(", ", resolvedOrigins.Select(o => $"{o.Name} ({o.Address})"));
                 var isSingleOrigin = resolvedOrigins.Count <= 1;
 
-                var promptSystem = isSingleOrigin
-                    ? "Bạn là chuyên gia tư vấn địa điểm thông minh. " +
-                      "Dựa trên vị trí của người dùng, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho địa điểm phù hợp nhất. " +
-                      "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt."
-                    : "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh. " +
-                      "Dựa trên kết quả tính toán lộ trình thực tế, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho người dùng. " +
-                      "Nêu điểm hẹn tối ưu nhất, thời gian di chuyển của các thành viên hoặc vì sao điểm này công bằng, thuận tiện. " +
-                      "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
+                string promptSystem;
+                string promptUser;
 
-                var promptUser = isSingleOrigin
-                    ? $"Người dùng ở: {originsSummary}. " +
-                      $"Địa điểm phù hợp nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
-                      $"Khoảng cách: {top.AverageDistanceKm:F1} km (~{(top.AverageDurationMinutes ?? (top.AverageDistanceKm / 25.0 * 60.0)):F0} phút). " +
-                      $"Hãy tư vấn ngắn gọn, gợi ý lý do người dùng nên đến đây."
-                    : $"Nhóm gồm: {originsSummary}. " +
-                      $"Hệ thống đang có dữ liệu tại: {areasDescription}. " +
-                      $"Điểm hẹn tối ưu nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
-                      $"Thời gian di chuyển ước tính: {top.AverageDurationMinutes:F0} phút. Độ công bằng: {Math.Round(top.FairnessScore * 100)}%. " +
-                      $"Hãy tư vấn ngắn gọn và tự nhiên cho nhóm.";
+                if (isAnchorSearch)
+                {
+                    promptSystem = "Bạn là chuyên gia tư vấn địa điểm thông minh. " +
+                        "Dựa trên mốc địa danh tham chiếu của người dùng, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho địa điểm phù hợp nhất gần mốc đó. " +
+                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
+
+                    promptUser = $"Người dùng tìm kiếm địa điểm quanh mốc: {resolvedOrigins[0].Name} ({resolvedOrigins[0].Address}). " +
+                        $"Địa điểm phù hợp nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
+                        $"Khoảng cách từ mốc: {top.AverageDistanceKm:F1} km (~{(top.AverageDurationMinutes ?? (top.AverageDistanceKm / 25.0 * 60.0)):F0} phút). " +
+                        $"Hãy tư vấn ngắn gọn, nêu lý do gợi ý người dùng nên đến đây.";
+                }
+                else if (isSingleOrigin)
+                {
+                    promptSystem = "Bạn là chuyên gia tư vấn địa điểm thông minh. " +
+                        "Dựa trên vị trí của người dùng, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho địa điểm phù hợp nhất. " +
+                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
+
+                    promptUser = $"Người dùng ở: {originsSummary}. " +
+                        $"Địa điểm phù hợp nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
+                        $"Khoảng cách: {top.AverageDistanceKm:F1} km (~{(top.AverageDurationMinutes ?? (top.AverageDistanceKm / 25.0 * 60.0)):F0} phút). " +
+                        $"Hãy tư vấn ngắn gọn, gợi ý lý do người dùng nên đến đây.";
+                }
+                else
+                {
+                    promptSystem = "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh. " +
+                        "Dựa trên kết quả tính toán lộ trình thực tế, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho người dùng. " +
+                        "Nêu điểm hẹn tối ưu nhất, thời gian di chuyển của các thành viên hoặc vì sao điểm này công bằng, thuận tiện. " +
+                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
+
+                    promptUser = $"Nhóm gồm: {originsSummary}. " +
+                        $"Hệ thống đang có dữ liệu tại: {areasDescription}. " +
+                        $"Điểm hẹn tối ưu nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
+                        $"Thời gian di chuyển ước tính: {top.AverageDurationMinutes:F0} phút. Độ công bằng: {Math.Round(top.FairnessScore * 100)}%. " +
+                        $"Hãy tư vấn ngắn gọn và tự nhiên cho nhóm.";
+                }
 
                 var insightMessages = new List<AgentModelMessage>
                 {
@@ -841,14 +982,30 @@ Nhiệm vụ của bạn:
 
             if (string.IsNullOrWhiteSpace(insight))
             {
-                insight = resolvedOrigins.Count <= 1
-                    ? $"Địa điểm gợi ý phù hợp nhất cho bạn là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách vị trí của bạn khoảng {top.AverageDistanceKm:F1} km."
-                    : $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+                if (isAnchorSearch)
+                {
+                    insight = $"Địa điểm phù hợp nhất gần {resolvedOrigins[0].Name} là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách mốc khoảng {top.AverageDistanceKm:F1} km.";
+                }
+                else if (resolvedOrigins.Count <= 1)
+                {
+                    insight = $"Địa điểm gợi ý phù hợp nhất cho bạn là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách vị trí của bạn khoảng {top.AverageDistanceKm:F1} km.";
+                }
+                else
+                {
+                    insight = $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+                }
             }
         }
         else
         {
-            var emptySearchPrompt = $$"""
+            var emptySearchPrompt = isAnchorSearch
+                ? $$"""
+Người dùng muốn tìm: "{{parsedQuery}}" ở gần mốc "{{resolvedOrigins[0].Name}}".
+Hệ thống đang có dữ liệu tại: {{areasDescription}}.
+Trong bán kính tìm kiếm quanh mốc này hiện chưa tìm thấy địa điểm nào phù hợp với '{{parsedQuery}}'.
+Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi thể loại địa điểm hoặc mở rộng bán kính tìm kiếm.
+"""
+                : $$"""
 Người dùng muốn tìm: "{{parsedQuery}}" cho nhóm {{resolvedOrigins.Count}} người.
 Hệ thống đang có dữ liệu tại: {{areasDescription}}.
 Tâm điểm nhóm đã được tính toán nhưng không tìm thấy địa điểm nào phù hợp với từ khoá '{{parsedQuery}}' trong cơ sở dữ liệu và bán kính tìm kiếm.
@@ -875,7 +1032,9 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
 
             if (string.IsNullOrWhiteSpace(emptyInsight))
             {
-                emptyInsight = $"Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện không tìm thấy địa điểm '{parsedQuery}' nào phù hợp cho nhóm. Bạn thử đổi sang thể loại khác như quán cà phê hoặc quán ăn xem sao nhé!";
+                emptyInsight = isAnchorSearch
+                    ? $"Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện chưa tìm thấy địa điểm '{parsedQuery}' nào gần {resolvedOrigins[0].Name}. Bạn thử đổi sang thể loại khác hoặc nới rộng bán kính xem sao nhé!"
+                    : $"Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện không tìm thấy địa điểm '{parsedQuery}' nào phù hợp cho nhóm. Bạn thử đổi sang thể loại khác như quán cà phê hoặc quán ăn xem sao nhé!";
             }
 
             insight = emptyInsight;

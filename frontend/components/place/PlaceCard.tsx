@@ -173,15 +173,24 @@ export default function PlaceCard({
             </div>
           </div>
 
-          {/* Khoảng cách từng thành viên khi đang trong chế độ điểm hẹn */}
+          {/* Khoảng cách từng thành viên hoặc từ mốc tìm kiếm */}
           {groupOrigins && groupOrigins.length > 0 && activeMeetingPlace && (
             <div className="mt-2.5 rounded-xl border border-primary/20 bg-primary/5 p-2.5 text-xs">
               <div className="font-semibold text-primary mb-1.5 flex items-center justify-between text-[11px]">
                 <span className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" />
-                  Khoảng cách từng người (bấm để xem đường đi):
+                  {groupOrigins.length === 1 && (groupOrigins[0].id === "anchor" || !groupOrigins[0].isMe) ? (
+                    <>
+                      <MapPin className="h-3.5 w-3.5" />
+                      Khoảng cách từ mốc tìm kiếm (bấm để xem đường đi):
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-3.5 w-3.5" />
+                      Khoảng cách từng người (bấm để xem đường đi):
+                    </>
+                  )}
                 </span>
-                {activeMeetingPlace.fairnessScore !== undefined && (
+                {groupOrigins.length > 1 && activeMeetingPlace.fairnessScore !== undefined && (
                   <span className="text-[10px] text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded border border-border/50">
                     Công bằng: {Math.round(activeMeetingPlace.fairnessScore * 100)}%
                   </span>
