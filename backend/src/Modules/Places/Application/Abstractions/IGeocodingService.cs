@@ -12,6 +12,12 @@ public sealed record GeocodeResult(
 public interface IGeocodingService
 {
     Task<GeocodeResult?> GeocodeAsync(
-        string query,
+        string placeName,
+        string? address,
         CancellationToken cancellationToken = default);
+
+    Task<GeocodeResult?> GeocodeAsync(
+        string query,
+        CancellationToken cancellationToken = default) =>
+        GeocodeAsync(query, null, cancellationToken);
 }

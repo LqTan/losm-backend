@@ -2,6 +2,7 @@ namespace AgentCore.Application.Tools.SearchMeetingPlaces;
 
 public sealed record SearchMeetingPlaceOriginArgument(
     string? Name = null,
+    string? Address = null,
     double? Latitude = null,
     double? Longitude = null
 );

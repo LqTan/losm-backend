@@ -39,7 +39,7 @@ public sealed class SearchMeetingPlacesTool
     public override string Description =>
         "Search for places convenient for a multi-person meeting. " +
         "Accepts multiple origins; each origin may be a pair of latitude/longitude, " +
-        "or a place name that will be geocoded automatically. " +
+        "or a place name ('name') and optional address/street ('address') that will be geocoded automatically. " +
         "If a named origin cannot be geocoded, the tool returns a structured " +
         "'geocode_failed' error so you can ask the user to clarify. " +
         "Use this whenever the user mentions multiple participants " +
@@ -188,13 +188,15 @@ public sealed class SearchMeetingPlacesTool
 
         var geocoded = await _geocodingService.GeocodeAsync(
             origin.Name,
+            origin.Address,
             cancellationToken);
 
         if (geocoded is null)
         {
             _logger.LogInformation(
-                "SearchMeetingPlacesTool: geocode failed for origin '{Origin}'",
-                origin.Name);
+                "SearchMeetingPlacesTool: geocode failed for origin '{Origin}', address '{Address}'",
+                origin.Name,
+                origin.Address);
             return null;
         }
 

@@ -440,11 +440,12 @@ Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xu�
 4. "specific_preference": Nếu người dùng có sở thích cụ thể về món ăn hoặc thương hiệu/thể loại con (ví dụ: "ramen", "sushi", "dim sum", "pizza", "món ý", "món pháp", "bún bò"...), hãy điền vào đây. Nếu không có hoặc yêu cầu chung chung, trả về chuỗi rỗng "".
 5. "origins": Danh sách tất cả thành viên và địa điểm xuất phát:
    - "name": Tên hoặc định danh người đó (ví dụ: 'Tôi', 'Người 1', 'Bạn Nam').
-   - "location": Địa điểm/vị trí xuất phát. CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi".
+   - "place_name": Tên địa danh / cơ sở xuất phát (ví dụ: 'Dinh Độc Lập', 'Chợ Bến Thành', 'Bưu điện Trung tâm Sài Gòn', 'Công viên Tao Đàn'). CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi". Tuyệt đối KHÔNG tự ý nối thêm đuôi quận huyện như ', Quận 1'.
+   - "address": Số nhà hoặc tên đường đi kèm nếu có (ví dụ: '135 Nam Kỳ Khởi Nghĩa', '2 Công xã Paris', 'đường Trương Định'). Nếu không có số nhà/đường, để chuỗi rỗng "".
    - "role": Vai trò của chủ thể ("speaker" hoặc "member"):
      + "speaker": Khi người dùng tự chỉ định rõ ràng bản thân mình đang ở vị trí đó (chủ thể ngôi thứ nhất gắn liền với vị trí).
-     + "member": Dành cho bạn bè, người khác, hoặc khi người dùng chỉ liệt kê danh sách các điểm trong nhóm một cách khách quan (ví dụ: '1 đứa ở A, 1 đứa ở B, đứa còn lại ở C') mà không nói rõ bản thân ở điểm nào.
-   - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân (ví dụ: 'tìm quán cafe yên tĩnh', 'quán phở ngon gần đây'): để "origins" rỗng [].
+     + "member": Dành cho bạn bè, người khác, hoặc khi người dùng chỉ liệt kê danh sách các điểm trong nhóm một cách khách quan.
+   - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân: để "origins" rỗng [].
 6. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
 
 Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
@@ -454,7 +455,8 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
   "target_category": "cafe",
   "specific_preference": "",
   "origins": [
-    { "name": "Người 1", "location": "Điểm xuất phát 1", "role": "member" }
+    { "name": "Người 1", "place_name": "Chợ Bến Thành", "address": "", "role": "member" },
+    { "name": "Người 2", "place_name": "Dinh Độc Lập", "address": "135 Nam Kỳ Khởi Nghĩa", "role": "member" }
   ],
   "destination": ""
 }
@@ -465,7 +467,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         string? parsedTargetCategory = null;
         string? parsedSpecificPreference = null;
         string parsedDestination = "";
-        var parsedOrigins = new List<(string Name, string Location, string Role)>();
+        var parsedOrigins = new List<(string Name, string PlaceName, string? Address, string Role)>();
 
         try
         {
@@ -518,13 +520,31 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                     var name = o.TryGetProperty("name", out var nElem) && nElem.ValueKind == JsonValueKind.String
                         ? nElem.GetString() ?? "Người"
                         : "Người";
-                    var loc = o.TryGetProperty("location", out var lElem) && lElem.ValueKind == JsonValueKind.String
-                        ? lElem.GetString() ?? ""
-                        : "";
+
+                    string placeName = "";
+                    if (o.TryGetProperty("place_name", out var pnElem) && pnElem.ValueKind == JsonValueKind.String)
+                    {
+                        placeName = pnElem.GetString() ?? "";
+                    }
+                    else if (o.TryGetProperty("location", out var lElem) && lElem.ValueKind == JsonValueKind.String)
+                    {
+                        placeName = lElem.GetString() ?? "";
+                    }
+
+                    string? addr = null;
+                    if (o.TryGetProperty("address", out var aElem) && aElem.ValueKind == JsonValueKind.String)
+                    {
+                        var aStr = aElem.GetString()?.Trim();
+                        if (!string.IsNullOrEmpty(aStr))
+                        {
+                            addr = aStr;
+                        }
+                    }
+
                     var role = o.TryGetProperty("role", out var rElem) && rElem.ValueKind == JsonValueKind.String
                         ? rElem.GetString() ?? "member"
                         : "member";
-                    parsedOrigins.Add((name, loc, role));
+                    parsedOrigins.Add((name, placeName, addr, role));
                 }
             }
         }
@@ -543,9 +563,10 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             request.Prompt.Contains("đường đi", StringComparison.OrdinalIgnoreCase))
         {
             var destTarget = !string.IsNullOrWhiteSpace(parsedDestination) ? parsedDestination : parsedQuery;
-            var originTarget = parsedOrigins.Count > 0 && !string.IsNullOrWhiteSpace(parsedOrigins[0].Location)
-                ? parsedOrigins[0].Location
+            var originTarget = parsedOrigins.Count > 0 && !string.IsNullOrWhiteSpace(parsedOrigins[0].PlaceName)
+                ? parsedOrigins[0].PlaceName
                 : "GPS_CURRENT";
+            var originAddr = parsedOrigins.Count > 0 ? parsedOrigins[0].Address : null;
             var memberName = parsedOrigins.Count > 0 ? parsedOrigins[0].Name : "Bạn";
 
             double startLat = myLat;
@@ -554,7 +575,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 
             if (!string.Equals(originTarget, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase))
             {
-                var geocodedOrigin = await geocodingService.GeocodeAsync(originTarget, cancellationToken);
+                var geocodedOrigin = await geocodingService.GeocodeAsync(originTarget, originAddr, cancellationToken);
                 if (geocodedOrigin is not null)
                 {
                     startLat = geocodedOrigin.Latitude;
@@ -574,7 +595,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 }
             }
 
-            var geocodedDest = await geocodingService.GeocodeAsync(destTarget, cancellationToken);
+            var geocodedDest = await geocodingService.GeocodeAsync(destTarget, null, cancellationToken);
             if (geocodedDest is null)
             {
                 return Ok(new MeetingSearchPromptResponse(
@@ -640,7 +661,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         // Xử lý Intent TÌM KIẾM / GỢI Ý ĐỊA ĐIỂM (Cá nhân hoặc Nhóm)
         if (parsedOrigins.Count == 0)
         {
-            parsedOrigins.Add(("Tôi", "GPS_CURRENT", "speaker"));
+            parsedOrigins.Add(("Tôi", "GPS_CURRENT", null, "speaker"));
         }
 
         var resolvedOrigins = new List<MeetingSearchOriginItem>();
@@ -648,13 +669,13 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 
         for (int i = 0; i < parsedOrigins.Count; i++)
         {
-            var (oName, oLoc, oRole) = parsedOrigins[i];
-            var isGpsCurrent = string.Equals(oLoc, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
+            var (oName, oPlace, oAddr, oRole) = parsedOrigins[i];
+            var isGpsCurrent = string.Equals(oPlace, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
             var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase);
             var isMe = isGpsCurrent || isSpeaker;
             var name = isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : $"Người {i + 1}");
 
-            if (isGpsCurrent || string.IsNullOrWhiteSpace(oLoc))
+            if (isGpsCurrent || string.IsNullOrWhiteSpace(oPlace))
             {
                 resolvedOrigins.Add(new MeetingSearchOriginItem(
                     Id: isMe ? "me" : $"orig_{i}",
@@ -668,13 +689,13 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             }
             else
             {
-                var geocoded = await geocodingService.GeocodeAsync(oLoc, cancellationToken);
+                var geocoded = await geocodingService.GeocodeAsync(oPlace, oAddr, cancellationToken);
                 if (geocoded is not null)
                 {
                     resolvedOrigins.Add(new MeetingSearchOriginItem(
                         Id: isMe ? "me" : $"orig_{i}",
                         Name: name,
-                        Address: geocoded.DisplayName ?? oLoc,
+                        Address: geocoded.DisplayName ?? (string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"),
                         Lat: geocoded.Latitude,
                         Lng: geocoded.Longitude,
                         AvatarUrl: null,
@@ -683,7 +704,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 }
                 else
                 {
-                    unresolvedOrigins.Add((name, oLoc));
+                    unresolvedOrigins.Add((name, string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"));
                 }
             }
         }
