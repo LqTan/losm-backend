@@ -13,6 +13,7 @@ import {
   COMMON_AREAS,
 } from "@/components/meeting/GroupMeetingFinder";
 import {
+  ArrowDownWideNarrow,
   Bot,
   Calendar,
   Car,
@@ -28,9 +29,11 @@ import {
   Navigation2,
   Plus,
   RotateCcw,
+  Scale,
   Search,
   Send,
   Sparkles,
+  Target,
   UserCheck,
   Users,
   X,
@@ -466,7 +469,8 @@ export default function AiChatWidget({
       clearTimeout(timer1);
       clearTimeout(timer2);
 
-      const items = res?.results ?? [];
+      const rawItems = res?.results ?? [];
+      const items = [...rawItems].sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0));
       const returnedOrigins: OriginItem[] = res?.origins ?? [];
       const centroidCoord = res?.centroid ? { lat: res.centroid.lat, lng: res.centroid.lng } : null;
       const supported = res?.supportedAreas ?? [];
@@ -860,30 +864,39 @@ export default function AiChatWidget({
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                               Địa điểm gợi ý ({msg.meetingPlaces.length}):
                             </span>
-                            {msg.rankingMethod === "onnx" || msg.meetingPlaces.some((p) => p.isOnnxScored) ? (
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-300/40 flex items-center gap-1 shadow-2xs"
-                                title="Điểm số được xếp hạng bằng Mô hình AI LambdaMART (ONNX)"
-                              >
-                                <Sparkles className="h-2.5 w-2.5 text-purple-600 dark:text-purple-400" />
-                                Mô hình AI (LambdaMART)
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300/40 flex items-center gap-1 shadow-2xs"
-                                title="Điểm số được xếp hạng bằng Thuật toán tối ưu của hệ thống (GSKQ)"
-                              >
-                                <Cpu className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
-                                Thuật toán hệ thống (GSKQ)
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+                                <ArrowDownWideNarrow className="h-3 w-3 text-primary" />
+                                Xếp theo Điểm tổng hợp
+                              </span>
+                              {msg.rankingMethod === "onnx" || msg.meetingPlaces.some((p) => p.isOnnxScored) ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-300/40 flex items-center gap-1 shadow-2xs"
+                                  title="Điểm số được xếp hạng bằng Mô hình AI LambdaMART (ONNX)"
+                                >
+                                  <Sparkles className="h-2.5 w-2.5 text-purple-600 dark:text-purple-400" />
+                                  Mô hình AI
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300/40 flex items-center gap-1 shadow-2xs"
+                                  title="Điểm số được xếp hạng bằng Thuật toán tối ưu của hệ thống (GSKQ)"
+                                >
+                                  <Cpu className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                                  GSKQ
+                                </Badge>
+                              )}
+                            </div>
                           </div>
 
                           <div className="space-y-2">
-                            {msg.meetingPlaces.map((item, idx) => {
-                              const fairnessPercent = Math.round((item.fairnessScore ?? 0.8) * 100);
+                            {[...msg.meetingPlaces].sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0)).map((item, idx) => {
+                              const matchPercent = Math.round((item.relevanceScore ?? 1) * 100);
+                              const distancePercent = Math.round((item.distanceScore ?? 1) * 100);
+                              const fairnessPercent = Math.round((item.fairnessScore ?? 1) * 100);
+                              const finalScoreDisplay = ((item.finalScore ?? 0) * 10).toFixed(1);
                               const isSelected = activeMeetingPlaceId === item.placeId;
                               const isGroup = msg.origins && msg.origins.length > 1;
 
@@ -909,15 +922,39 @@ export default function AiChatWidget({
                                         </span>
                                       )}
                                     </div>
-                                    {isGroup && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-[9px] shrink-0 font-medium bg-emerald-500/10 text-emerald-600"
-                                        title={`Độ công bằng lộ trình: ${fairnessPercent}%. Thứ tự xếp hạng tính theo Điểm tổng hợp (kết hợp độ khớp từ khoá, thời gian di chuyển và độ công bằng).`}
-                                      >
-                                        Công bằng {fairnessPercent}%
+                                    <div className="flex flex-col items-end shrink-0">
+                                      <Badge className="text-[9px] font-bold px-1.5 py-0 bg-primary text-primary-foreground shadow-2xs">
+                                        ⭐ {finalScoreDisplay}/10
                                       </Badge>
-                                    )}
+                                      <span className="text-[8px] text-muted-foreground font-medium">
+                                        Điểm tổng hợp
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Hiển thị cả 3 độ: Độ khớp, Độ tiện đường, Độ công bằng */}
+                                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium border border-blue-500/20"
+                                      title="Độ khớp: Mức độ đúng món, thể loại địa điểm theo yêu cầu"
+                                    >
+                                      <Target className="h-2.5 w-2.5" />
+                                      Độ khớp: {matchPercent}%
+                                    </span>
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20"
+                                      title="Độ tiện đường: Quãng đường di chuyển trung bình nhanh và gần"
+                                    >
+                                      <Car className="h-2.5 w-2.5" />
+                                      Tiện đường: {distancePercent}%
+                                    </span>
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20"
+                                      title="Độ công bằng: Mức độ cân bằng quãng đường/thời gian giữa các người đi"
+                                    >
+                                      <Scale className="h-2.5 w-2.5" />
+                                      Công bằng: {fairnessPercent}%
+                                    </span>
                                   </div>
 
                                   {item.address && (

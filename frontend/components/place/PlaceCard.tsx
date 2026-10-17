@@ -6,6 +6,7 @@ import type { Place, MeetingPlace } from "@/types/place";
 import type { OriginItem } from "@/components/meeting/GroupMeetingFinder";
 import {
   Calendar,
+  Car,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -14,7 +15,9 @@ import {
   Loader2,
   MapPin,
   Navigation2,
+  Scale,
   Share2,
+  Target,
   Users,
   X,
 } from "lucide-react";
@@ -172,6 +175,55 @@ export default function PlaceCard({
               </span>
             </div>
           </div>
+
+          {/* Hiển thị Điểm tổng hợp và cả 3 tiêu chí: Độ khớp, Tiện đường, Công bằng */}
+          {(activeMeetingPlace || place.finalScore !== undefined) && (
+            <div className="mt-2.5 rounded-xl border border-primary/20 bg-primary/5 p-2.5 text-xs space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Đánh giá điểm hẹn:
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Badge className="text-[10px] font-bold px-2 py-0.5 bg-primary text-primary-foreground shadow-2xs">
+                    ⭐ {(((activeMeetingPlace?.finalScore ?? place.finalScore) ?? 0) * 10).toFixed(1)}/10
+                  </Badge>
+                  <span className="text-[10px] font-medium text-foreground">
+                    Điểm tổng hợp
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                {(activeMeetingPlace?.relevanceScore !== undefined || place.relevanceScore !== undefined) && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium border border-blue-500/20"
+                    title="Độ khớp: Mức độ đúng món, thể loại địa điểm theo yêu cầu"
+                  >
+                    <Target className="h-3 w-3" />
+                    Độ khớp: {Math.round(((activeMeetingPlace?.relevanceScore ?? place.relevanceScore) ?? 1) * 100)}%
+                  </span>
+                )}
+                {(activeMeetingPlace?.distanceScore !== undefined || place.distanceScore !== undefined) && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20"
+                    title="Độ tiện đường: Quãng đường di chuyển trung bình nhanh và gần"
+                  >
+                    <Car className="h-3 w-3" />
+                    Tiện đường: {Math.round(((activeMeetingPlace?.distanceScore ?? place.distanceScore) ?? 1) * 100)}%
+                  </span>
+                )}
+                {(activeMeetingPlace?.fairnessScore !== undefined || place.fairnessScore !== undefined) && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20"
+                    title="Độ công bằng: Mức độ cân bằng quãng đường/thời gian giữa các người đi"
+                  >
+                    <Scale className="h-3 w-3" />
+                    Công bằng: {Math.round(((activeMeetingPlace?.fairnessScore ?? place.fairnessScore) ?? 1) * 100)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Khoảng cách từng thành viên hoặc từ mốc tìm kiếm */}
           {groupOrigins && groupOrigins.length > 0 && activeMeetingPlace && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,9 @@ import {
   UserCheck,
   Plus,
   Search,
+  ArrowDownWideNarrow,
+  Target,
+  Scale,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -316,7 +319,8 @@ export function GroupMeetingContent({
         setSupportedAreas(res.supportedAreas);
       }
 
-      const items = res?.results ?? [];
+      const rawItems = res?.results ?? [];
+      const items = [...rawItems].sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0));
       const returnedOrigins: OriginItem[] = res?.origins ?? [];
 
       setResults(items);
@@ -558,6 +562,10 @@ export function GroupMeetingContent({
   );
 
   // Right/Results Section
+  const sortedResults = useMemo(() => {
+    return [...results].sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0));
+  }, [results]);
+
   const resultsSection = (
     <div className="space-y-4">
       {/* Nhận xét AI */}
@@ -579,22 +587,26 @@ export function GroupMeetingContent({
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-xs text-foreground flex items-center gap-1.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              Địa điểm gợi ý ({results.length})
+              Địa điểm gợi ý ({sortedResults.length})
             </h3>
-            <span className="text-[11px] text-muted-foreground">
-              Xếp hạng theo độ công bằng
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+              <ArrowDownWideNarrow className="h-3.5 w-3.5 text-primary" />
+              Xếp theo Điểm tổng hợp (Cao → Thấp)
             </span>
           </div>
 
-          {results.length === 0 ? (
+          {sortedResults.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-4">
               Không tìm thấy địa điểm nào phù hợp. Hãy thử thay đổi yêu cầu.
             </p>
           ) : (
             <div className={`space-y-2.5 overflow-y-auto pr-1 ${isMaximized ? "max-h-[calc(100vh-280px)]" : "max-h-72"}`}>
-              {results.map((item, idx) => {
+              {sortedResults.map((item, idx) => {
                 const isSelected = selectedResultId === item.placeId;
-                const fairnessPercent = Math.round((item.fairnessScore ?? 0.8) * 100);
+                const matchPercent = Math.round((item.relevanceScore ?? 1) * 100);
+                const distancePercent = Math.round((item.distanceScore ?? 1) * 100);
+                const fairnessPercent = Math.round((item.fairnessScore ?? 1) * 100);
+                const finalScoreDisplay = ((item.finalScore ?? 0) * 10).toFixed(1);
 
                 return (
                   <div
@@ -625,9 +637,41 @@ export function GroupMeetingContent({
                           )}
                         </div>
                       </div>
-                      <Badge variant="secondary" className="text-[10px] shrink-0 font-medium bg-emerald-500/10 text-emerald-600">
-                        Công bằng {fairnessPercent}%
-                      </Badge>
+                      
+                      {/* Badge Điểm tổng hợp (Final Score) */}
+                      <div className="flex flex-col items-end shrink-0">
+                        <Badge className="text-[10px] font-bold px-2 py-0.5 bg-primary text-primary-foreground shadow-2xs">
+                          ⭐ {finalScoreDisplay}/10
+                        </Badge>
+                        <span className="text-[9px] text-muted-foreground font-medium mt-0.5">
+                          Điểm tổng hợp
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Hiển thị cả 3 độ: Độ khớp, Độ tiện đường, Độ công bằng */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium border border-blue-500/20"
+                        title="Độ khớp: Mức độ đúng món, thể loại địa điểm theo yêu cầu"
+                      >
+                        <Target className="h-3 w-3" />
+                        Độ khớp: {matchPercent}%
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20"
+                        title="Độ tiện đường: Quãng đường di chuyển trung bình nhanh và gần"
+                      >
+                        <Car className="h-3 w-3" />
+                        Tiện đường: {distancePercent}%
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20"
+                        title="Độ công bằng: Mức độ cân bằng quãng đường/thời gian giữa các người đi"
+                      >
+                        <Scale className="h-3 w-3" />
+                        Công bằng: {fairnessPercent}%
+                      </span>
                     </div>
 
                     {item.address && (
