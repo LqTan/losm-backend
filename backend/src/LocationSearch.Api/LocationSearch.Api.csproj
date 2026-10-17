@@ -35,4 +35,11 @@
     <ProjectReference Include="..\Modules\Overture\Overture.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="storage\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

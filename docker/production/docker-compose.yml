@@ -18,6 +18,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/tmp
+      - ../../backend/src/LocationSearch.Api/storage:/app/storage
     depends_on:
       sqlserver:
         condition: service_healthy
