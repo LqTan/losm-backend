@@ -79,7 +79,7 @@ function createTeardropPinIcon({
         />
       </div>
       <span style="position: absolute; top: -14px; background: ${isMe ? '#10b981' : color}; color: white; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.3); border: 1px solid white; z-index: 20; max-width: 85px; overflow: hidden; text-overflow: ellipsis;">
-        ${isMe ? "Tôi" : (name || "Người")}
+        ${name || (isMe ? "Tôi" : "Người")}
       </span>
     </div>
   `;
@@ -139,20 +139,60 @@ function RouteBoundsController({
   return null;
 }
 
-function MapViewController({
-  target,
+function GroupMeetingBoundsController({
+  groupOrigins,
+  activeMeetingPlace,
+  navigationRoute,
 }: {
-  target?: { lat: number; lng: number } | null;
+  groupOrigins?: MapOrigin[];
+  activeMeetingPlace?: MeetingPlace | null;
+  navigationRoute?: { coordinates: [number, number][] } | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
+    if (navigationRoute && navigationRoute.coordinates && navigationRoute.coordinates.length > 1) {
+      return;
+    }
+
+    if (groupOrigins && groupOrigins.length > 1) {
+      const points: [number, number][] = groupOrigins.map((o) => [o.lat, o.lng]);
+      if (activeMeetingPlace) {
+        points.push([activeMeetingPlace.latitude, activeMeetingPlace.longitude]);
+      }
+      if (points.length > 0) {
+        const bounds = L.latLngBounds(points);
+        const isSmallScreen = typeof window !== "undefined" && window.innerHeight < 650;
+        const bottomPadding = isSmallScreen ? 140 : 220;
+        map.fitBounds(bounds, {
+          paddingTopLeft: [70, 70],
+          paddingBottomRight: [70, bottomPadding],
+          maxZoom: 16,
+        });
+      }
+    }
+  }, [groupOrigins, activeMeetingPlace, navigationRoute, map]);
+
+  return null;
+}
+
+function MapViewController({
+  target,
+  disabled,
+}: {
+  target?: { lat: number; lng: number } | null;
+  disabled?: boolean;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (disabled) return;
     if (target && target.lat && target.lng) {
       map.flyTo([target.lat, target.lng], 16, {
         duration: 1.2,
       });
     }
-  }, [target?.lat, target?.lng, map]);
+  }, [target?.lat, target?.lng, disabled, map]);
 
   return null;
 }
@@ -173,6 +213,7 @@ export default function MapView({
     ? ([userLocation.lat, userLocation.lng] as [number, number])
     : DEFAULT_CENTER;
 
+  const isGroupMode = Boolean(groupOrigins && groupOrigins.length > 1);
   const activeTarget = flyToTarget ?? (selectedPlace ? { lat: selectedPlace.latitude, lng: selectedPlace.longitude } : null);
 
   return (
@@ -183,11 +224,19 @@ export default function MapView({
       className="h-full w-full"
     >
       <AppTileLayer />
-      <MapViewController target={navigationRoute ? null : activeTarget} />
+      <MapViewController
+        target={navigationRoute ? null : activeTarget}
+        disabled={Boolean(navigationRoute || isGroupMode)}
+      />
+      <GroupMeetingBoundsController
+        groupOrigins={groupOrigins}
+        activeMeetingPlace={activeMeetingPlace}
+        navigationRoute={navigationRoute}
+      />
       <RouteBoundsController route={navigationRoute} />
 
       {/* User Current Location Marker */}
-      {userLocation && (
+      {userLocation && (!groupOrigins || groupOrigins.length === 0 || !groupOrigins.some((o) => o.isMe)) && (
         <Fragment key={`user_loc_group_${userLocation.lat}_${userLocation.lng}`}>
           <CircleMarker
             center={[userLocation.lat, userLocation.lng]}

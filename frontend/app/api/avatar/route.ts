@@ -35,7 +35,11 @@ export async function GET(request: NextRequest) {
 
   // Fallback: Generate a crisp circular SVG avatar with initial
   const name = searchParams.get("name") || "Tôi";
-  const initial = name.trim().charAt(0).toUpperCase() || "T";
+  let initial = name.trim().charAt(0).toUpperCase() || "T";
+  const numMatch = name.match(/\d+/);
+  if (name.toLowerCase().startsWith("người") && numMatch) {
+    initial = numMatch[0];
+  }
   const color = searchParams.get("color") || "#0284c7";
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">

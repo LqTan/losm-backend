@@ -792,7 +792,9 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 var isGpsCurrent = string.Equals(oPlace, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
                 var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase);
                 var isMe = isGpsCurrent || isSpeaker;
-                var name = isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : $"Người {i + 1}");
+                var name = parsedOrigins.Count > 1
+                    ? $"Người {i + 1}"
+                    : (isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : "Vị trí của bạn"));
 
                 if (isGpsCurrent || string.IsNullOrWhiteSpace(oPlace))
                 {

@@ -484,7 +484,6 @@ export default function AiChatWidget({
       // Cập nhật bản đồ nếu có danh sách địa điểm
       if (items.length > 0) {
         onGroupSearchResults?.(items, centroidCoord, returnedOrigins);
-        onSelectMeetingPlace?.(items[0], false);
       }
 
       // Xây dựng các bước trực quan dựa trên kết quả trả về

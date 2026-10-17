@@ -527,8 +527,10 @@ export default function HomeMap() {
       setSelectedPlace(mappedPlaces[0]);
     }
 
-    if (centroidCoord) {
+    if (centroidCoord && origins.length <= 1) {
       setFlyToTarget(centroidCoord);
+    } else {
+      setFlyToTarget(null);
     }
   }
 
@@ -549,7 +551,11 @@ export default function HomeMap() {
       finalScore: place.finalScore,
     };
     setSelectedPlace(p);
-    setFlyToTarget({ lat: place.latitude, lng: place.longitude });
+    if (groupOrigins.length <= 1) {
+      setFlyToTarget({ lat: place.latitude, lng: place.longitude });
+    } else {
+      setFlyToTarget(null);
+    }
     if (shouldCloseModal) {
       setIsAssistantOpen(false);
     }
