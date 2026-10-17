@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   Compass,
+  Cpu,
   Loader2,
   MapPin,
   Maximize2,
@@ -80,6 +81,7 @@ export interface ChatMessage {
   aiInsight?: string | null;
   supportedAreas?: string[];
   attachedRoute?: AttachedRoute;
+  rankingMethod?: string;
   timestamp: string;
 }
 
@@ -458,6 +460,7 @@ export default function AiChatWidget({
         aiInsight?: string;
         supportedAreas?: string[];
         attachedRoute?: AttachedRoute;
+        rankingMethod?: string;
       }>("/api/agent/meeting-search", payload, token);
 
       clearTimeout(timer1);
@@ -600,6 +603,7 @@ export default function AiChatWidget({
         aiInsight: res?.aiInsight,
         supportedAreas: supported,
         attachedRoute: route,
+        rankingMethod: res?.rankingMethod ?? (items.some((it) => it.isOnnxScored) ? "onnx" : "system"),
         timestamp: new Date().toLocaleTimeString("vi-VN", {
           hour: "2-digit",
           minute: "2-digit",
@@ -851,16 +855,30 @@ export default function AiChatWidget({
                       {/* 5. Thẻ danh sách các địa điểm */}
                       {msg.meetingPlaces && msg.meetingPlaces.length > 0 && (
                         <div className="mt-2.5 pt-2 border-t border-border/60 space-y-2">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-1.5 flex-wrap">
                             <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                               Địa điểm gợi ý ({msg.meetingPlaces.length}):
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {msg.origins && msg.origins.length > 1
-                                ? "Tối ưu theo OSRM & độ công bằng"
-                                : "Phù hợp nhất"}
-                            </span>
+                            {msg.rankingMethod === "onnx" || msg.meetingPlaces.some((p) => p.isOnnxScored) ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-300/40 flex items-center gap-1 shadow-2xs"
+                                title="Điểm số được xếp hạng bằng Mô hình AI LambdaMART (ONNX)"
+                              >
+                                <Sparkles className="h-2.5 w-2.5 text-purple-600 dark:text-purple-400" />
+                                Mô hình AI (LambdaMART)
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300/40 flex items-center gap-1 shadow-2xs"
+                                title="Điểm số được xếp hạng bằng Thuật toán tối ưu của hệ thống (GSKQ)"
+                              >
+                                <Cpu className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                                Thuật toán hệ thống (GSKQ)
+                              </Badge>
+                            )}
                           </div>
 
                           <div className="space-y-2">
@@ -892,7 +910,11 @@ export default function AiChatWidget({
                                       )}
                                     </div>
                                     {isGroup && (
-                                      <Badge variant="secondary" className="text-[9px] shrink-0 font-medium bg-emerald-500/10 text-emerald-600">
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[9px] shrink-0 font-medium bg-emerald-500/10 text-emerald-600"
+                                        title={`Độ công bằng lộ trình: ${fairnessPercent}%. Thứ tự xếp hạng tính theo Điểm tổng hợp (kết hợp độ khớp từ khoá, thời gian di chuyển và độ công bằng).`}
+                                      >
                                         Công bằng {fairnessPercent}%
                                       </Badge>
                                     )}
@@ -907,39 +929,41 @@ export default function AiChatWidget({
 
                                   {/* Hiển thị khoảng cách: Nhóm nhiều người vs Cá nhân 1 người */}
                                   {isGroup ? (
-                                    <div className="bg-muted/40 rounded-lg p-2 space-y-1 border border-border/50 text-[10px]">
-                                      <div className="font-semibold text-muted-foreground text-[9px] uppercase tracking-wider flex items-center gap-1">
-                                        <Car className="h-3 w-3 text-primary" />
-                                        Khoảng cách & thời gian di chuyển từng người:
+                                    isMaximized && (
+                                      <div className="bg-muted/40 rounded-lg p-2 space-y-1 border border-border/50 text-[10px]">
+                                        <div className="font-semibold text-muted-foreground text-[9px] uppercase tracking-wider flex items-center gap-1">
+                                          <Car className="h-3 w-3 text-primary" />
+                                          Khoảng cách & thời gian di chuyển từng người:
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1">
+                                          {msg.origins!.map((orig, oIdx) => {
+                                            const dist =
+                                              item.distanceKmByOrigin && item.distanceKmByOrigin[oIdx] !== undefined
+                                                ? item.distanceKmByOrigin[oIdx]
+                                                : getDistanceKm(orig.lat, orig.lng, item.latitude, item.longitude);
+                                            const dur =
+                                              item.durationMinutesByOrigin && item.durationMinutesByOrigin[oIdx] !== undefined
+                                                ? item.durationMinutesByOrigin[oIdx]
+                                                : (dist / 25) * 60;
+                                            return (
+                                              <div key={oIdx} className="flex items-center gap-1 text-muted-foreground truncate">
+                                                <span className="font-semibold text-foreground truncate max-w-[65px]">
+                                                  {orig.name}:
+                                                </span>
+                                                <span>
+                                                  {dist.toFixed(1)} km
+                                                  {dur !== undefined && dur !== null && (
+                                                    <span className="ml-0.5 font-bold text-foreground">
+                                                      ({Math.round(dur)}p)
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
                                       </div>
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1">
-                                        {msg.origins!.map((orig, oIdx) => {
-                                          const dist =
-                                            item.distanceKmByOrigin && item.distanceKmByOrigin[oIdx] !== undefined
-                                              ? item.distanceKmByOrigin[oIdx]
-                                              : getDistanceKm(orig.lat, orig.lng, item.latitude, item.longitude);
-                                          const dur =
-                                            item.durationMinutesByOrigin && item.durationMinutesByOrigin[oIdx] !== undefined
-                                              ? item.durationMinutesByOrigin[oIdx]
-                                              : (dist / 25) * 60;
-                                          return (
-                                            <div key={oIdx} className="flex items-center gap-1 text-muted-foreground truncate">
-                                              <span className="font-semibold text-foreground truncate max-w-[65px]">
-                                                {orig.name}:
-                                              </span>
-                                              <span>
-                                                {dist.toFixed(1)} km
-                                                {dur !== undefined && dur !== null && (
-                                                  <span className="ml-0.5 font-bold text-foreground">
-                                                    ({Math.round(dur)}p)
-                                                  </span>
-                                                )}
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
+                                    )
                                   ) : (
                                     <div className="bg-muted/40 rounded-lg p-2 space-y-1 border border-border/50 text-[10px]">
                                       <div className="flex items-center gap-1.5 text-muted-foreground">

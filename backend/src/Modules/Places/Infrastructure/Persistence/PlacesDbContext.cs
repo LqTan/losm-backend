@@ -10,6 +10,8 @@ public sealed class PlacesDbContext : DbContext
 
     public DbSet<Place> Places => Set<Place>();
     public DbSet<SavedPlace> SavedPlaces => Set<SavedPlace>();
+    public DbSet<CategoryMapping> CategoryMappings => Set<CategoryMapping>();
+    public DbSet<CategoryOverride> CategoryOverrides => Set<CategoryOverride>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

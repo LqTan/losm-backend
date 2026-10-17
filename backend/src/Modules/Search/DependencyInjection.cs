@@ -15,8 +15,9 @@ public static class DependencyInjection
     )
     {
         services.AddSingleton<IOnnxRankingModelService, OnnxRankingModelService>();
+        services.AddSingleton<ICategoryMappingProvider, CategoryMappingProvider>();
         services.AddScoped<IPlaceSearchService, PlaceSearchService>();
-        services.AddScoped<IRelevanceScorer, MockRelevanceScorer>();
+        services.AddScoped<IRelevanceScorer, Bm25RelevanceScorer>();
         services.AddScoped<IRankingService, RankingService>();
 
         if (configuration is not null)

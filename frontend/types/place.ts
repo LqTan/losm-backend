@@ -48,6 +48,7 @@ export interface MeetingPlace {
     averageDurationMinutes?: number | null;
     spreadMinutes?: number | null;
     isRoadRouting?: boolean;
+    isOnnxScored?: boolean;
 }
 
 export interface SearchMeetingPlacesResponse {
@@ -56,6 +57,7 @@ export interface SearchMeetingPlacesResponse {
     centroidLongitude: number;
     searchRadiusKm: number;
     profile: string;
+    rankingMethod?: string;
 }
 
 export interface ScheduleMeetingInput {

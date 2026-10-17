@@ -10,19 +10,22 @@ public sealed class SearchMeetingPlacesHandler
     private readonly IRankingService _rankingService;
     private readonly ITuningProvider _tuning;
     private readonly IOsrmTableService _osrmTableService;
+    private readonly ICategoryMappingProvider _categoryMappingProvider;
 
     public SearchMeetingPlacesHandler(
         IPlaceSearchService placeSearchService,
         IRelevanceScorer relevanceScorer,
         IRankingService rankingService,
         ITuningProvider tuning,
-        IOsrmTableService osrmTableService)
+        IOsrmTableService osrmTableService,
+        ICategoryMappingProvider categoryMappingProvider)
     {
         _placeSearchService = placeSearchService;
         _relevanceScorer = relevanceScorer;
         _rankingService = rankingService;
         _tuning = tuning;
         _osrmTableService = osrmTableService;
+        _categoryMappingProvider = categoryMappingProvider;
     }
 
     public async Task<SearchMeetingPlacesResult> HandleAsync(
@@ -154,7 +157,11 @@ public sealed class SearchMeetingPlacesHandler
                 : (distancesByOrigin.Max() - distancesByOrigin.Min()) / 25.0 * 60.0;
 
             var relevanceScore = scoreByPlaceId.GetValueOrDefault(place.Id);
-            var catMatch = ComputeCategoryMatch(place.Category, query.Query);
+            var catMatch = _categoryMappingProvider.ComputeCategoryMatch(
+                place.Category,
+                query.TargetCategory,
+                query.SpecificPreference,
+                query.Query);
 
             candidateMetrics.Add((
                 place,
@@ -171,39 +178,20 @@ public sealed class SearchMeetingPlacesHandler
             ));
         }
 
-        // 2. Compute relative ranks within candidate batch (0-1 normalized, 1.0 is best)
+        // 2. Compute relative ranks within candidate batch (0-1 normalized, Colab method=min, 0.0 is best/fastest)
         int K = candidateMetrics.Count;
         var avgDurationRanks = new float[K];
         var spreadDurationRanks = new float[K];
 
-        if (K <= 1)
+        if (K > 1)
         {
-            if (K == 1)
+            for (int i = 0; i < K; i++)
             {
-                avgDurationRanks[0] = 1.0f;
-                spreadDurationRanks[0] = 1.0f;
-            }
-        }
-        else
-        {
-            var sortedByAvg = candidateMetrics
-                .Select((m, idx) => (m.DurationAvg, idx))
-                .OrderBy(x => x.DurationAvg)
-                .ToList();
+                int strictlySmallerAvg = candidateMetrics.Count(c => c.DurationAvg < candidateMetrics[i].DurationAvg);
+                avgDurationRanks[i] = (float)strictlySmallerAvg / (K - 1);
 
-            for (int r = 0; r < K; r++)
-            {
-                avgDurationRanks[sortedByAvg[r].idx] = 1.0f - ((float)r / (K - 1));
-            }
-
-            var sortedBySpread = candidateMetrics
-                .Select((m, idx) => (m.DurationSpread, idx))
-                .OrderBy(x => x.DurationSpread)
-                .ToList();
-
-            for (int r = 0; r < K; r++)
-            {
-                spreadDurationRanks[sortedBySpread[r].idx] = 1.0f - ((float)r / (K - 1));
+                int strictlySmallerSpread = candidateMetrics.Count(c => c.DurationSpread < candidateMetrics[i].DurationSpread);
+                spreadDurationRanks[i] = (float)strictlySmallerSpread / (K - 1);
             }
         }
 
@@ -264,42 +252,35 @@ public sealed class SearchMeetingPlacesHandler
                 m.Durations,
                 avgDuration,
                 spreadDuration,
-                m.IsRoad
+                m.IsRoad,
+                breakdown.IsOnnxScored
             ));
         }
 
+        // Colab tie-breaking sort keys:
+        // 1. score desc
+        // 2. duration_avg_min asc
+        // 3. duration_spread_min asc
+        // 4. bm25_norm desc
+        // 5. poi_id asc
         var top = results
-            .OrderByDescending(x => x.FinalScore)
+            .OrderByDescending(x => Math.Round(x.FinalScore, 6))
+            .ThenBy(x => x.AverageDurationMinutes ?? double.MaxValue)
+            .ThenBy(x => x.SpreadMinutes ?? double.MaxValue)
+            .ThenByDescending(x => x.RelevanceScore)
+            .ThenBy(x => x.PlaceId)
             .Take(topK)
             .ToList();
+
+        var rankingMethod = top.Any(x => x.IsOnnxScored) ? "onnx" : "system";
 
         return new SearchMeetingPlacesResult(
             top,
             centroidLat,
             centroidLon,
             searchRadius,
-            profile
+            profile,
+            rankingMethod
         );
-    }
-
-    private static float ComputeCategoryMatch(string? placeCategory, string query)
-    {
-        if (string.IsNullOrWhiteSpace(placeCategory) || string.IsNullOrWhiteSpace(query))
-            return 0f;
-
-        var p = placeCategory.ToLowerInvariant();
-        var q = query.ToLowerInvariant();
-
-        if (q.Contains(p) || p.Contains(q)) return 1f;
-
-        if ((q.Contains("cà phê") || q.Contains("cafe") || q.Contains("coffee")) &&
-            (p.Contains("cafe") || p.Contains("coffee") || p.Contains("cà phê")))
-            return 1f;
-
-        if ((q.Contains("ăn") || q.Contains("nhà hàng") || q.Contains("quán ăn") || q.Contains("food") || q.Contains("restaurant")) &&
-            (p.Contains("restaurant") || p.Contains("food") || p.Contains("ăn") || p.Contains("quán")))
-            return 1f;
-
-        return 0f;
     }
 }

@@ -24,11 +24,14 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
     private int? _featureCount;
     private string? _statusMessage;
 
-    public OnnxRankingModelService(ILogger<OnnxRankingModelService> logger)
+    public OnnxRankingModelService(
+        ILogger<OnnxRankingModelService> logger,
+        Microsoft.Extensions.Hosting.IHostEnvironment? hostEnv = null)
     {
         _logger = logger;
 
-        _storageDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "storage", "models");
+        var rootDir = hostEnv?.ContentRootPath ?? AppDomain.CurrentDomain.BaseDirectory;
+        _storageDir = Path.Combine(rootDir, "storage", "models");
         _modelFilePath = Path.Combine(_storageDir, "ranking_lambdamart.onnx");
         _metadataFilePath = Path.Combine(_storageDir, "ranking_metadata.json");
 
@@ -57,13 +60,27 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
                 }
             }
 
-            if (File.Exists(_modelFilePath))
+            var modelPath = _modelFilePath;
+            if (!File.Exists(modelPath))
             {
-                var session = new InferenceSession(_modelFilePath);
+                var altPath = Path.Combine(_storageDir, "ranker.onnx");
+                if (File.Exists(altPath))
+                {
+                    modelPath = altPath;
+                }
+            }
+
+            if (File.Exists(modelPath))
+            {
+                var session = new InferenceSession(modelPath);
                 _session = session;
-                _fileSizeBytes = new FileInfo(_modelFilePath).Length;
-                _uploadedAt ??= File.GetLastWriteTimeUtc(_modelFilePath);
-                _modelName ??= Path.GetFileName(_modelFilePath);
+                _fileSizeBytes = new FileInfo(modelPath).Length;
+                _uploadedAt ??= File.GetLastWriteTimeUtc(modelPath);
+                _modelName ??= Path.GetFileName(modelPath);
+                if (!File.Exists(_metadataFilePath))
+                {
+                    _isActive = true; // Auto-activate if model placed manually
+                }
 
                 InspectInputMetadata();
 
@@ -279,7 +296,7 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
                 featureValues = featureValues.Take(expectedLen).ToArray();
             }
 
-            var inputName = _inputName ?? "float_input";
+            var inputName = _inputName ?? "input";
             var dimensions = new[] { 1, featureValues.Length };
             var tensor = new DenseTensor<float>(featureValues, dimensions);
             var inputs = new List<NamedOnnxValue>

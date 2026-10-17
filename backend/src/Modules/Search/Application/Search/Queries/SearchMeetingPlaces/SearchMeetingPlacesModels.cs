@@ -10,7 +10,9 @@ public sealed record SearchMeetingPlacesQuery(
     string Query,
     IReadOnlyList<SearchMeetingPlaceOrigin> Origins,
     double? RadiusKm = null,
-    int? TopK = null
+    int? TopK = null,
+    string? TargetCategory = null,
+    string? SpecificPreference = null
 );
 
 public sealed record SearchMeetingPlaceResult(
@@ -32,7 +34,8 @@ public sealed record SearchMeetingPlaceResult(
     IReadOnlyList<double>? DurationMinutesByOrigin = null,
     double? AverageDurationMinutes = null,
     double? SpreadMinutes = null,
-    bool IsRoadRouting = false
+    bool IsRoadRouting = false,
+    bool IsOnnxScored = false
 );
 
 public sealed record SearchMeetingPlacesResult(
@@ -40,5 +43,6 @@ public sealed record SearchMeetingPlacesResult(
     double CentroidLatitude,
     double CentroidLongitude,
     double SearchRadiusKm,
-    string Profile
+    string Profile,
+    string RankingMethod = "system"
 );

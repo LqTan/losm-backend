@@ -91,45 +91,46 @@ public sealed class RankingService : IRankingService
     {
         var weights = await _tuning.GetRankingProfileAsync(profileName, ct);
 
-        var distanceScore = Math.Max(0, 1 - distanceKm / radiusKm);
-
+        double distanceScore;
         double fairnessScore = 0;
-        if (originDistancesKm is { Count: > 0 } && weights.Fairness > 0)
+
+        if (profileName == "Meeting")
         {
-            var maxD = originDistancesKm.Max();
-            var minD = originDistancesKm.Min();
-            var spread = maxD - minD;
-            fairnessScore = Math.Max(0, 1 - spread / radiusKm);
+            double durAvg = onnxFeatures?.DurationAvgMin ?? (originDistancesKm is { Count: > 0 } ? originDistancesKm.Average() / 25.0 * 60.0 : distanceKm / 25.0 * 60.0);
+            double durSpread = onnxFeatures?.DurationSpreadMin ?? (originDistancesKm is { Count: > 0 } ? (originDistancesKm.Max() - originDistancesKm.Min()) / 25.0 * 60.0 : 0.0);
+
+            // Colab baseline formula: convenience (15m scale) & fairness (10m scale)
+            distanceScore = 1.0 / (1.0 + (durAvg / 15.0));
+            fairnessScore = 1.0 / (1.0 + (durSpread / 10.0));
+        }
+        else
+        {
+            distanceScore = Math.Max(0, 1 - distanceKm / radiusKm);
+            if (originDistancesKm is { Count: > 0 } && weights.Fairness > 0)
+            {
+                var maxD = originDistancesKm.Max();
+                var minD = originDistancesKm.Min();
+                var spread = maxD - minD;
+                fairnessScore = Math.Max(0, 1 - spread / radiusKm);
+            }
         }
 
-        // Try ONNX LambdaMART prediction if model is active
+        // Dynamic Routing for Assistant / Meeting Places:
+        // Chỉ dùng mô hình LambdaMART cho hồ sơ "Meeting" khi địa điểm nằm trong phạm vi học được (CategoryMatch > 0)
         float? onnxScore = null;
-        if (_onnxService.GetStatus().IsActive)
+        if (profileName == "Meeting" && onnxFeatures is not null && _onnxService.GetStatus().IsActive)
         {
-            var maxD = originDistancesKm is { Count: > 0 } ? originDistancesKm.Max() : distanceKm;
-            var avgD = originDistancesKm is { Count: > 0 } ? originDistancesKm.Average() : distanceKm;
-            var durAvg = avgD / 25.0 * 60.0;
-            var durMax = maxD / 25.0 * 60.0;
-            var durSpread = originDistancesKm is { Count: > 0 }
-                ? (originDistancesKm.Max() - originDistancesKm.Min()) / 25.0 * 60.0
-                : 0.0;
-
-            var inputDto = onnxFeatures ?? new RankingFeaturesDto(
-                Bm25Norm: (float)relevanceScore,
-                CategoryMatch: 1f,
-                DurationAvgMin: (float)durAvg,
-                DurationMaxMin: (float)durMax,
-                DurationSpreadMin: (float)durSpread,
-                DistanceAvgKm: (float)avgD,
-                DistanceMaxKm: (float)maxD,
-                DurationAvgRankNorm: (float)distanceScore,
-                DurationSpreadRankNorm: (float)fairnessScore,
-                ParticipantCount: (float)(originDistancesKm?.Count ?? 1)
-            );
-
-            onnxScore = _onnxService.Predict(inputDto);
+            // Nếu CategoryMatch > 0: Chuyển qua LambdaMART (Thuật toán của nhóm làm)
+            // Nếu CategoryMatch == 0: Ngoài phạm vi học -> Fallback về Thuật toán hệ thống
+            if (onnxFeatures.CategoryMatch > 0f)
+            {
+                onnxScore = _onnxService.Predict(onnxFeatures);
+            }
         }
 
+        // Điểm xếp hạng cuối cùng:
+        // - Nếu có onnxScore: dùng kết quả của LambdaMART
+        // - Nếu không (ngoài phạm vi hoặc search thường): dùng Thuật toán của hệ thống (weights.Relevance + weights.Distance + weights.Fairness)
         var final = onnxScore.HasValue
             ? onnxScore.Value
             : weights.Relevance * relevanceScore
@@ -144,7 +145,8 @@ public sealed class RankingService : IRankingService
         return (final, new RankingScoreBreakdown(
             distanceScore,
             fairnessScore,
-            final));
+            final,
+            IsOnnxScored: onnxScore.HasValue));
     }
 
     private static double ToRadians(double degrees)

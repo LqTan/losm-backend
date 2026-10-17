@@ -21,7 +21,8 @@ public sealed record MeetingSearchPromptResponse(
     IReadOnlyList<MeetingPlaceResultDto> Results,
     string? AiInsight,
     IReadOnlyList<string>? SupportedAreas = null,
-    AgentCore.Application.Models.AttachedRoute? AttachedRoute = null
+    AgentCore.Application.Models.AttachedRoute? AttachedRoute = null,
+    string? RankingMethod = null
 );
 
 public sealed record MeetingSearchCentroid(
@@ -58,5 +59,6 @@ public sealed record MeetingPlaceResultDto(
     IReadOnlyList<double>? DurationMinutesByOrigin,
     double? AverageDurationMinutes,
     double? SpreadMinutes,
-    bool IsRoadRouting
+    bool IsRoadRouting,
+    bool IsOnnxScored = false
 );

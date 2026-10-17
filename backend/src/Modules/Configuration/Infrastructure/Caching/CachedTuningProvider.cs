@@ -115,9 +115,9 @@ public sealed class CachedTuningProvider : ITuningProvider
             return new RankingProfile
             {
                 Name = "Meeting",
-                Relevance = 5.0 / 9.0,
-                Distance = 2.0 / 9.0,
-                Fairness = 2.0 / 9.0
+                Relevance = 0.5,
+                Distance = 0.3,
+                Fairness = 0.2
             };
         }
 

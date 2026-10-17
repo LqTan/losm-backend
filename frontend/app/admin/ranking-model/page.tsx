@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, getApiBase } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import {
   Cpu,
@@ -78,7 +78,8 @@ export default function RankingModelPage() {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const res = await fetch("/api/admin/ranking-model/upload", {
+      const apiBase = getApiBase();
+      const res = await fetch(`${apiBase}/api/admin/ranking-model/upload`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -174,7 +175,7 @@ export default function RankingModelPage() {
         </div>
 
         <a
-          href="/api/admin/ranking-model/sample-template"
+          href={`${getApiBase()}/api/admin/ranking-model/sample-template`}
           download="ranking_training_template.csv"
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-card text-foreground hover:bg-muted text-xs font-semibold shadow-xs transition"
           title="Tải template CSV để huấn luyện"

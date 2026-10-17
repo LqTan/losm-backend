@@ -422,19 +422,37 @@ Bạn là trợ lý AI thông minh của nền tảng bản đồ LOSM.
 Nhiệm vụ: Phân tích câu yêu cầu của người dùng để trích xuất thông tin dưới dạng JSON:
 1. "intent": "directions" (nếu người dùng hỏi đường đi, chỉ đường, cách di chuyển) hoặc "search" (mặc định cho tất cả yêu cầu tìm kiếm, gợi ý địa điểm cá nhân hoặc điểm hẹn nhóm).
 2. "query": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán lẩu', 'công viên', 'quán cơm'... hoặc tên quán cụ thể). Mặc định 'quán cà phê' nếu không rõ.
-3. "origins": Danh sách tất cả thành viên và địa điểm xuất phát:
+3. "target_category": Nhóm thể loại mục tiêu. BẮT BUỘC chọn chính xác 1 trong 13 nhóm sau nếu phù hợp:
+   - "cafe": quán cà phê, trà, trà sữa, đồ uống giải khát...
+   - "viet": nhà hàng, quán ăn món Việt, bún, phở, cơm tấm...
+   - "japanese": nhà hàng Nhật Bản, sushi, ramen, sashimi...
+   - "korean": nhà hàng Hàn Quốc, đồ nướng/lẩu Hàn...
+   - "thai": nhà hàng Thái Lan, món Thái, tomyum...
+   - "seafood": hải sản, quán ốc, hải sản tươi sống...
+   - "western": món Âu, món Ý, món Pháp, pizza, steak, pasta, burger...
+   - "vegetarian": đồ chay, quán chay, thuần chay...
+   - "chinese": nhà hàng Trung Hoa, dim sum, lẩu Trung Hoa...
+   - "bbq_hotpot": quán nướng, quán lẩu, buffet nướng lẩu nói chung...
+   - "bookstore": nhà sách, hiệu sách, tiệm sách truyện...
+   - "library": thư viện đọc sách...
+   - "park": công viên, vườn hoa, quảng trường công viên...
+   * LƯU Ý ĐẶC BIỆT: Nếu nhu cầu của người dùng KHÔNG THUỘC bất kỳ nhóm nào trong 13 nhóm trên (ví dụ: cây xăng, tiệm sửa xe, bệnh viện, ngân hàng, rạp phim, tiệm giặt, trạm y tế, khách sạn...), BẮT BUỘC trả về "other".
+4. "specific_preference": Nếu người dùng có sở thích cụ thể về món ăn hoặc thương hiệu/thể loại con (ví dụ: "ramen", "sushi", "dim sum", "pizza", "món ý", "món pháp", "bún bò"...), hãy điền vào đây. Nếu không có hoặc yêu cầu chung chung, trả về chuỗi rỗng "".
+5. "origins": Danh sách tất cả thành viên và địa điểm xuất phát:
    - "name": Tên hoặc định danh người đó (ví dụ: 'Tôi', 'Người 1', 'Bạn Nam').
    - "location": Địa điểm/vị trí xuất phát. CHỈ dùng "GPS_CURRENT" khi người dùng nói rõ: "ở vị trí của tôi", "vị trí hiện tại", "chỗ tôi".
    - "role": Vai trò của chủ thể ("speaker" hoặc "member"):
      + "speaker": Khi người dùng tự chỉ định rõ ràng bản thân mình đang ở vị trí đó (chủ thể ngôi thứ nhất gắn liền với vị trí).
      + "member": Dành cho bạn bè, người khác, hoặc khi người dùng chỉ liệt kê danh sách các điểm trong nhóm một cách khách quan (ví dụ: '1 đứa ở A, 1 đứa ở B, đứa còn lại ở C') mà không nói rõ bản thân ở điểm nào.
    - Nếu là cá nhân hỏi tìm kiếm bình thường cho bản thân (ví dụ: 'tìm quán cafe yên tĩnh', 'quán phở ngon gần đây'): để "origins" rỗng [].
-4. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
+6. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
 
 Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 {
   "intent": "search",
   "query": "thể loại hoặc tên địa điểm",
+  "target_category": "cafe",
+  "specific_preference": "",
   "origins": [
     { "name": "Người 1", "location": "Điểm xuất phát 1", "role": "member" }
   ],
@@ -444,6 +462,8 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
 
         string parsedIntent = "search";
         string parsedQuery = "quán cà phê";
+        string? parsedTargetCategory = null;
+        string? parsedSpecificPreference = null;
         string parsedDestination = "";
         var parsedOrigins = new List<(string Name, string Location, string Role)>();
 
@@ -459,45 +479,59 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             var content = modelResp.AssistantMessage?.Content ?? string.Empty;
 
             var match = Regex.Match(content, @"\{[\s\S]*\}");
-            if (match.Success)
+            if (!match.Success)
             {
-                using var doc = JsonDocument.Parse(match.Value);
-                if (doc.RootElement.TryGetProperty("intent", out var iElem) && iElem.ValueKind == JsonValueKind.String)
-                {
-                    parsedIntent = iElem.GetString() ?? "search";
-                }
+                logger.LogWarning("MiniMax response did not contain valid JSON: {Content}", content);
+                return StatusCode(503, new { error = "Dịch vụ AI (MiniMax) không trả về định dạng phân tích hợp lệ. Vui lòng thử lại sau giây lát." });
+            }
 
-                if (doc.RootElement.TryGetProperty("query", out var qElem) && qElem.ValueKind == JsonValueKind.String)
-                {
-                    parsedQuery = qElem.GetString() ?? "quán cà phê";
-                }
+            using var doc = JsonDocument.Parse(match.Value);
+            if (doc.RootElement.TryGetProperty("intent", out var iElem) && iElem.ValueKind == JsonValueKind.String)
+            {
+                parsedIntent = iElem.GetString() ?? "search";
+            }
 
-                if (doc.RootElement.TryGetProperty("destination", out var dElem) && dElem.ValueKind == JsonValueKind.String)
-                {
-                    parsedDestination = dElem.GetString() ?? "";
-                }
+            if (doc.RootElement.TryGetProperty("query", out var qElem) && qElem.ValueKind == JsonValueKind.String)
+            {
+                parsedQuery = qElem.GetString() ?? "quán cà phê";
+            }
 
-                if (doc.RootElement.TryGetProperty("origins", out var originsElem) && originsElem.ValueKind == JsonValueKind.Array)
+            if (doc.RootElement.TryGetProperty("target_category", out var tcElem) && tcElem.ValueKind == JsonValueKind.String)
+            {
+                parsedTargetCategory = tcElem.GetString();
+            }
+
+            if (doc.RootElement.TryGetProperty("specific_preference", out var spElem) && spElem.ValueKind == JsonValueKind.String)
+            {
+                parsedSpecificPreference = spElem.GetString();
+            }
+
+            if (doc.RootElement.TryGetProperty("destination", out var dElem) && dElem.ValueKind == JsonValueKind.String)
+            {
+                parsedDestination = dElem.GetString() ?? "";
+            }
+
+            if (doc.RootElement.TryGetProperty("origins", out var originsElem) && originsElem.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var o in originsElem.EnumerateArray())
                 {
-                    foreach (var o in originsElem.EnumerateArray())
-                    {
-                        var name = o.TryGetProperty("name", out var nElem) && nElem.ValueKind == JsonValueKind.String
-                            ? nElem.GetString() ?? "Người"
-                            : "Người";
-                        var loc = o.TryGetProperty("location", out var lElem) && lElem.ValueKind == JsonValueKind.String
-                            ? lElem.GetString() ?? ""
-                            : "";
-                        var role = o.TryGetProperty("role", out var rElem) && rElem.ValueKind == JsonValueKind.String
-                            ? rElem.GetString() ?? "member"
-                            : "member";
-                        parsedOrigins.Add((name, loc, role));
-                    }
+                    var name = o.TryGetProperty("name", out var nElem) && nElem.ValueKind == JsonValueKind.String
+                        ? nElem.GetString() ?? "Người"
+                        : "Người";
+                    var loc = o.TryGetProperty("location", out var lElem) && lElem.ValueKind == JsonValueKind.String
+                        ? lElem.GetString() ?? ""
+                        : "";
+                    var role = o.TryGetProperty("role", out var rElem) && rElem.ValueKind == JsonValueKind.String
+                        ? rElem.GetString() ?? "member"
+                        : "member";
+                    parsedOrigins.Add((name, loc, role));
                 }
             }
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to parse meeting prompt with MiniMax, using fallback extraction.");
+            logger.LogError(ex, "Failed to call MiniMax LLM to parse meeting prompt.");
+            return StatusCode(503, new { error = "Dịch vụ AI (MiniMax) hiện không khả dụng hoặc gặp sự cố kết nối. Vui lòng thử lại sau giây lát." });
         }
 
         var myLat = request.UserLatitude ?? 10.7769;
@@ -730,7 +764,9 @@ Nhiệm vụ của bạn:
             parsedQuery,
             resolvedOrigins.Select(o => new SearchMeetingPlaceOrigin(o.Name, o.Lat, o.Lng)).ToList(),
             RadiusKm: 6,
-            TopK: 10
+            TopK: 10,
+            TargetCategory: parsedTargetCategory,
+            SpecificPreference: parsedSpecificPreference
         );
 
         var searchResult = await meetingPlacesHandler.HandleAsync(queryObj, cancellationToken);
@@ -843,7 +879,8 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
             DurationMinutesByOrigin: r.DurationMinutesByOrigin,
             AverageDurationMinutes: r.AverageDurationMinutes,
             SpreadMinutes: r.SpreadMinutes,
-            IsRoadRouting: r.IsRoadRouting
+            IsRoadRouting: r.IsRoadRouting,
+            IsOnnxScored: r.IsOnnxScored
         )).ToList();
 
         var response = new MeetingSearchPromptResponse(
@@ -852,7 +889,8 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
             Origins: resolvedOrigins,
             Results: resultDtos,
             AiInsight: insight,
-            SupportedAreas: activeAreaNames
+            SupportedAreas: activeAreaNames,
+            RankingMethod: searchResult.RankingMethod
         );
 
         return Ok(response);

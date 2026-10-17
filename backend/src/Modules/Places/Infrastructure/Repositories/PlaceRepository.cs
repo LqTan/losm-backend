@@ -193,7 +193,6 @@ public sealed class PlaceRepository : IPlaceRepository
             .Select(x => x.Category!)
             .Distinct()
             .OrderBy(x => x)
-            .Take(100)
             .ToListAsync(cancellationToken);
     }
 

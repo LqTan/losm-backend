@@ -3,7 +3,8 @@ namespace Search.Application.Abstractions;
 public sealed record RankingScoreBreakdown(
     double DistanceScore,
     double FairnessScore,
-    double FinalScore
+    double FinalScore,
+    bool IsOnnxScored = false
 );
 
 public interface IRankingService

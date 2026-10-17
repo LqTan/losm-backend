@@ -34,6 +34,36 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
             Triggers: ["tiệm bánh", "tiem banh", "bánh ngọt", "bakery", "bánh mì", "banh mi", "cake"],
             Categories: ["bakery", "bagel_shop"],
             NameKeywords: ["bakery", "bánh", "cake"]
+        ),
+        (
+            Triggers: ["học bài", "hoc bai", "học nhóm", "hoc nhom", "làm việc", "lam viec", "coworking", "co-working", "thư viện", "thu vien", "study", "chỗ học", "sách", "bookstore"],
+            Categories: ["coworking_space", "library", "public_library", "bookstore"],
+            NameKeywords: ["coworking", "library", "thư viện", "sách", "study", "cafe"]
+        ),
+        (
+            Triggers: ["công trình", "cong trinh", "công trường", "cong truong", "xây dựng", "xay dung", "kỹ sư", "ky su", "thi công", "nhà máy", "xưởng", "construction", "engineering"],
+            Categories: ["construction_company", "construction_service", "building_materials_store", "industrial_park"],
+            NameKeywords: ["xây dựng", "công trình", "construction", "công ty", "xưởng"]
+        ),
+        (
+            Triggers: ["văn phòng", "van phong", "hội nghị", "phòng họp", "toà nhà", "office", "business"],
+            Categories: ["corporate_office", "office", "business_center", "conference_center"],
+            NameKeywords: ["building", "tower", "office", "văn phòng", "plaza"]
+        ),
+        (
+            Triggers: ["bảo tàng", "bao tang", "triển lãm", "museum", "art gallery", "rạp phim", "cinema"],
+            Categories: ["museum", "art_gallery", "movie_theater", "cinema"],
+            NameKeywords: ["museum", "bảo tàng", "triển lãm", "cinema"]
+        ),
+        (
+            Triggers: ["công viên", "cong vien", "park", "quảng trường", "vườn hoa"],
+            Categories: ["park", "urban_park", "public_park", "plaza"],
+            NameKeywords: ["park", "công viên", "quảng trường"]
+        ),
+        (
+            Triggers: ["khách sạn", "khach san", "hotel", "resort", "nhà nghỉ"],
+            Categories: ["hotel", "motel", "resort", "lodging"],
+            NameKeywords: ["hotel", "khách sạn", "resort"]
         )
     ];
 
@@ -42,8 +72,8 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
         "tìm kiếm", "tìm giúp tôi", "tìm giúp mình", "tìm giúp", "tìm cho tôi", "tìm cho mình", "tìm quán", "tìm chỗ", "tìm địa điểm", "tìm",
         "gợi ý cho tôi", "gợi ý", "chỉ cho tôi", "cho tôi", "cho mình", "hãy tìm", "hãy gợi ý",
         "tôi muốn", "mình muốn", "chúng tôi muốn", "nhóm muốn", "muốn", "cần tìm", "cần",
-        "có không gian", "không gian", "yên tĩnh", "làm việc", "học bài", "view đẹp", "máy lạnh", "máy tính",
-        "wifi", "ổ điện", "rộng rãi", "họp nhóm", "hẹn hò", "bạn bè", "gặp nhau", "nói chuyện",
+        "có không gian", "không gian", "yên tĩnh", "view đẹp", "máy lạnh", "máy tính",
+        "wifi", "ổ điện", "rộng rãi", "hẹn hò", "bạn bè", "gặp nhau", "nói chuyện",
         "ở quận 1", "ở quận 2", "ở quận 3", "ở quận 4", "ở quận 5", "ở quận 7", "ở quận 10",
         "quận 1", "quận 2", "quận 3", "quận 4", "quận 5", "quận 7", "quận 10", "q1", "q2", "q3", "q5", "q7",
         "quận bình thạnh", "quận tân bình", "quận phú nhuận", "quận gò vấp",

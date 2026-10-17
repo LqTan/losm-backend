@@ -91,6 +91,9 @@ public sealed class SearchPlacesHandler
             x => x.Score
         );
 
+        var qNorm = query.Query.Trim().ToLowerInvariant();
+        var qTokens = qNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
         var results = new List<SearchResult>(candidates.Count);
 
         foreach (var place in candidates)
@@ -103,14 +106,27 @@ public sealed class SearchPlacesHandler
                 place.Longitude
             );
 
-            var finalScore = await _rankingService.CalculateFinalScoreAsync(
-                relevanceScore,
-                distanceKm,
-                radiusKm,
-                originDistancesKm: null,
-                profileName: "Default",
-                ct: cancellationToken
-            );
+            // Google Maps style ranking:
+            // 1. Độ khớp tên địa điểm (Exact / Prefix / Full token match)
+            // 2. Khoảng cách gần nhất từ vị trí người dùng (DistanceKm tăng dần)
+            var pNameLower = place.Name.ToLowerInvariant();
+            int nameTier = 0;
+            if (pNameLower.Equals(qNorm, StringComparison.OrdinalIgnoreCase))
+            {
+                nameTier = 3; // Trùng khớp hoàn toàn tên
+            }
+            else if (pNameLower.StartsWith(qNorm, StringComparison.OrdinalIgnoreCase))
+            {
+                nameTier = 2; // Bắt đầu bằng từ khóa
+            }
+            else if (qTokens.Length > 0 && qTokens.All(t => pNameLower.Contains(t, StringComparison.OrdinalIgnoreCase)))
+            {
+                nameTier = 1; // Chứa tất cả các từ trong query
+            }
+
+            // Điểm số theo chuẩn Google Maps:
+            // Tầng tên cao hơn sẽ luôn đứng trước; trong cùng tầng tên, quán gần hơn sẽ có điểm cao hơn
+            var finalScore = (nameTier * 100.0) + (10.0 / (1.0 + distanceKm));
 
             results.Add(new SearchResult(
                 place.Id,
@@ -121,14 +137,14 @@ public sealed class SearchPlacesHandler
                 place.Category,
                 place.OpeningHours,
                 relevanceScore,
-                distanceKm,
-                finalScore
+                Math.Round(distanceKm, 2),
+                Math.Round(finalScore, 4)
             ));
         }
 
         var topK = query.CandidateLimit ?? searchOptions.TopK;
         return results
-            .OrderByDescending(x => x.FinalScore)
+            .OrderByDescending(x => x.FinalScore) // Tương đương: nameTier giảm dần, distanceKm tăng dần
             .Take(topK > 0 ? topK : results.Count)
             .ToList();
     }

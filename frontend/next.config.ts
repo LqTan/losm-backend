@@ -29,6 +29,18 @@ const nextConfig: NextConfig = {
         source: "/hangfire/:path*",
         destination: `${apiBase}/api/admin/hangfire-proxy/:path*`,
       },
+      {
+        source: "/api/admin/ranking-model/:path*",
+        destination: `${apiBase}/api/admin/ranking-model/:path*`,
+      },
+      {
+        source: "/api/admin/category-mappings",
+        destination: `${apiBase}/api/admin/category-mappings`,
+      },
+      {
+        source: "/api/admin/category-mappings/:path*",
+        destination: `${apiBase}/api/admin/category-mappings/:path*`,
+      },
     ];
   },
 };
