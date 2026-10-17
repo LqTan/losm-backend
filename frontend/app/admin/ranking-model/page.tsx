@@ -19,6 +19,7 @@ import {
   Info,
   Loader2,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -107,12 +108,10 @@ export default function RankingModelPage() {
   }
 
   async function handleToggle() {
-    if (!status?.hasModel) return;
-
     setToggling(true);
     try {
       const token = getToken();
-      const nextActive = !status.isActive;
+      const nextActive = !status?.isActive;
       const res = await api.post<ModelStatus>(
         "/api/admin/ranking-model/toggle",
         { isActive: nextActive },
@@ -121,11 +120,11 @@ export default function RankingModelPage() {
       setStatus(res);
       toast.success(
         nextActive
-          ? "Đã kích hoạt mô hình LambdaMART ONNX!"
+          ? "Đã kích hoạt mô hình LambdaMART ONNX thành công!"
           : "Đã tạm dừng mô hình. Hệ thống chuyển về công thức mặc định."
       );
     } catch (err: any) {
-      toast.error(err.message || "Lỗi khi bật/tắt mô hình.");
+      toast.error(err.message || "Lỗi khi kích hoạt/tắt mô hình.");
     } finally {
       setToggling(false);
     }
@@ -194,26 +193,40 @@ export default function RankingModelPage() {
               Trạng thái mô hình hiện tại
             </CardTitle>
 
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : status?.hasModel ? (
-              status.isActive ? (
-                <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/30 gap-1.5 py-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Đang hoạt động (Active)
-                </Badge>
+            <div className="flex items-center gap-2">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : status?.hasModel ? (
+                status.isActive ? (
+                  <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/30 gap-1.5 py-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Đang hoạt động (Active)
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1.5 py-1">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    Tạm tắt (Dùng công thức mặc định)
+                  </Badge>
+                )
               ) : (
-                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1.5 py-1">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  Tạm tắt (Dùng công thức mặc định)
+                <Badge variant="secondary" className="gap-1.5 py-1 text-muted-foreground">
+                  <Info className="h-3.5 w-3.5" />
+                  Chưa kích hoạt (Dùng Heuristic)
                 </Badge>
-              )
-            ) : (
-              <Badge variant="secondary" className="gap-1.5 py-1 text-muted-foreground">
-                <Info className="h-3.5 w-3.5" />
-                Chưa có mô hình (Mặc định)
-              </Badge>
-            )}
+              )}
+
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                title="Làm mới trạng thái từ server"
+                onClick={fetchStatus}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
           </div>
           <CardDescription className="text-xs">
             {status?.statusMessage || "Đang kiểm tra trạng thái mô hình..."}
@@ -225,7 +238,7 @@ export default function RankingModelPage() {
             <div>
               <span className="text-muted-foreground block text-[11px]">Tên tệp mô hình:</span>
               <span className="font-semibold text-foreground truncate block mt-0.5">
-                {status?.modelName || "—"}
+                {status?.modelName || (status?.hasModel ? "ranking_lambdamart.onnx" : "—")}
               </span>
             </div>
 
@@ -254,54 +267,63 @@ export default function RankingModelPage() {
             <div>
               <span className="text-muted-foreground block text-[11px]">Số đặc trưng đầu vào:</span>
               <span className="font-semibold text-foreground block mt-0.5">
-                {status?.featureCount ? `${status.featureCount} features (${status.inputName || "tensor"})` : "—"}
+                {status?.featureCount ? `${status.featureCount} features (${status.inputName || "tensor"})` : (status?.hasModel ? "10 features" : "—")}
               </span>
             </div>
           </div>
 
-          {/* Model Actions */}
-          {status?.hasModel && (
-            <div className="flex items-center justify-end gap-2.5 mt-4 pt-3 border-t border-border">
+          {/* Model Actions: Nút kích hoạt độc lập với Upload */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-3 border-t border-border">
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <span>Tệp mô hình nhận diện:</span>
+              <code className="px-2 py-0.5 rounded bg-muted text-[11px] font-mono font-medium text-foreground">
+                {status?.modelName || (status?.hasModel ? "ranking_lambdamart.onnx" : "Chưa có file mô hình")}
+              </code>
+            </div>
+
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant={status.isActive ? "outline" : "default"}
+                variant={status?.isActive ? "outline" : "default"}
                 onClick={handleToggle}
                 disabled={toggling}
-                className="text-xs h-8"
+                className={`text-xs h-8 ${!status?.isActive ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-semibold" : "border-amber-500/40 text-amber-600 hover:bg-amber-500/10"}`}
               >
                 {toggling ? (
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 ) : (
                   <Power className="h-3.5 w-3.5 mr-1.5" />
                 )}
-                {status.isActive ? "Tạm tắt mô hình AI" : "Kích hoạt mô hình AI"}
+                {status?.isActive ? "Tạm dừng mô hình AI (Chuyển về Heuristic)" : "Kích hoạt mô hình AI"}
               </Button>
 
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={handleDelete}
-                className="text-xs h-8"
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Xóa mô hình
-              </Button>
+              {status?.hasModel && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  className="text-xs h-8"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Xóa mô hình
+                </Button>
+              )}
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Upload New Model Card */}
+      {/* Upload New Model Card (Tuỳ chọn) */}
       <Card className="border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-bold flex items-center gap-2">
             <Upload className="h-4 w-4 text-primary" />
-            Tải lên mô hình ONNX mới
+            Tải lên mô hình ONNX mới (Tuỳ chọn)
           </CardTitle>
           <CardDescription className="text-xs">
-            Kéo thả hoặc chọn file mô hình <code>.onnx</code> được xuất ra sau khi train LambdaMART trên Google Colab / Python.
+            Chỉ sử dụng khi bạn muốn thay thế hoặc cập nhật file <code>.onnx</code> mới từ máy cá nhân lên server. Nếu file đã có sẵn trên server (qua git commit / kéo mã nguồn), bạn chỉ cần bấm nút <strong>&quot;Kích hoạt mô hình AI&quot;</strong> ở trên.
           </CardDescription>
         </CardHeader>
 
@@ -358,12 +380,12 @@ export default function RankingModelPage() {
               {uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Đang kiểm tra & nạp mô hình...
+                  Đang kiểm tra & tải lên...
                 </>
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-1.5" />
-                  Tải lên & Kích hoạt mô hình
+                  Tải lên file mô hình mới
                 </>
               )}
             </Button>

@@ -60,17 +60,8 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
                 }
             }
 
-            var modelPath = _modelFilePath;
-            if (!File.Exists(modelPath))
-            {
-                var altPath = Path.Combine(_storageDir, "ranker.onnx");
-                if (File.Exists(altPath))
-                {
-                    modelPath = altPath;
-                }
-            }
-
-            if (File.Exists(modelPath))
+            var modelPath = GetExistingModelPath();
+            if (modelPath is not null && File.Exists(modelPath))
             {
                 var session = new InferenceSession(modelPath);
                 _session = session;
@@ -104,6 +95,28 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
         }
     }
 
+    private string? GetExistingModelPath()
+    {
+        if (File.Exists(_modelFilePath)) return _modelFilePath;
+
+        if (!string.IsNullOrEmpty(_modelName))
+        {
+            var metaPath = Path.Combine(_storageDir, _modelName);
+            if (File.Exists(metaPath)) return metaPath;
+        }
+
+        var altPath = Path.Combine(_storageDir, "ranker.onnx");
+        if (File.Exists(altPath)) return altPath;
+
+        if (Directory.Exists(_storageDir))
+        {
+            var anyOnnx = Directory.GetFiles(_storageDir, "*.onnx").FirstOrDefault();
+            if (anyOnnx is not null) return anyOnnx;
+        }
+
+        return null;
+    }
+
     private void InspectInputMetadata()
     {
         if (_session is null) return;
@@ -130,15 +143,18 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
     {
         lock (_lock)
         {
+            var modelPath = GetExistingModelPath();
+            var hasModel = _session is not null || modelPath is not null;
+
             return new OnnxModelStatusDto(
-                HasModel: _session is not null && File.Exists(_modelFilePath),
+                HasModel: hasModel,
                 IsActive: _isActive && _session is not null,
-                ModelName: _modelName,
-                FileSizeBytes: _fileSizeBytes,
-                UploadedAt: _uploadedAt,
+                ModelName: _modelName ?? (modelPath is not null ? Path.GetFileName(modelPath) : null),
+                FileSizeBytes: _fileSizeBytes > 0 ? _fileSizeBytes : (modelPath is not null ? new FileInfo(modelPath).Length : 0),
+                UploadedAt: _uploadedAt ?? (modelPath is not null ? File.GetLastWriteTimeUtc(modelPath) : null),
                 InputName: _inputName,
                 FeatureCount: _featureCount,
-                StatusMessage: _statusMessage
+                StatusMessage: _statusMessage ?? (hasModel ? (_isActive ? "Mô hình LambdaMART ONNX đang hoạt động." : "Mô hình đã tải lên nhưng đang tạm tắt.") : "Chưa có mô hình ONNX. Hệ thống đang sử dụng công thức heuristic mặc định.")
             );
         }
     }
@@ -212,9 +228,29 @@ public sealed class OnnxRankingModelService : IOnnxRankingModelService, IDisposa
     {
         lock (_lock)
         {
-            if (_session is null)
+            if (isActive && _session is null)
             {
-                throw new InvalidOperationException("Chưa có mô hình ONNX để kích hoạt.");
+                var modelPath = GetExistingModelPath();
+                if (modelPath is not null && File.Exists(modelPath))
+                {
+                    try
+                    {
+                        _session = new InferenceSession(modelPath);
+                        _fileSizeBytes = new FileInfo(modelPath).Length;
+                        _uploadedAt ??= File.GetLastWriteTimeUtc(modelPath);
+                        _modelName = Path.GetFileName(modelPath);
+                        InspectInputMetadata();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to load model from {Path}", modelPath);
+                        throw new InvalidOperationException($"Lỗi khi nạp file mô hình '{Path.GetFileName(modelPath)}': {ex.Message}", ex);
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Chưa có file mô hình .onnx nào trên server để kích hoạt. Vui lòng tải lên hoặc đặt file vào thư mục storage/models.");
+                }
             }
 
             _isActive = isActive;
