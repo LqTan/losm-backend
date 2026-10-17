@@ -19,6 +19,7 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
         double longitude,
         double radiusKm,
         int limit,
+        IReadOnlyList<string>? categories = null,
         CancellationToken cancellationToken = default)
     {
         if (limit <= 0) limit = 20;
@@ -38,31 +39,29 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
             p.Longitude >= longitude - lngDelta &&
             p.Longitude <= longitude + lngDelta);
 
-        // 2. Tìm kiếm theo từ khóa nếu người dùng có nhập
-        if (!string.IsNullOrWhiteSpace(clean))
+        // 2. Tìm kiếm theo danh mục (nếu có) và/hoặc từ khóa
+        if (categories is { Count: > 0 })
         {
-            var pattern = $"%{clean}%";
-            var tokens = clean.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            // Tìm khớp cụm từ đầy đủ (Name, Category, Address)
-            // hoặc khớp các từ chính trong Name
-            if (tokens.Length > 1)
+            if (!string.IsNullOrWhiteSpace(clean))
             {
-                var t0 = tokens[0];
-                var t1 = tokens[1];
+                var pattern = $"%{clean}%";
                 baseQuery = baseQuery.Where(p =>
-                    EF.Functions.Like(p.Name, pattern) ||
-                    (p.Category != null && EF.Functions.Like(p.Category, pattern)) ||
-                    (p.Address != null && EF.Functions.Like(p.Address, pattern)) ||
-                    (EF.Functions.Like(p.Name, $"%{t0}%") && EF.Functions.Like(p.Name, $"%{t1}%")));
+                    (p.Category != null && categories.Contains(p.Category)) ||
+                    EF.Functions.Like(p.Name, pattern));
             }
             else
             {
                 baseQuery = baseQuery.Where(p =>
-                    EF.Functions.Like(p.Name, pattern) ||
-                    (p.Category != null && EF.Functions.Like(p.Category, pattern)) ||
-                    (p.Address != null && EF.Functions.Like(p.Address, pattern)));
+                    p.Category != null && categories.Contains(p.Category));
             }
+        }
+        else if (!string.IsNullOrWhiteSpace(clean))
+        {
+            var pattern = $"%{clean}%";
+            baseQuery = baseQuery.Where(p =>
+                EF.Functions.Like(p.Name, pattern) ||
+                (p.Category != null && EF.Functions.Like(p.Category, pattern)) ||
+                (p.Address != null && EF.Functions.Like(p.Address, pattern)));
         }
 
         var candidates = await baseQuery

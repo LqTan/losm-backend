@@ -10,7 +10,8 @@ public interface IPlaceSearchService
         double longitude,
         double radiusKm,
         int candidateLimit,
-        CancellationToken cancellationToken
+        IReadOnlyList<string>? categories = null,
+        CancellationToken cancellationToken = default
     );
 
     Task<IReadOnlyList<PlaceCandidate>> SearchByBoundingBoxAsync(

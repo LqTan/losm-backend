@@ -63,12 +63,41 @@ public sealed class SearchMeetingPlacesHandler
 
         var searchRadius = radiusKm + maxOriginRadius;
 
+        // Resolve categories from CategoryMappingProvider if TargetCategory or SpecificPreference is provided
+        List<string>? mappedCategories = null;
+        var categoryConfig = _categoryMappingProvider.GetConfig();
+        if (!string.IsNullOrWhiteSpace(query.TargetCategory))
+        {
+            var target = query.TargetCategory.Trim().ToLowerInvariant();
+            if (categoryConfig.CategoryGroups.TryGetValue(target, out var groupCats))
+            {
+                mappedCategories = [.. groupCats];
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.SpecificPreference))
+        {
+            var pref = query.SpecificPreference.Trim().ToLowerInvariant();
+            foreach (var (kw, targetCat) in categoryConfig.SpecificOverrides)
+            {
+                if (pref.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                {
+                    mappedCategories ??= [];
+                    if (!mappedCategories.Contains(targetCat, StringComparer.OrdinalIgnoreCase))
+                    {
+                        mappedCategories.Add(targetCat);
+                    }
+                }
+            }
+        }
+
         var candidates = await _placeSearchService.SearchAsync(
             query.Query,
             centroidLat,
             centroidLon,
             searchRadius,
             candidateLimit,
+            mappedCategories,
             cancellationToken
         );
 
@@ -156,12 +185,14 @@ public sealed class SearchMeetingPlacesHandler
                 ? durationsByOrigin.Max() - durationsByOrigin.Min()
                 : (distancesByOrigin.Max() - distancesByOrigin.Min()) / 25.0 * 60.0;
 
-            var relevanceScore = scoreByPlaceId.GetValueOrDefault(place.Id);
+            var rawRelevance = scoreByPlaceId.GetValueOrDefault(place.Id);
             var catMatch = _categoryMappingProvider.ComputeCategoryMatch(
                 place.Category,
                 query.TargetCategory,
                 query.SpecificPreference,
                 query.Query);
+
+            var relevanceScore = catMatch > 0f ? Math.Max(rawRelevance, (double)catMatch) : rawRelevance;
 
             candidateMetrics.Add((
                 place,

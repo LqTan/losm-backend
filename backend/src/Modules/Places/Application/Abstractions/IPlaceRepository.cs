@@ -25,6 +25,7 @@ public interface IPlaceSpatialSearchService
         double longitude,
         double radiusKm,
         int limit,
+        IReadOnlyList<string>? categories = null,
         CancellationToken cancellationToken = default);
 }
 

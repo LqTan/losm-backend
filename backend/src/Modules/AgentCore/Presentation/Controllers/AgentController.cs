@@ -912,87 +912,129 @@ Nhiệm vụ của bạn:
 
         var searchResult = await meetingPlacesHandler.HandleAsync(queryObj, cancellationToken);
 
+        var finalResults = searchResult.Results.ToList();
         string? insight = null;
         var isAnchorSearch = resolvedOrigins.Count == 1 && resolvedOrigins[0].Id == "anchor";
 
-        if (searchResult.Results.Count > 0)
+        if (finalResults.Count > 0)
         {
-            var top = searchResult.Results[0];
             try
             {
                 var originsSummary = string.Join(", ", resolvedOrigins.Select(o => $"{o.Name} ({o.Address})"));
                 var isSingleOrigin = resolvedOrigins.Count <= 1;
 
-                string promptSystem;
-                string promptUser;
+                // Chuẩn bị danh sách các địa điểm ứng viên để MiniMax rà soát tính toàn vẹn (Tier 2 Integrity Verification)
+                var candidateListPrompt = string.Join("\n", finalResults.Select((r, idx) =>
+                    $"- [{r.PlaceId}] {r.Name} | Thể loại: {r.Category ?? "Chưa rõ"} | Địa chỉ: {r.Address ?? "TP.HCM"} | Cách: {r.AverageDistanceKm:F1}km (~{(r.AverageDurationMinutes ?? (r.AverageDistanceKm / 25.0 * 60.0)):F0}p)"));
 
-                if (isAnchorSearch)
+                var verifierSystemPrompt =
+                    "Bạn là chuyên gia thẩm định và điều phối điểm hẹn thông minh của hệ thống LOSM.\n" +
+                    "Nhiệm vụ của bạn là rà soát (verify/filter) danh sách các địa điểm ứng viên hệ thống vừa tìm được so với yêu cầu ban đầu của người dùng:\n" +
+                    "1. Kiểm tra kỹ: người dùng đang muốn tìm thể loại/món ăn hay đặc điểm cụ thể nào (ví dụ: món Nhật, ramen, sushi, cafe, quán chay, quán nhậu, v.v.).\n" +
+                    "2. Thẩm định từng địa điểm trong danh sách ứng viên:\n" +
+                    "   - Giữ lại và ưu tiên các địa điểm THỰC SỰ ĐÚNG với yêu cầu của người dùng.\n" +
+                    "   - Loại bỏ các địa điểm hoàn toàn lạc đề hoặc không đúng thể loại (ví dụ: người dùng tìm quán Nhật mà địa điểm là quán thuần món Việt, quán lẩu mắm, quán cafe hay quán bia hơi).\n" +
+                    "3. Viết 1-2 câu nhận xét tư vấn (ai_insight) thật tự nhiên, súc tích và hữu ích:\n" +
+                    "   - Nếu có địa điểm phù hợp: nêu lý do quán đứng đầu là lựa chọn lý tưởng nhất cho nhóm.\n" +
+                    "   - Nếu KHÔNG CÓ địa điểm nào trong danh sách thực sự đúng yêu cầu cụ thể của người dùng: thông báo trung thực rằng cơ sở dữ liệu hiện tại chưa có quán phù hợp với yêu cầu này trong khu vực, và trả về danh sách rỗng.\n" +
+                    "4. Tuyệt đối không dùng văn mẫu máy móc hay khen một quán lạc đề là đúng món người dùng yêu cầu.\n\n" +
+                    "Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:\n" +
+                    "{\n" +
+                    "  \"valid_place_ids\": [\"id_1\", \"id_2\", ...],\n" +
+                    "  \"ai_insight\": \"Lời tư vấn nhận xét ngắn gọn, tự nhiên...\"\n" +
+                    "}";
+
+                var verifierUserPrompt =
+                    $"Yêu cầu ban đầu của người dùng: \"{request.Prompt}\"\n" +
+                    $"Truy vấn bóc tách: \"{parsedQuery}\" (Nhóm: \"{parsedTargetCategory}\", Sở thích: \"{parsedSpecificPreference}\")\n" +
+                    $"Thành viên / Điểm xuất phát: {originsSummary}\n\n" +
+                    $"Danh sách các địa điểm ứng viên hệ thống tìm được:\n{candidateListPrompt}\n\n" +
+                    "Hãy thẩm định danh sách trên và trả về kết quả JSON.";
+
+                var verifierMessages = new List<AgentModelMessage>
                 {
-                    promptSystem = "Bạn là chuyên gia tư vấn địa điểm thông minh. " +
-                        "Dựa trên mốc địa danh tham chiếu của người dùng, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho địa điểm phù hợp nhất gần mốc đó. " +
-                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
-
-                    promptUser = $"Người dùng tìm kiếm địa điểm quanh mốc: {resolvedOrigins[0].Name} ({resolvedOrigins[0].Address}). " +
-                        $"Địa điểm phù hợp nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
-                        $"Khoảng cách từ mốc: {top.AverageDistanceKm:F1} km (~{(top.AverageDurationMinutes ?? (top.AverageDistanceKm / 25.0 * 60.0)):F0} phút). " +
-                        $"Hãy tư vấn ngắn gọn, nêu lý do gợi ý người dùng nên đến đây.";
-                }
-                else if (isSingleOrigin)
-                {
-                    promptSystem = "Bạn là chuyên gia tư vấn địa điểm thông minh. " +
-                        "Dựa trên vị trí của người dùng, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho địa điểm phù hợp nhất. " +
-                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
-
-                    promptUser = $"Người dùng ở: {originsSummary}. " +
-                        $"Địa điểm phù hợp nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
-                        $"Khoảng cách: {top.AverageDistanceKm:F1} km (~{(top.AverageDurationMinutes ?? (top.AverageDistanceKm / 25.0 * 60.0)):F0} phút). " +
-                        $"Hãy tư vấn ngắn gọn, gợi ý lý do người dùng nên đến đây.";
-                }
-                else
-                {
-                    promptSystem = "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh. " +
-                        "Dựa trên kết quả tính toán lộ trình thực tế, hãy đưa ra 1-2 câu nhận xét tư vấn thật tự nhiên, súc tích và hữu ích cho người dùng. " +
-                        "Nêu điểm hẹn tối ưu nhất, thời gian di chuyển của các thành viên hoặc vì sao điểm này công bằng, thuận tiện. " +
-                        "Tuyệt đối không dùng văn mẫu máy móc hay lặp lại prompt.";
-
-                    promptUser = $"Nhóm gồm: {originsSummary}. " +
-                        $"Hệ thống đang có dữ liệu tại: {areasDescription}. " +
-                        $"Điểm hẹn tối ưu nhất tìm được là: '{top.Name}' ({top.Address ?? "TP.HCM"}). " +
-                        $"Thời gian di chuyển ước tính: {top.AverageDurationMinutes:F0} phút. Độ công bằng: {Math.Round(top.FairnessScore * 100)}%. " +
-                        $"Hãy tư vấn ngắn gọn và tự nhiên cho nhóm.";
-                }
-
-                var insightMessages = new List<AgentModelMessage>
-                {
-                    new(AgentModelRole.System, promptSystem),
-                    new(AgentModelRole.User, promptUser)
+                    new(AgentModelRole.System, verifierSystemPrompt),
+                    new(AgentModelRole.User, verifierUserPrompt)
                 };
 
-                var insightResp = await modelClient.SendAsync(insightMessages, [], cancellationToken);
-                var rawInsight = insightResp.AssistantMessage?.Content?.Trim();
-                if (!string.IsNullOrWhiteSpace(rawInsight))
+                var verifierResp = await modelClient.SendAsync(verifierMessages, [], cancellationToken);
+                var rawContent = verifierResp.AssistantMessage?.Content?.Trim() ?? string.Empty;
+
+                var jsonMatch = Regex.Match(rawContent, @"\{[\s\S]*\}");
+                if (jsonMatch.Success)
                 {
-                    insight = rawInsight;
+                    using var verifyDoc = JsonDocument.Parse(jsonMatch.Value);
+                    if (verifyDoc.RootElement.TryGetProperty("valid_place_ids", out var vElem) && vElem.ValueKind == JsonValueKind.Array)
+                    {
+                        var validIds = new List<string>();
+                        foreach (var idElem in vElem.EnumerateArray())
+                        {
+                            var s = idElem.GetString();
+                            if (!string.IsNullOrWhiteSpace(s))
+                            {
+                                validIds.Add(s);
+                            }
+                        }
+
+                        if (validIds.Count > 0)
+                        {
+                            var placeDict = finalResults.ToDictionary(r => r.PlaceId.ToString(), r => r, StringComparer.OrdinalIgnoreCase);
+                            var reordered = new List<SearchMeetingPlaceResult>();
+                            foreach (var vid in validIds)
+                            {
+                                if (placeDict.TryGetValue(vid, out var p))
+                                {
+                                    reordered.Add(p);
+                                }
+                            }
+
+                            if (reordered.Count > 0)
+                            {
+                                finalResults = reordered;
+                            }
+                        }
+                        else
+                        {
+                            finalResults = [];
+                        }
+                    }
+
+                    if (verifyDoc.RootElement.TryGetProperty("ai_insight", out var insElem) && insElem.ValueKind == JsonValueKind.String)
+                    {
+                        var insStr = insElem.GetString()?.Trim();
+                        if (!string.IsNullOrWhiteSpace(insStr))
+                        {
+                            insight = insStr;
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to generate AI insight with MiniMax, using calculated fallback.");
+                logger.LogWarning(ex, "Failed to verify meeting places with MiniMax, keeping original ranking.");
             }
 
             if (string.IsNullOrWhiteSpace(insight))
             {
-                if (isAnchorSearch)
+                if (finalResults.Count > 0)
                 {
-                    insight = $"Địa điểm phù hợp nhất gần {resolvedOrigins[0].Name} là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách mốc khoảng {top.AverageDistanceKm:F1} km.";
-                }
-                else if (resolvedOrigins.Count <= 1)
-                {
-                    insight = $"Địa điểm gợi ý phù hợp nhất cho bạn là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách vị trí của bạn khoảng {top.AverageDistanceKm:F1} km.";
+                    var top = finalResults[0];
+                    if (isAnchorSearch)
+                    {
+                        insight = $"Địa điểm phù hợp nhất gần {resolvedOrigins[0].Name} là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách mốc khoảng {top.AverageDistanceKm:F1} km.";
+                    }
+                    else if (resolvedOrigins.Count <= 1)
+                    {
+                        insight = $"Địa điểm gợi ý phù hợp nhất cho bạn là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách vị trí của bạn khoảng {top.AverageDistanceKm:F1} km.";
+                    }
+                    else
+                    {
+                        insight = $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+                    }
                 }
                 else
                 {
-                    insight = $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+                    insight = $"Hệ thống chưa tìm thấy địa điểm nào đúng theo yêu cầu \"{parsedQuery}\" trong khu vực hỗ trợ ({areasDescription}). Bạn có thể thử thay đổi tiêu chí tìm kiếm nhé!";
                 }
             }
         }
@@ -1040,7 +1082,7 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
             insight = emptyInsight;
         }
 
-        var resultDtos = searchResult.Results.Select(r => new MeetingPlaceResultDto(
+        var resultDtos = finalResults.Select(r => new MeetingPlaceResultDto(
             PlaceId: r.PlaceId.ToString(),
             Name: r.Name,
             Address: r.Address,

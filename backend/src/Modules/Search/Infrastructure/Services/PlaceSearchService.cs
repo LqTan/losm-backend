@@ -18,10 +18,11 @@ public sealed class PlaceSearchService : IPlaceSearchService
         double longitude,
         double radiusKm,
         int candidateLimit,
-        CancellationToken cancellationToken)
+        IReadOnlyList<string>? categories = null,
+        CancellationToken cancellationToken = default)
     {
         var hits = await _places.SearchAsync(
-            query, latitude, longitude, radiusKm, candidateLimit, cancellationToken);
+            query, latitude, longitude, radiusKm, candidateLimit, categories, cancellationToken);
 
         return hits
             .Select(h => new PlaceCandidate(
@@ -50,6 +51,6 @@ public sealed class PlaceSearchService : IPlaceSearchService
                      Math.Cos(centerLat * Math.PI / 180.0), 2));
 
         return await SearchAsync(
-            query, centerLat, centerLng, radiusKm, candidateLimit, cancellationToken);
+            query, centerLat, centerLng, radiusKm, candidateLimit, cancellationToken: cancellationToken);
     }
 }

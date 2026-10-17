@@ -74,7 +74,7 @@ public sealed class SearchPlacesHandler
                 query.Longitude!.Value,
                 radiusKm,
                 candidateLimit,
-                cancellationToken
+                cancellationToken: cancellationToken
             );
             referenceLat = query.Latitude.Value;
             referenceLon = query.Longitude.Value;

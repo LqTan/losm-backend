@@ -35,7 +35,7 @@ public sealed class SearchPlacesHandler
                 longitude,
                 query.RadiusKm,
                 query.CandidateLimit,
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
             if (hits.Count == 0) return [];
 
