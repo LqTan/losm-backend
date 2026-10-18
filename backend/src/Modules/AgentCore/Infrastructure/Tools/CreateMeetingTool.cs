@@ -111,6 +111,9 @@ public sealed class CreateMeetingTool
         {
             placeId = place.Id,
             placeName = place.Name,
+            address = place.Address,
+            latitude = place.Latitude,
+            longitude = place.Longitude,
             title = arguments.Title,
             purpose = arguments.Purpose,
             startAt = arguments.StartAt,

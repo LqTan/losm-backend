@@ -10,20 +10,25 @@ function MeetingViewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email");
+  const idParam = searchParams.get("id");
   const [, setChecking] = useState(true);
 
   useEffect(() => {
     async function checkAndRedirect() {
+      const calendarPath = idParam
+        ? `/profile/calendar?id=${encodeURIComponent(idParam)}`
+        : "/profile/calendar";
+
       // 1. Nếu trình duyệt đang có session đăng nhập, vào thẳng Calendar
       const currentUser = getUser();
       if (currentUser) {
-        router.replace("/profile/calendar");
+        router.replace(calendarPath);
         return;
       }
 
       // 2. Nếu không có param email, đưa về trang đăng nhập
       if (!emailParam) {
-        router.replace("/login?redirect=/profile/calendar");
+        router.replace(`/login?redirect=${encodeURIComponent(calendarPath)}`);
         return;
       }
 
@@ -38,18 +43,18 @@ function MeetingViewContent() {
         if (res.exists) {
           // Đã có tài khoản: chuyển sang trang login với email điền sẵn
           router.replace(
-            `/login?email=${encodeURIComponent(email)}&redirect=/profile/calendar`
+            `/login?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(calendarPath)}`
           );
         } else {
           // Chưa có tài khoản: chuyển sang trang đăng ký
           router.replace(
-            `/register?email=${encodeURIComponent(email)}&redirect=/profile/calendar`
+            `/register?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(calendarPath)}`
           );
         }
       } catch {
         // Fallback: chuyển sang login nếu có lỗi
         router.replace(
-          `/login?email=${encodeURIComponent(email)}&redirect=/profile/calendar`
+          `/login?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(calendarPath)}`
         );
       } finally {
         setChecking(false);
@@ -57,7 +62,7 @@ function MeetingViewContent() {
     }
 
     checkAndRedirect();
-  }, [emailParam, router]);
+  }, [emailParam, idParam, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">

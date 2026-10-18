@@ -79,12 +79,14 @@ public sealed class GetMeetingsForUserHandler
             payload?.DurationMinutes,
             payload?.PlaceId,
             payload?.PlaceName,
-            null,
+            payload?.Address,
             payload?.Attendees is null
                 ? Array.Empty<string>()
                 : payload.Attendees.ToArray(),
             action.Error,
             result?.CalendarCreated ?? false,
-            result?.EmailsSent ?? false);
+            result?.EmailsSent ?? false,
+            payload?.Latitude,
+            payload?.Longitude);
     }
 }

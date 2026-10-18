@@ -26,6 +26,7 @@ import {
   List,
   Loader2,
   MapPin,
+  Navigation,
   Plus,
   Users,
 } from "lucide-react";
@@ -36,6 +37,8 @@ interface MeetingItem {
   title: string;
   placeName?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   startAt?: string;
   durationMinutes?: number;
   attendees?: string[];
@@ -65,18 +68,34 @@ export default function ProfileCalendarPage() {
         const data = await api.get<any[]>("/api/meetings", token);
         if (Array.isArray(data)) {
           const mapped: MeetingItem[] = data.map((item) => ({
-            id: item.id || `m_${Math.random()}`,
+            id: item.actionId || item.id || `m_${Math.random()}`,
             title: item.title || item.placeName || "Cuộc hẹn",
             placeName: item.placeName,
-            address: item.address,
+            address: item.placeAddress || item.address,
+            latitude: typeof item.latitude === "number" ? item.latitude : undefined,
+            longitude: typeof item.longitude === "number" ? item.longitude : undefined,
             startAt: item.startAt,
             durationMinutes: item.durationMinutes || 60,
-            attendees: item.attendees || [],
+            attendees: item.attendeeEmails || item.attendees || [],
             note: item.note,
             status: item.status || "Completed",
             emailsSent: item.emailsSent,
           }));
           setMeetings(mapped);
+
+          // Tự động mở chi tiết nếu có param ?id=... từ email mời gặp mặt
+          if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const targetId = params.get("id");
+            if (targetId) {
+              const matched = mapped.find(
+                (m) => m.id.toLowerCase() === targetId.toLowerCase()
+              );
+              if (matched) {
+                setSelectedMeeting(matched);
+              }
+            }
+          }
         }
       } catch {
         setMeetings([]);
@@ -415,11 +434,32 @@ export default function ProfileCalendarPage() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       {m.attendees && m.attendees.length > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border hidden sm:flex">
                           <Users className="h-3.5 w-3.5 text-muted-foreground" />
                           {m.attendees.length} người
                         </span>
                       )}
+                      <Link
+                        href={
+                          m.latitude && m.longitude
+                            ? `/?lat=${m.latitude}&lng=${m.longitude}&name=${encodeURIComponent(
+                                m.placeName ?? m.title
+                              )}&address=${encodeURIComponent(m.address ?? "")}&action=directions&origin=gps`
+                            : `/?query=${encodeURIComponent(
+                                m.placeName ?? m.title
+                              )}&action=directions&origin=gps`
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                        >
+                          <Navigation className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Xem đường</span>
+                        </Button>
+                      </Link>
                       <Button variant="outline" size="sm" className="h-8 text-xs">
                         Chi tiết
                       </Button>
@@ -507,7 +547,27 @@ export default function ProfileCalendarPage() {
               )}
 
               {/* Actions */}
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="pt-2 flex items-center justify-end gap-2 flex-wrap">
+                <Link
+                  href={
+                    selectedMeeting.latitude && selectedMeeting.longitude
+                      ? `/?lat=${selectedMeeting.latitude}&lng=${selectedMeeting.longitude}&name=${encodeURIComponent(
+                          selectedMeeting.placeName ?? selectedMeeting.title
+                        )}&address=${encodeURIComponent(selectedMeeting.address ?? "")}&action=directions&origin=gps`
+                      : `/?query=${encodeURIComponent(
+                          selectedMeeting.placeName ?? selectedMeeting.title
+                        )}&action=directions&origin=gps`
+                  }
+                >
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs"
+                  >
+                    <Navigation className="h-3.5 w-3.5" />
+                    <span>Xem đường đi (GPS)</span>
+                  </Button>
+                </Link>
+
                 {selectedMeeting.address && (
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -524,6 +584,7 @@ export default function ProfileCalendarPage() {
                 )}
                 <Button
                   size="sm"
+                  variant="ghost"
                   onClick={() => setSelectedMeeting(null)}
                   className="h-8 text-xs"
                 >

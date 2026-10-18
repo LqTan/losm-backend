@@ -89,6 +89,8 @@ public sealed class MeetingsController : ControllerBase
         }
         frontendBaseUrl = frontendBaseUrl.TrimEnd('/');
 
+        var actionId = Guid.NewGuid();
+        var confirmationId = Guid.NewGuid();
         var sentEmails = new List<string>();
         var failedEmails = new List<string>();
 
@@ -96,10 +98,10 @@ public sealed class MeetingsController : ControllerBase
         {
             try
             {
-                var viewUrl = $"{frontendBaseUrl}/meetings/view?email={Uri.EscapeDataString(email)}";
+                var viewUrl = $"{frontendBaseUrl}/meetings/view?email={Uri.EscapeDataString(email)}&id={actionId}";
                 var directionsUrl = (request.Latitude.HasValue && request.Longitude.HasValue)
-                    ? $"{frontendBaseUrl}/?lat={request.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lng={request.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&name={Uri.EscapeDataString(request.PlaceName)}&address={Uri.EscapeDataString(request.Address ?? "")}&action=directions"
-                    : $"{frontendBaseUrl}/?query={Uri.EscapeDataString(request.PlaceName)}";
+                    ? $"{frontendBaseUrl}/?lat={request.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lng={request.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&name={Uri.EscapeDataString(request.PlaceName)}&address={Uri.EscapeDataString(request.Address ?? "")}&action=directions&origin=gps"
+                    : $"{frontendBaseUrl}/?query={Uri.EscapeDataString(request.PlaceName)}&action=directions&origin=gps";
 
                 var htmlBody = BuildHtmlBody(request, startUtc, viewUrl, directionsUrl);
                 var plainBody = BuildTextBody(request, startUtc, viewUrl, directionsUrl);
@@ -147,6 +149,8 @@ public sealed class MeetingsController : ControllerBase
                     title = request.Title,
                     placeName = request.PlaceName,
                     address = request.Address,
+                    latitude = request.Latitude,
+                    longitude = request.Longitude,
                     startAt = startUtc,
                     durationMinutes = duration,
                     attendees = validEmails,
@@ -160,9 +164,8 @@ public sealed class MeetingsController : ControllerBase
                     failedEmails
                 });
 
-                var confirmationId = Guid.NewGuid();
                 var action = new AgentCore.Domain.Entities.PendingAgentAction(
-                    id: Guid.NewGuid(),
+                    id: actionId,
                     sessionId: Guid.NewGuid(),
                     userId: userId,
                     actionType: "create_meeting",

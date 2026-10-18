@@ -361,7 +361,11 @@ export default function HomeMap() {
     handleSelectPlace(targetPlace);
   }
 
-  async function handleGetDirections(place: PlaceType, customOrigin?: OriginItem) {
+  async function handleGetDirections(
+    place: PlaceType,
+    customOrigin?: OriginItem,
+    forceGps?: boolean
+  ) {
     let origin: { lat: number; lng: number } | null = null;
     let originLabel = "vị trí của bạn";
 
@@ -369,30 +373,29 @@ export default function HomeMap() {
       origin = { lat: customOrigin.lat, lng: customOrigin.lng };
       setSelectedRouteOriginId(customOrigin.id);
       originLabel = customOrigin.name;
-    } else if (groupOrigins.length > 0) {
+    } else if (groupOrigins.length > 0 && !forceGps) {
       origin = { lat: groupOrigins[0].lat, lng: groupOrigins[0].lng };
       setSelectedRouteOriginId(groupOrigins[0].id);
       originLabel = groupOrigins[0].name;
     } else {
       setSelectedRouteOriginId(null);
-      origin = userLocation;
-      if (!origin) {
-        if (typeof window !== "undefined" && navigator.geolocation) {
-          try {
-            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: false,
-                timeout: 4000,
-              });
+      // Khi forceGps hoặc chỉ đường từ cuộc hẹn/email/lịch: ưu tiên lấy GPS trực tiếp từ trình duyệt
+      if (typeof window !== "undefined" && navigator.geolocation) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 6000,
+              maximumAge: 10000,
             });
-            origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            setUserLocation(origin);
-          } catch {
-            origin = DEFAULT_COORDS;
-          }
-        } else {
-          origin = DEFAULT_COORDS;
+          });
+          origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserLocation(origin);
+        } catch {
+          origin = userLocation ?? DEFAULT_COORDS;
         }
+      } else {
+        origin = userLocation ?? DEFAULT_COORDS;
       }
     }
 
@@ -437,8 +440,8 @@ export default function HomeMap() {
     setSelectedRouteOriginId(null);
   }
 
-  // Xử lý khi người dùng mở link từ email mời gặp mặt:
-  // Ví dụ: /?lat=10.77&lng=106.70&name=...&address=...&action=directions
+  // Xử lý khi người dùng mở link từ email mời gặp mặt hoặc lịch hẹn:
+  // Ví dụ: /?lat=10.77&lng=106.70&name=...&address=...&action=directions&origin=gps
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -447,6 +450,8 @@ export default function HomeMap() {
     const nameParam = params.get("name");
     const addressParam = params.get("address");
     const action = params.get("action");
+    const originParam = params.get("origin");
+    const isGpsOrigin = originParam === "gps" || action === "directions";
 
     if (latStr && lngStr) {
       const lat = parseFloat(latStr);
@@ -474,11 +479,31 @@ export default function HomeMap() {
         setFlyToTarget({ lat, lng });
 
         if (action === "directions") {
-          toast.info(`Đang mở chỉ đường tới ${placeName} trên bản đồ LOSM...`);
-          void handleGetDirections(targetPlace);
+          toast.info(`Đang mở chỉ đường tới ${placeName} dựa trên GPS...`);
+          void handleGetDirections(targetPlace, undefined, isGpsOrigin);
         } else {
           toast.info(`Đang xem vị trí cuộc hẹn: ${placeName}`);
         }
+      }
+    } else {
+      const queryParam = params.get("query") || nameParam;
+      if (queryParam) {
+        void (async () => {
+          try {
+            const results = await api.get<PlaceType[]>(
+              `/api/places/search?query=${encodeURIComponent(queryParam)}`
+            );
+            if (Array.isArray(results) && results.length > 0) {
+              const first = results[0];
+              setSelectedPlace(first);
+              setFlyToTarget({ lat: first.latitude, lng: first.longitude });
+              if (action === "directions") {
+                toast.info(`Đang mở chỉ đường tới ${first.name} dựa trên GPS...`);
+                void handleGetDirections(first, undefined, isGpsOrigin);
+              }
+            }
+          } catch {}
+        })();
       }
     }
   }, []);

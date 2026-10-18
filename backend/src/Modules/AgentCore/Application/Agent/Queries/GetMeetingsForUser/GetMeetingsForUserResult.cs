@@ -21,18 +21,23 @@ public sealed record GetMeetingsForUserResult(
     IReadOnlyList<string> AttendeeEmails,
     string? Error,
     bool CalendarCreated,
-    bool EmailsSent
+    bool EmailsSent,
+    double? Latitude = null,
+    double? Longitude = null
 );
 
 public sealed record MeetingPayload(
-    Guid? PlaceId,
-    string? PlaceName,
-    string? Title,
-    string? Purpose,
-    string? Note,
-    DateTime? StartAt,
-    int? DurationMinutes,
-    IReadOnlyList<string>? Attendees
+    Guid? PlaceId = null,
+    string? PlaceName = null,
+    string? Address = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? Title = null,
+    string? Purpose = null,
+    string? Note = null,
+    DateTime? StartAt = null,
+    int? DurationMinutes = null,
+    IReadOnlyList<string>? Attendees = null
 )
 {
     public static MeetingPayload? Parse(string payloadJson)
