@@ -22,7 +22,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  ExternalLink,
   List,
   Loader2,
   MapPin,
@@ -568,23 +567,9 @@ export default function ProfileCalendarPage() {
                   </Button>
                 </Link>
 
-                {selectedMeeting.address && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      `${selectedMeeting.placeName ?? ""} ${selectedMeeting.address}`,
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>Google Maps</span>
-                    </Button>
-                  </a>
-                )}
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => setSelectedMeeting(null)}
                   className="h-8 text-xs"
                 >

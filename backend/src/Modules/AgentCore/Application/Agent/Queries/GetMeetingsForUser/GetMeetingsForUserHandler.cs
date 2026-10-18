@@ -1,15 +1,20 @@
 using AgentCore.Application.Abstractions;
 using AgentCore.Domain.Enums;
+using Places.Application.Abstractions;
 
 namespace AgentCore.Application.Agent.Queries.GetMeetingsForUser;
 
 public sealed class GetMeetingsForUserHandler
 {
     private readonly IPendingActionStore _pendingActionStore;
+    private readonly IPlaceRepository? _placeRepository;
 
-    public GetMeetingsForUserHandler(IPendingActionStore pendingActionStore)
+    public GetMeetingsForUserHandler(
+        IPendingActionStore pendingActionStore,
+        IPlaceRepository? placeRepository = null)
     {
         _pendingActionStore = pendingActionStore;
+        _placeRepository = placeRepository;
     }
 
     public async Task<IReadOnlyList<GetMeetingsForUserResult>> HandleAsync(
@@ -49,7 +54,12 @@ public sealed class GetMeetingsForUserHandler
             ? filtered.Take(query.Limit.Value).ToList()
             : filtered.ToList();
 
-        return limited.Select(Map).ToList();
+        var results = new List<GetMeetingsForUserResult>();
+        foreach (var action in limited)
+        {
+            results.Add(await MapAsync(action, cancellationToken));
+        }
+        return results;
     }
 
     private static DateTime? ExtractStartAt(Domain.Entities.PendingAgentAction action)
@@ -58,11 +68,49 @@ public sealed class GetMeetingsForUserHandler
         return payload?.StartAt;
     }
 
-    private static GetMeetingsForUserResult Map(
-        Domain.Entities.PendingAgentAction action)
+    private async Task<GetMeetingsForUserResult> MapAsync(
+        Domain.Entities.PendingAgentAction action,
+        CancellationToken cancellationToken)
     {
         var payload = MeetingPayload.Parse(action.PayloadJson);
         var result = MeetingResultJson.Parse(action.ResultJson);
+
+        var lat = payload?.Latitude;
+        var lng = payload?.Longitude;
+        var address = payload?.Address;
+
+        if ((!lat.HasValue || !lng.HasValue) && _placeRepository != null)
+        {
+            try
+            {
+                if (payload?.PlaceId.HasValue == true)
+                {
+                    var place = await _placeRepository.GetByIdAsync(payload.PlaceId.Value, cancellationToken);
+                    if (place != null)
+                    {
+                        lat = place.Latitude;
+                        lng = place.Longitude;
+                        address ??= place.Address;
+                    }
+                }
+
+                if ((!lat.HasValue || !lng.HasValue) && !string.IsNullOrWhiteSpace(payload?.PlaceName))
+                {
+                    var places = await _placeRepository.SearchByNameAsync(payload.PlaceName, 1, cancellationToken);
+                    var matched = places.FirstOrDefault();
+                    if (matched != null)
+                    {
+                        lat = matched.Latitude;
+                        lng = matched.Longitude;
+                        address ??= matched.Address;
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback silently if lookup fails
+            }
+        }
 
         return new GetMeetingsForUserResult(
             action.Id,
@@ -79,14 +127,14 @@ public sealed class GetMeetingsForUserHandler
             payload?.DurationMinutes,
             payload?.PlaceId,
             payload?.PlaceName,
-            payload?.Address,
+            address,
             payload?.Attendees is null
                 ? Array.Empty<string>()
                 : payload.Attendees.ToArray(),
             action.Error,
             result?.CalendarCreated ?? false,
             result?.EmailsSent ?? false,
-            payload?.Latitude,
-            payload?.Longitude);
+            lat,
+            lng);
     }
 }

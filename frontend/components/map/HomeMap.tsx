@@ -150,6 +150,9 @@ export default function HomeMap() {
   // Request browser GPS position on mount (only locate, do NOT auto-search)
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation) {
+      const params = new URLSearchParams(window.location.search);
+      const hasUrlTarget = params.has("lat") || params.has("query") || params.has("name");
+
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const loc = {
@@ -157,13 +160,17 @@ export default function HomeMap() {
             lng: pos.coords.longitude,
           };
           setUserLocation(loc);
-          setFlyToTarget(loc);
+          if (!hasUrlTarget) {
+            setFlyToTarget(loc);
+          }
         },
         async () => {
           const ipSuccess = await fallbackIpLocation();
           if (!ipSuccess) {
             setUserLocation(DEFAULT_COORDS);
-            setFlyToTarget(DEFAULT_COORDS);
+            if (!hasUrlTarget) {
+              setFlyToTarget(DEFAULT_COORDS);
+            }
           }
         },
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 },
@@ -490,19 +497,37 @@ export default function HomeMap() {
       if (queryParam) {
         void (async () => {
           try {
-            const results = await api.get<PlaceType[]>(
-              `/api/places/search?query=${encodeURIComponent(queryParam)}`
+            const token = getToken();
+            const res = await api.get<any[]>(
+              `/api/search?query=${encodeURIComponent(queryParam)}&latitude=10.7769&longitude=106.7009&radiusKm=25`,
+              token
             );
-            if (Array.isArray(results) && results.length > 0) {
-              const first = results[0];
-              setSelectedPlace(first);
-              setFlyToTarget({ lat: first.latitude, lng: first.longitude });
+            if (Array.isArray(res) && res.length > 0) {
+              const first = res[0];
+              const targetPlace: PlaceType = {
+                id: first.placeId || first.id || `p_${Date.now()}`,
+                name: first.name,
+                address: first.address || null,
+                latitude: first.latitude,
+                longitude: first.longitude,
+                category: first.category || "Điểm hẹn",
+              };
+              setPlaces((prev) => {
+                const exists = prev.some((p) => p.id === targetPlace.id);
+                return exists ? prev : [targetPlace, ...prev];
+              });
+              setSelectedPlace(targetPlace);
+              setFlyToTarget({ lat: targetPlace.latitude, lng: targetPlace.longitude });
               if (action === "directions") {
-                toast.info(`Đang mở chỉ đường tới ${first.name} dựa trên GPS...`);
-                void handleGetDirections(first, undefined, isGpsOrigin);
+                toast.info(`Đang mở chỉ đường tới ${targetPlace.name} dựa trên GPS...`);
+                void handleGetDirections(targetPlace, undefined, isGpsOrigin);
+              } else {
+                toast.info(`Đang xem vị trí cuộc hẹn: ${targetPlace.name}`);
               }
             }
-          } catch {}
+          } catch (err) {
+            console.error("Search query fallback error:", err);
+          }
         })();
       }
     }
