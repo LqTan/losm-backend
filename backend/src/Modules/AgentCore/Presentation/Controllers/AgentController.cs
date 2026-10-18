@@ -756,6 +756,34 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             var geocodedAnchor = await geocodingService.GeocodeAsync(anchorName, null, cancellationToken);
             if (geocodedAnchor is not null)
             {
+                var (isValidAnchor, anchorRejectionReason) = await ValidateAnchorWithLlmAsync(
+                    modelClient,
+                    request.Prompt,
+                    anchorName,
+                    geocodedAnchor,
+                    areasDescription,
+                    logger,
+                    cancellationToken);
+
+                if (!isValidAnchor)
+                {
+                    var rejectionMessage = !string.IsNullOrWhiteSpace(anchorRejectionReason)
+                        ? anchorRejectionReason
+                        : $"Mốc địa danh '{anchorName}' nằm ngoài phạm vi các khu vực hệ thống đang hỗ trợ ({areasDescription}) hoặc không tìm thấy dữ liệu phù hợp. Bạn vui lòng chọn mốc địa danh khác nhé!";
+
+                    logger.LogInformation("LLM anchor validation rejected '{AnchorName}': matched '{MatchedName}' ({Address}) - Reason: {Reason}",
+                        anchorName, geocodedAnchor.Name, geocodedAnchor.DisplayName, rejectionMessage);
+
+                    return Ok(new MeetingSearchPromptResponse(
+                        Query: parsedQuery,
+                        Centroid: null,
+                        Origins: [],
+                        Results: [],
+                        AiInsight: rejectionMessage,
+                        SupportedAreas: activeAreaNames
+                    ));
+                }
+
                 resolvedOrigins.Add(new MeetingSearchOriginItem(
                     Id: "anchor",
                     Name: !string.IsNullOrWhiteSpace(geocodedAnchor.Name) ? geocodedAnchor.Name : anchorName,
@@ -813,15 +841,31 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                     var geocoded = await geocodingService.GeocodeAsync(oPlace, oAddr, cancellationToken);
                     if (geocoded is not null)
                     {
-                        resolvedOrigins.Add(new MeetingSearchOriginItem(
-                            Id: isMe ? "me" : $"orig_{i}",
-                            Name: name,
-                            Address: geocoded.DisplayName ?? (string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"),
-                            Lat: geocoded.Latitude,
-                            Lng: geocoded.Longitude,
-                            AvatarUrl: null,
-                            IsMe: isMe
-                        ));
+                        var (isValidOrigin, _) = await ValidateAnchorWithLlmAsync(
+                            modelClient,
+                            request.Prompt,
+                            oPlace,
+                            geocoded,
+                            areasDescription,
+                            logger,
+                            cancellationToken);
+
+                        if (isValidOrigin)
+                        {
+                            resolvedOrigins.Add(new MeetingSearchOriginItem(
+                                Id: isMe ? "me" : $"orig_{i}",
+                                Name: name,
+                                Address: geocoded.DisplayName ?? (string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"),
+                                Lat: geocoded.Latitude,
+                                Lng: geocoded.Longitude,
+                                AvatarUrl: null,
+                                IsMe: isMe
+                            ));
+                        }
+                        else
+                        {
+                            unresolvedOrigins.Add((name, string.IsNullOrEmpty(oAddr) ? oPlace : $"{oPlace}, {oAddr}"));
+                        }
                     }
                     else
                     {
@@ -1118,5 +1162,79 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
         );
 
         return Ok(response);
+    }
+
+    private static async Task<(bool IsValid, string? Reason)> ValidateAnchorWithLlmAsync(
+        IAgentModelClient modelClient,
+        string userPrompt,
+        string requestedAnchor,
+        GeocodeResult geocoded,
+        string areasDescription,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var anchorValidationSystemPrompt =
+                "Bạn là chuyên gia thẩm định dữ liệu địa lý và mốc tìm kiếm (search anchor) của hệ thống bản đồ LOSM.\n" +
+                "Nhiệm vụ của bạn là kiểm tra xem địa điểm mà cơ sở dữ liệu hệ thống vừa tìm được có thực sự là mốc địa danh/vị trí người dùng mong muốn hay không:\n" +
+                "1. Yêu cầu của người dùng: Người dùng đang muốn tìm kiếm xung quanh mốc địa danh/vị trí nào trong câu yêu cầu?\n" +
+                "2. Đối chiếu với địa điểm CSDL tìm được:\n" +
+                "   - Tên địa điểm, địa chỉ, thể loại có thực sự khớp với mốc địa danh người dùng cần hay không?\n" +
+                "   - CẢNH BÁO FALSE POSITIVE: CSDL tìm kiếm theo từ khoá (text match) có thể tìm nhầm các công ty tư nhân, văn phòng quảng cáo, phòng vé, bảng hiệu kinh doanh có tên chứa từ khoá (ví dụ: người dùng tìm 'Sân bay Tân Sơn Nhất' nhưng CSDL lại trả về công ty 'Quảng Cáo Tại Sân Bay Tân Sơn Nhất' tại đường Phạm Ngọc Thạch; người dùng tìm 'Bến xe Miền Đông' nhưng CSDL trả về phòng vé tư nhân ở quận khác).\n" +
+                $"   - KIỂM TRA PHẠM VI HỆ THỐNG: CSDL hệ thống hiện tại CHỈ MỚI CÓ DỮ LIỆU tại các khu vực: {areasDescription}. Nếu mốc địa danh thực tế mà người dùng yêu cầu nằm ngoài các khu vực này (ví dụ: Sân bay Tân Sơn Nhất thực tế ở Quận Tân Bình, không thuộc {areasDescription}), và kết quả tìm thấy chỉ là một doanh nghiệp dịch vụ trùng tên nằm trong khu vực hỗ trợ, thì đây là kết quả KHÔNG HỢP LỆ (invalid).\n" +
+                "3. Xuất kết quả thẩm định dưới dạng JSON:\n" +
+                "   - \"is_valid\": true nếu địa điểm tìm thấy THỰC SỰ là mốc địa danh người dùng yêu cầu.\n" +
+                "   - \"is_valid\": false nếu đây là doanh nghiệp/văn phòng trùng tên, sai lệch bản chất, hoặc mốc địa danh người dùng yêu cầu thực tế nằm ngoài phạm vi các khu vực hệ thống đang hỗ trợ.\n" +
+                $"   - \"reason\": Nếu false, giải thích ngắn gọn, tự nhiên, lịch sự (1-2 câu) cho người dùng biết địa điểm tìm thấy chỉ là doanh nghiệp/dịch vụ trùng tên hoặc mốc địa danh này nằm ngoài phạm vi hỗ trợ của hệ thống ({areasDescription}), và đề xuất người dùng chọn mốc khác trong phạm vi hỗ trợ. Nếu true, trả về chuỗi rỗng \"\".\n\n" +
+                "Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:\n" +
+                "{\n" +
+                "  \"is_valid\": true,\n" +
+                "  \"reason\": \"...\"\n" +
+                "}";
+
+            var anchorValidationUserPrompt =
+                $"Yêu cầu ban đầu của người dùng: \"{userPrompt}\"\n" +
+                $"Mốc địa danh trích xuất: \"{requestedAnchor}\"\n" +
+                $"Địa điểm CSDL tìm được:\n" +
+                $"- Tên: {geocoded.Name}\n" +
+                $"- Địa chỉ: {geocoded.DisplayName ?? geocoded.Name}\n" +
+                $"- Thể loại: {geocoded.Category ?? "Không rõ"}\n" +
+                $"- Toạ độ: {geocoded.Latitude}, {geocoded.Longitude}\n" +
+                $"Các khu vực hệ thống đang hỗ trợ: {areasDescription}\n\n" +
+                "Hãy thẩm định tính hợp lệ của mốc địa danh trên.";
+
+            var validationMessages = new List<AgentModelMessage>
+            {
+                new(AgentModelRole.System, anchorValidationSystemPrompt),
+                new(AgentModelRole.User, anchorValidationUserPrompt)
+            };
+
+            var validationResp = await modelClient.SendAsync(validationMessages, [], cancellationToken);
+            var valContent = validationResp.AssistantMessage?.Content?.Trim() ?? string.Empty;
+            var match = Regex.Match(valContent, @"\{[\s\S]*\}");
+            if (match.Success)
+            {
+                using var valDoc = JsonDocument.Parse(match.Value);
+                if (valDoc.RootElement.TryGetProperty("is_valid", out var validElem) &&
+                    validElem.ValueKind is JsonValueKind.False or JsonValueKind.True)
+                {
+                    var isValid = validElem.GetBoolean();
+                    string? reason = null;
+                    if (!isValid && valDoc.RootElement.TryGetProperty("reason", out var rElem) && rElem.ValueKind == JsonValueKind.String)
+                    {
+                        reason = rElem.GetString()?.Trim();
+                    }
+
+                    return (isValid, reason);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "LLM anchor validation failed for '{RequestedAnchor}', proceeding with caution.", requestedAnchor);
+        }
+
+        return (true, null);
     }
 }
