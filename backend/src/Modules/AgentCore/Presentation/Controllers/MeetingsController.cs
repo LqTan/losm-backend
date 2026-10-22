@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -20,6 +21,7 @@ namespace AgentCore.Presentation.Controllers;
 public sealed class MeetingsController : ControllerBase
 {
     private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+    private readonly PromptProvider? _prompts;
     private readonly IEmailSender _emailSender;
     private readonly IPendingActionStore _pendingActionStore;
     private readonly IConfiguration? _configuration;
@@ -29,8 +31,10 @@ public sealed class MeetingsController : ControllerBase
         IEmailSender emailSender,
         IPendingActionStore pendingActionStore,
         ILogger<MeetingsController> logger,
-        IConfiguration? configuration = null)
+        IConfiguration? configuration = null,
+        PromptProvider? prompts = null)
     {
+        _prompts = prompts;
         _emailSender = emailSender;
         _pendingActionStore = pendingActionStore;
         _logger = logger;
@@ -44,10 +48,10 @@ public sealed class MeetingsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
-            return BadRequest(new { message = "Tiêu đề cuộc hẹn không được để trống." });
+            return BadRequest(new { message = "Meeting title is required." });
 
         if (string.IsNullOrWhiteSpace(request.PlaceName))
-            return BadRequest(new { message = "Tên địa điểm không được để trống." });
+            return BadRequest(new { message = "Place name is required." });
 
         var validEmails = (request.AttendeeEmails ?? new List<string>())
             .Where(e => !string.IsNullOrWhiteSpace(e) && EmailRegex.IsMatch(e.Trim()))
@@ -56,7 +60,7 @@ public sealed class MeetingsController : ControllerBase
             .ToList();
 
         if (validEmails.Count == 0)
-            return BadRequest(new { message = "Vui lòng cung cấp ít nhất 1 email người tham gia hợp lệ." });
+            return BadRequest(new { message = "At least one valid attendee email address is required." });
 
         var duration = request.DurationMinutes > 0 ? request.DurationMinutes : 60;
         var startUtc = request.StartAt.Kind == DateTimeKind.Utc
@@ -64,7 +68,13 @@ public sealed class MeetingsController : ControllerBase
             : request.StartAt.ToUniversalTime();
 
         // 1. Tạo file lịch iCalendar (.ics)
-        var icsBytes = BuildIcsAttachmentSafe(request, startUtc, duration, validEmails);
+        var calendarDescription = await ManagedTemplates.RenderAsync(_prompts, "email.schedule.calendar", cancellationToken,
+            ("place", request.PlaceName), ("address", request.Address ?? "N/A"), ("note", request.Note));
+        var icsBytes = BuildIcsAttachmentSafe(request, startUtc, duration, validEmails, calendarDescription);
+        var attachmentNotice = icsBytes is { Length: > 0 }
+            ? await ManagedTemplates.RenderAsync(_prompts, "email.attachment-notice", cancellationToken) : string.Empty;
+        var subject = await ManagedTemplates.RenderAsync(_prompts, "email.schedule.subject", cancellationToken,
+            ("title", request.Title), ("place", request.PlaceName));
 
         var frontendBaseUrl = _configuration?["Frontend:BaseUrl"];
         if (string.IsNullOrWhiteSpace(frontendBaseUrl))
@@ -103,8 +113,8 @@ public sealed class MeetingsController : ControllerBase
                     ? $"{frontendBaseUrl}/?lat={request.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&lng={request.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}&name={Uri.EscapeDataString(request.PlaceName)}&address={Uri.EscapeDataString(request.Address ?? "")}&action=directions&origin=gps"
                     : $"{frontendBaseUrl}/?query={Uri.EscapeDataString(request.PlaceName)}&action=directions&origin=gps";
 
-                var htmlBody = BuildHtmlBody(request, startUtc, viewUrl, directionsUrl);
-                var plainBody = BuildTextBody(request, startUtc, viewUrl, directionsUrl);
+                var htmlBody = await BuildBodyAsync("email.schedule.html", request, startUtc, viewUrl, directionsUrl, attachmentNotice, cancellationToken);
+                var plainBody = await BuildBodyAsync("email.schedule.text", request, startUtc, viewUrl, directionsUrl, attachmentNotice, cancellationToken);
 
                 var attachments = new List<EmailAttachment>();
                 if (icsBytes is { Length: > 0 })
@@ -115,7 +125,7 @@ public sealed class MeetingsController : ControllerBase
                 var res = await _emailSender.SendAsync(new EmailRequest(
                     ToAddress: email,
                     ToName: email,
-                    Subject: $"[LOSM] Thư mời: {request.Title} @ {request.PlaceName}",
+                    Subject: subject,
                     HtmlBody: htmlBody,
                     PlainTextBody: plainBody,
                     Attachments: attachments
@@ -128,13 +138,13 @@ public sealed class MeetingsController : ControllerBase
                 else
                 {
                     failedEmails.Add(email);
-                    _logger.LogWarning("Không thể gửi email đến {Email}: {Error}", email, res.Error);
+                    _logger.LogWarning("Failed to send email to {Email}: {Error}", email, res.Error);
                 }
             }
             catch (Exception ex)
             {
                 failedEmails.Add(email);
-                _logger.LogError(ex, "Lỗi gửi email cuộc hẹn đến {Email}", email);
+                _logger.LogError(ex, "Failed to send meeting invitation to {Email}", email);
             }
         }
 
@@ -170,7 +180,7 @@ public sealed class MeetingsController : ControllerBase
                     userId: userId,
                     actionType: "create_meeting",
                     payloadJson: payloadJson,
-                    description: $"Cuộc hẹn '{request.Title}' tại '{request.PlaceName}' lúc {startUtc.AddHours(7):HH:mm dd/MM}",
+                    description: $"Meeting '{request.Title}' at '{request.PlaceName}' on {startUtc.AddHours(7):HH:mm dd/MM}",
                     confirmationId: confirmationId,
                     idempotencyKey: Guid.NewGuid().ToString("N")
                 );
@@ -181,7 +191,7 @@ public sealed class MeetingsController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Không thể lưu lịch hẹn vào database cho user {UserId}", userId);
+                _logger.LogWarning(ex, "Failed to save meeting for user {UserId}", userId);
             }
         }
 
@@ -193,8 +203,8 @@ public sealed class MeetingsController : ControllerBase
             sentEmails,
             failedEmails,
             message = sentEmails.Count > 0
-                ? $"Đã gửi thư mời cuộc hẹn thành công tới {sentEmails.Count} người tham gia!"
-                : "Đã tạo lịch hẹn nhưng gửi email thất bại (vui lòng kiểm tra cấu hình SMTP)."
+                ? $"Meeting invitations sent to {sentEmails.Count} attendees."
+                : "Meeting created, but invitation delivery failed. Please check the SMTP configuration."
         });
     }
 
@@ -220,7 +230,7 @@ public sealed class MeetingsController : ControllerBase
         ScheduleMeetingRequest request,
         DateTime startUtc,
         int durationMinutes,
-        List<string> attendees)
+        List<string> attendees, string description)
     {
         try
         {
@@ -233,7 +243,7 @@ public sealed class MeetingsController : ControllerBase
             {
                 Uid = Guid.NewGuid().ToString("D"),
                 Summary = request.Title,
-                Description = $"Địa điểm: {request.PlaceName}\nĐịa chỉ: {request.Address ?? "N/A"}\n{request.Note ?? ""}",
+                Description = description,
                 Location = string.IsNullOrWhiteSpace(request.Address) ? request.PlaceName : $"{request.PlaceName}, {request.Address}",
                 Start = new CalDateTime(startUtc),
                 End = new CalDateTime(startUtc.AddMinutes(durationMinutes))
@@ -258,72 +268,19 @@ public sealed class MeetingsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không thể tạo file .ics cho cuộc hẹn: {Title}", request.Title);
+            _logger.LogWarning(ex, "Failed to create ICS attachment for meeting: {Title}", request.Title);
             return null;
         }
     }
 
-    private static string BuildHtmlBody(ScheduleMeetingRequest req, DateTime startUtc, string viewUrl, string directionsUrl)
-    {
-        var localTime = startUtc.AddHours(7); // Giờ Việt Nam (UTC+7)
-        var host = string.IsNullOrWhiteSpace(req.HostName) ? "Một người bạn" : req.HostName;
-        var address = string.IsNullOrWhiteSpace(req.Address) ? "" : $"<p style='color: #4b5563; margin: 6px 0; font-size: 14px;'><strong>📍 Địa chỉ:</strong> {System.Net.WebUtility.HtmlEncode(req.Address)}</p>";
-        var note = string.IsNullOrWhiteSpace(req.Note) ? "" : $"<div style='background: #f9fafb; border: 1px dashed #d1d5db; padding: 12px; border-radius: 8px; margin: 14px 0; color: #374151; font-size: 13px;'><strong>Ghi chú:</strong> {System.Net.WebUtility.HtmlEncode(req.Note)}</div>";
+    private Task<string> BuildBodyAsync(string key, ScheduleMeetingRequest req, DateTime startUtc,
+        string viewUrl, string directionsUrl, string attachmentNotice, CancellationToken cancellationToken) =>
+        ManagedTemplates.RenderAsync(_prompts, key, cancellationToken,
+            ("host", string.IsNullOrWhiteSpace(req.HostName) ? "LOSM" : req.HostName),
+            ("title", req.Title), ("time", startUtc.AddHours(7).ToString("HH:mm dd/MM/yyyy")),
+            ("place", req.PlaceName), ("address", req.Address ?? "N/A"), ("note", req.Note),
+            ("viewUrl", viewUrl), ("directionsUrl", directionsUrl), ("attachmentNotice", attachmentNotice));
 
-        return $"""
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffff;">
-            <div style="text-align: center; margin-bottom: 24px;">
-                <h1 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">LOSM Meeting Invite</h1>
-                <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Lời mời gặp mặt từ <strong>{System.Net.WebUtility.HtmlEncode(host)}</strong></p>
-            </div>
-
-            <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
-                <h2 style="margin: 0 0 8px 0; color: #1e3a8a; font-size: 18px;">{System.Net.WebUtility.HtmlEncode(req.Title)}</h2>
-                <p style="color: #1e40af; margin: 4px 0; font-size: 14px;">
-                    📅 <strong>Thời gian:</strong> Lúc {localTime:HH:mm}, ngày {localTime:dd/MM/yyyy} (GMT+7)
-                </p>
-                <p style="color: #1e40af; margin: 4px 0; font-size: 14px;">
-                    📍 <strong>Địa điểm:</strong> {System.Net.WebUtility.HtmlEncode(req.PlaceName)}
-                </p>
-            </div>
-
-            {address}
-            {note}
-
-            <div style="text-align: center; margin: 28px 0 24px 0;">
-                <div style="display: inline-block; margin-bottom: 8px;">
-                    <a href="{directionsUrl}" style="background-color: #0284c7; color: #ffffff; padding: 12px 22px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin: 4px; box-shadow: 0 2px 4px rgba(2,132,199,0.25);">📍 Xem bản đồ & Chỉ đường trên LOSM</a>
-                </div>
-                <div style="display: inline-block;">
-                    <a href="{viewUrl}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 22px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin: 4px; box-shadow: 0 2px 4px rgba(79,70,229,0.25);">📅 Xem chi tiết cuộc hẹn</a>
-                </div>
-            </div>
-
-            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px; line-height: 1.5;">
-                <p>📎 Tệp lịch <strong>.ics</strong> đã được đính kèm để bạn có thể thêm nhanh vào Google Calendar, Apple Calendar hoặc Outlook.</p>
-                <p style="margin-top: 6px;">Được gửi từ nền tảng tìm kiếm địa điểm và lên lịch <strong>LOSM</strong>.</p>
-            </div>
-        </div>
-        """;
-    }
-
-    private static string BuildTextBody(ScheduleMeetingRequest req, DateTime startUtc, string viewUrl, string directionsUrl)
-    {
-        var localTime = startUtc.AddHours(7);
-        return $"""
-        LOSM Meeting Invite: {req.Title}
-        ------------------------------------------
-        Thời gian: Lúc {localTime:HH:mm}, ngày {localTime:dd/MM/yyyy} (GMT+7)
-        Địa điểm: {req.PlaceName}
-        Địa chỉ: {req.Address ?? "N/A"}
-        Ghi chú: {req.Note ?? ""}
-        ------------------------------------------
-        📍 Chỉ đường trên bản đồ LOSM: {directionsUrl}
-        📅 Xem chi tiết cuộc hẹn: {viewUrl}
-
-        Tệp lịch .ics đính kèm hỗ trợ thêm tự động vào Calendar của bạn.
-        """;
-    }
 }
 
 public sealed record ScheduleMeetingRequest(

@@ -43,6 +43,13 @@ public static class DependencyInjection
             )
         );
 
+        services.AddSingleton<Infrastructure.PromptsManagement.PromptCache>(
+            _ => new Infrastructure.PromptsManagement.PromptCache(TimeProvider.System));
+        services.AddScoped<Infrastructure.PromptsManagement.IPromptStore, Infrastructure.PromptsManagement.SqlPromptStore>();
+        services.AddScoped<Common.Email.IEmailTemplateRenderer, Infrastructure.PromptsManagement.EmailTemplateRenderer>();
+        services.AddScoped<Infrastructure.PromptsManagement.PromptCatalog>();
+        services.AddScoped<Infrastructure.PromptsManagement.PromptProvider>();
+
         services.AddScoped<IAgentSessionRepository, AgentSessionRepository>();
         services.AddScoped<IAgentPlanner, LlmAgentPlanner>();
         services.AddScoped<IAgentPlanRepository, AgentPlanRepository>();

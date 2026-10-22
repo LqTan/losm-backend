@@ -26,7 +26,7 @@
     <ProjectReference Include="..\Search\Search.csproj" />
     <ProjectReference Include="..\Configuration\Configuration.csproj" />
     <ProjectReference Include="..\Common\Common.csproj" />
-    <Content Include="Infrastructure/Prompts/*.txt">
+    <Content Include="Infrastructure/Prompts/*.txt;Infrastructure/Prompts/*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>Prompts/%(Filename)%(Extension)</Link>

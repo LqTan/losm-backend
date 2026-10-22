@@ -32,7 +32,7 @@ public sealed class RankingModelAdminController : ControllerBase
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new { error = "Vui lòng chọn file .onnx hợp lệ." });
+            return BadRequest(new { error = "Please select a valid .onnx file." });
         }
 
         try

@@ -33,18 +33,18 @@ public sealed class GeocodePlaceTool
 
     public override string Description =>
         "Resolve a place name (district, city, landmark, address) to latitude/longitude. " +
-        "Returns a single best match from OpenStreetMap Nominatim. " +
+        "Returns a single best match from internal place and area data. " +
         "Use this when the user mentions a place by name and you need coordinates " +
         "(e.g. for multi-origin meeting search). " +
         "If the query cannot be resolved, the result will indicate 'notFound': true " +
         "so you can ask the user to clarify.";
 
     public override ToolDisplay Display => new(
-        DisplayName: "Định vị toạ độ",
-        CallingMessage: "Đang tra cứu toạ độ địa điểm...",
-        SuccessMessage: "Đã xác định toạ độ địa điểm",
-        FailedMessage: "Không tìm thấy toạ độ địa điểm",
-        PendingConfirmationMessage: "Chờ bạn xác nhận"
+        DisplayName: "Locate place",
+        CallingMessage: "Looking up place coordinates...",
+        SuccessMessage: "Place coordinates found",
+        FailedMessage: "Place coordinates not found",
+        PendingConfirmationMessage: "Awaiting confirmation"
     );
 
     protected override async Task<string> ExecuteAsync(

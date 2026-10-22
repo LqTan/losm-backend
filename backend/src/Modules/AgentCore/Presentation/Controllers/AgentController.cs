@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -27,7 +28,7 @@ namespace AgentCore.Presentation.Controllers;
 [ApiController]
 [Route("api/agent")]
 [Authorize]
-public sealed class AgentController : ControllerBase
+public sealed class AgentController(PromptProvider prompts) : ControllerBase
 {
     [HttpPost]
     [AllowAnonymous]
@@ -406,7 +407,7 @@ public sealed class AgentController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Prompt))
         {
-            return BadRequest("Yêu cầu không được để trống.");
+            return BadRequest("Request must not be empty.");
         }
 
         var allAreas = await areaRepo.GetAllAsync(cancellationToken);
@@ -417,68 +418,7 @@ public sealed class AgentController : ControllerBase
         }
         var areasDescription = string.Join(", ", activeAreaNames);
 
-        var systemInstruction = $$"""
-Bạn là trợ lý NLU/NLP (Natural Language Understanding) thông minh của nền tảng bản đồ LOSM.
-Cơ sở dữ liệu hệ thống hiện tại CHỈ MỚI CÓ dữ liệu địa điểm tại các khu vực được kích hoạt: {{areasDescription}}.
-
-Nhiệm vụ: Phân tích toàn diện câu yêu cầu bằng ngôn ngữ tự nhiên của người dùng, xác định rõ: Ý định (Intent), Chủ thể & Số lượng người (Party Size), Phân loại vị trí (Location Type), Địa danh/Mốc (Search Anchor), và Điểm xuất phát (Origins).
-
-QUY TẮC PHÂN TÍCH & TRÍCH XUẤT CẤU TRÚC JSON:
-1. "intent":
-   - "directions": khi người dùng muốn tìm đường đi, chỉ đường, hỏi cách di chuyển từ đâu tới đâu.
-   - "search": khi người dùng muốn tìm kiếm địa điểm, quán ăn, cà phê, điểm hẹn, hoặc gợi ý nơi chốn.
-
-2. "party_size": Số lượng người tham gia được xác định từ ngữ cảnh:
-   - 1: nếu là cá nhân đi một mình, hoặc không nói số lượng cụ thể (ví dụ: "tìm giúp tôi quán bún bò", "quán cà phê gần tôi").
-   - 2, 3, 4...: nếu người dùng nói rõ số lượng người hoặc đếm được các thành viên (ví dụ: "nhóm 3 người", "Tôi và bạn tôi", "Tôi ở A, Nam ở B").
-
-3. "location_type": BẮT BUỘC chọn chính xác 1 trong 4 loại sau:
-   - "landmark": Người dùng muốn tìm kiếm xung quanh một MỐC ĐỊA DANH / CÔNG TRÌNH cụ thể (ví dụ: "gần Nhà thờ Đức Bà", "quanh Bitexco", "gần Chợ Bến Thành", "quanh phố đi bộ Nguyễn Huệ").
-   - "current_location": Người dùng muốn tìm kiếm xung quanh VỊ TRÍ HIỆN TẠI CỦA CHÍNH HỌ (ví dụ: "gần tôi", "quanh đây", "chỗ tôi", "vị trí của tôi", "gần chỗ tôi đang đứng", "ở đây có quán nào...").
-   - "custom_origins": Người dùng cung cấp ĐIỂM XUẤT PHÁT CỤ THỂ của bản thân hoặc từng thành viên trong nhóm (ví dụ: "Tôi đang ở Chợ Bến Thành", "Tôi ở Bến Thành, Nam ở Landmark 81").
-   - "unspecified": Người dùng HOÀN TOÀN KHÔNG CUNG CẤP bất kỳ thông tin vị trí, mốc địa danh hay điểm xuất phát nào (ví dụ: "tìm giúp tôi quán bún bò", "tìm quán cafe yên tĩnh", "chỉ đường giúp tôi", "chỗ nào ăn trưa ngon").
-
-4. "search_anchor":
-   - Nếu location_type là "landmark": Trích xuất chính xác tên mốc địa danh (ví dụ: "Nhà thờ Đức Bà", "Tòa nhà Bitexco", "Chợ Bến Thành").
-   - Nếu không phải "landmark", để chuỗi rỗng "".
-
-5. "origins": Danh sách điểm xuất phát:
-   - Nếu location_type là "current_location": Trả về [{"name": "Tôi", "place_name": "GPS_CURRENT", "role": "speaker"}].
-   - Nếu location_type là "custom_origins": Trả về danh sách từng người kèm địa điểm xuất phát (ví dụ: [{"name": "Tôi", "place_name": "Chợ Bến Thành", "role": "speaker"}, {"name": "Nam", "place_name": "Landmark 81", "role": "member"}]).
-   - Nếu location_type là "landmark" hoặc "unspecified": TUYỆT ĐỐI ĐỂ RỖNG [] (Không tự tiện thêm "Tôi" hay bất kỳ ai).
-
-6. "needs_clarification": true hoặc false.
-   - BẮT BUỘC đặt true khi location_type là "unspecified" (vì hệ thống không thể biết người dùng muốn tìm ở đâu nếu không có vị trí hay mốc địa danh).
-   - BẮT BUỘC đặt true khi intent là "directions" nhưng thiếu điểm xuất phát hoặc điểm đến.
-   - Đặt false khi location_type là "landmark", "current_location", hoặc "custom_origins".
-
-7. "clarification_question":
-   - Khi needs_clarification là true: Đặt câu hỏi ngắn gọn, lịch sự (1 câu) hỏi người dùng muốn tìm ở khu vực nào (ví dụ: {{areasDescription}}) hoặc gần địa danh nào.
-   - Khi needs_clarification là false: Để chuỗi rỗng "".
-
-8. "query": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán bún bò', 'công viên'...). Mặc định 'quán cà phê' nếu không rõ.
-
-9. "target_category": Chọn 1 trong 13 nhóm ("cafe", "viet", "japanese", "korean", "thai", "seafood", "western", "vegetarian", "chinese", "bbq_hotpot", "bookstore", "library", "park") hoặc "other".
-
-10. "specific_preference": Sở thích cụ thể về món ăn/thương hiệu con (ví dụ: "bún bò", "ramen", "dim sum", "pizza", "highlands"...). Nếu không có, trả về "".
-
-11. "destination": Tên địa điểm đến (chỉ dùng khi intent là "directions").
-
-Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
-{
-  "intent": "search",
-  "party_size": 1,
-  "location_type": "landmark",
-  "search_anchor": "Nhà thờ Đức Bà",
-  "origins": [],
-  "needs_clarification": false,
-  "clarification_question": "",
-  "query": "quán bún bò",
-  "target_category": "viet",
-  "specific_preference": "bún bò",
-  "destination": ""
-}
-""";
+        var systemInstruction = await ManagedTemplates.RenderAsync(prompts, "meeting.parse", cancellationToken, ("areasDescription", $"{areasDescription}"));
 
         string parsedIntent = "search";
         string parsedQuery = "quán cà phê";
@@ -507,7 +447,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             if (!match.Success)
             {
                 logger.LogWarning("MiniMax response did not contain valid JSON: {Content}", content);
-                return StatusCode(503, new { error = "Dịch vụ AI (MiniMax) không trả về định dạng phân tích hợp lệ. Vui lòng thử lại sau giây lát." });
+                return StatusCode(503, new { error = "The AI service returned an invalid analysis format. Please try again shortly." });
             }
 
             using var doc = JsonDocument.Parse(match.Value);
@@ -567,8 +507,8 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 foreach (var o in originsElem.EnumerateArray())
                 {
                     var name = o.TryGetProperty("name", out var nElem) && nElem.ValueKind == JsonValueKind.String
-                        ? nElem.GetString() ?? "Người"
-                        : "Người";
+                        ? nElem.GetString() ?? "Person"
+                        : "Person";
 
                     string placeName = "";
                     if (o.TryGetProperty("place_name", out var pnElem) && pnElem.ValueKind == JsonValueKind.String)
@@ -600,7 +540,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to call MiniMax LLM to parse meeting prompt.");
-            return StatusCode(503, new { error = "Dịch vụ AI (MiniMax) hiện không khả dụng hoặc gặp sự cố kết nối. Vui lòng thử lại sau giây lát." });
+            return StatusCode(503, new { error = "The AI service is currently unavailable. Please try again shortly." });
         }
 
         var myLat = request.UserLatitude ?? 10.7769;
@@ -613,7 +553,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             {
                 var question = !string.IsNullOrWhiteSpace(clarificationQuestion)
                     ? clarificationQuestion
-                    : "Bạn muốn tìm đường đi từ đâu đến địa điểm nào ạ?";
+                    : await ManagedTemplates.RenderAsync(prompts, "message.directions.clarify", cancellationToken);
 
                 return Ok(new MeetingSearchPromptResponse(
                     Query: parsedQuery,
@@ -630,11 +570,11 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 ? parsedOrigins[0].PlaceName
                 : "GPS_CURRENT";
             var originAddr = parsedOrigins.Count > 0 ? parsedOrigins[0].Address : null;
-            var memberName = parsedOrigins.Count > 0 ? parsedOrigins[0].Name : "Bạn";
+            var memberName = parsedOrigins.Count > 0 ? parsedOrigins[0].Name : "You";
 
             double startLat = myLat;
             double startLng = myLng;
-            string startName = "Vị trí của bạn";
+            string startName = "Your location";
 
             if (!string.Equals(originTarget, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase))
             {
@@ -652,7 +592,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                         Centroid: null,
                         Origins: [],
                         Results: [],
-                        AiInsight: $"Hệ thống không tìm thấy toạ độ điểm xuất phát '{originTarget}' trong các khu vực hỗ trợ ({areasDescription}) để chỉ đường.",
+                        AiInsight: await ManagedTemplates.RenderAsync(prompts, "message.directions.origin-missing", cancellationToken, ("originTarget", $"{originTarget}"), ("areasDescription", $"{areasDescription}")),
                         SupportedAreas: activeAreaNames
                     ));
                 }
@@ -666,7 +606,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                     Centroid: null,
                     Origins: [],
                     Results: [],
-                    AiInsight: $"Hệ thống không tìm thấy toạ độ địa điểm đến '{destTarget}' trong các khu vực hỗ trợ ({areasDescription}) để tính đường đi.",
+                    AiInsight: await ManagedTemplates.RenderAsync(prompts, "message.directions.destination-missing", cancellationToken, ("destTarget", $"{destTarget}"), ("areasDescription", $"{areasDescription}")),
                     SupportedAreas: activeAreaNames
                 ));
             }
@@ -690,7 +630,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                         MemberName: memberName,
                         DistanceKm: routeResult.DistanceKm,
                         DurationMinutes: routeResult.DurationMinutes,
-                        Summary: $"Lộ trình từ {startName} đến {geocodedDest.DisplayName ?? destTarget}",
+                        Summary: $"Route from {startName} to {geocodedDest.DisplayName ?? destTarget}",
                         Coordinates: routeResult.Coordinates.Select(c => (IReadOnlyList<double>)new[] { c.Latitude, c.Longitude }).ToList()
                     );
 
@@ -709,7 +649,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                             )
                         ],
                         Results: [],
-                        AiInsight: $"Đã tìm thấy lộ trình cho {memberName} từ {startName} đến '{geocodedDest.DisplayName ?? destTarget}': khoảng cách {routeResult.DistanceKm:F1} km (~{Math.Round(routeResult.DurationMinutes)} phút lái xe). Lộ trình đã được vẽ trên bản đồ.",
+                        AiInsight: await ManagedTemplates.RenderAsync(prompts, "message.directions.result", cancellationToken, ("memberName", $"{memberName}"), ("startName", $"{startName}"), ("destinationName", $"{geocodedDest.DisplayName ?? destTarget}"), ("DistanceKm", $"{routeResult.DistanceKm:F1}"), ("durationMinutes", $"{Math.Round(routeResult.DurationMinutes)}")),
                         SupportedAreas: activeAreaNames,
                         AttachedRoute: attachedRoute
                     ));
@@ -733,7 +673,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         {
             var question = !string.IsNullOrWhiteSpace(clarificationQuestion)
                 ? clarificationQuestion
-                : $"Bạn muốn tìm '{parsedQuery}' ở khu vực nào hoặc gần địa điểm cụ thể nào (ví dụ: {areasDescription})?";
+                : await ManagedTemplates.RenderAsync(prompts, "message.search.clarify", cancellationToken, ("parsedQuery", $"{parsedQuery}"), ("areasDescription", $"{areasDescription}"));
 
             return Ok(new MeetingSearchPromptResponse(
                 Query: parsedQuery,
@@ -769,7 +709,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                 {
                     var rejectionMessage = !string.IsNullOrWhiteSpace(anchorRejectionReason)
                         ? anchorRejectionReason
-                        : $"Mốc địa danh '{anchorName}' nằm ngoài phạm vi các khu vực hệ thống đang hỗ trợ ({areasDescription}) hoặc không tìm thấy dữ liệu phù hợp. Bạn vui lòng chọn mốc địa danh khác nhé!";
+                        : await ManagedTemplates.RenderAsync(prompts, "message.search.anchor-rejected", cancellationToken, ("anchorName", $"{anchorName}"), ("areasDescription", $"{areasDescription}"));
 
                     logger.LogInformation("LLM anchor validation rejected '{AnchorName}': matched '{MatchedName}' ({Address}) - Reason: {Reason}",
                         anchorName, geocodedAnchor.Name, geocodedAnchor.DisplayName, rejectionMessage);
@@ -801,7 +741,7 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
                     Centroid: null,
                     Origins: [],
                     Results: [],
-                    AiInsight: $"Hệ thống không tìm thấy toạ độ mốc địa danh '{anchorName}' trong các khu vực đang hỗ trợ ({areasDescription}). Bạn vui lòng chọn mốc địa danh khác hoặc kiểm tra lại nhé!",
+                    AiInsight: await ManagedTemplates.RenderAsync(prompts, "message.search.anchor-missing", cancellationToken, ("anchorName", $"{anchorName}"), ("areasDescription", $"{areasDescription}")),
                     SupportedAreas: activeAreaNames
                 ));
             }
@@ -811,25 +751,25 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
             // Trường hợp 3: Vị trí hiện tại của người dùng (current_location) hoặc danh sách điểm xuất phát (custom_origins)
             if (string.Equals(parsedLocationType, "current_location", StringComparison.OrdinalIgnoreCase) && parsedOrigins.Count == 0)
             {
-                parsedOrigins.Add(("Tôi", "GPS_CURRENT", null, "speaker"));
+                parsedOrigins.Add(("Me", "GPS_CURRENT", null, "speaker"));
             }
 
             for (int i = 0; i < parsedOrigins.Count; i++)
             {
                 var (oName, oPlace, oAddr, oRole) = parsedOrigins[i];
                 var isGpsCurrent = string.Equals(oPlace, "GPS_CURRENT", StringComparison.OrdinalIgnoreCase);
-                var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase);
+                var isSpeaker = string.Equals(oRole, "speaker", StringComparison.OrdinalIgnoreCase) || oName.Equals("Tôi", StringComparison.OrdinalIgnoreCase) || oName.Equals("Me", StringComparison.OrdinalIgnoreCase);
                 var isMe = isGpsCurrent || isSpeaker;
                 var name = parsedOrigins.Count > 1
-                    ? $"Người {i + 1}"
-                    : (isMe ? "Tôi" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Người", StringComparison.OrdinalIgnoreCase) ? oName : "Vị trí của bạn"));
+                    ? $"Person {i + 1}"
+                    : (isMe ? "Me" : (!string.IsNullOrWhiteSpace(oName) && !oName.Equals("Person", StringComparison.OrdinalIgnoreCase) ? oName : "Your location"));
 
                 if (isGpsCurrent || string.IsNullOrWhiteSpace(oPlace))
                 {
                     resolvedOrigins.Add(new MeetingSearchOriginItem(
                         Id: isMe ? "me" : $"orig_{i}",
                         Name: name,
-                        Address: "Vị trí GPS hiện tại",
+                        Address: "Current GPS location",
                         Lat: myLat,
                         Lng: myLng,
                         AvatarUrl: null,
@@ -879,22 +819,11 @@ Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:
         // TUYỆT ĐỐI KHÔNG tự bịa toạ độ, mà yêu cầu AI giải thích rõ ràng phạm vi dữ liệu hiện tại và xin xác nhận.
         if (unresolvedOrigins.Count > 0)
         {
-            var unresolvablePrompt = $$"""
-Người dùng muốn tìm điểm hẹn nhóm: "{{request.Prompt}}".
-Cơ sở dữ liệu hệ thống hiện tại CHỈ MỚI CÓ DỮ LIỆU tại các khu vực được kích hoạt: {{areasDescription}}.
-Các điểm xuất phát sau đây không tìm thấy trong cơ sở dữ liệu hệ thống: {{string.Join(", ", unresolvedOrigins.Select(u => $"{u.Name} ({u.Location})"))}}.
-
-Nhiệm vụ của bạn:
-- Giải thích rõ ràng, lịch sự cho người dùng biết rằng cơ sở dữ liệu hệ thống hiện tại chỉ mới có dữ liệu tại: {{areasDescription}}.
-- Chỉ ra cụ thể những điểm xuất phát nào chưa có toạ độ trong dữ liệu hệ thống để người dùng nắm rõ.
-- Do thiếu toạ độ chính xác từ dữ liệu, hệ thống không thể tự ý tính toán điểm hẹn hay lộ trình một cách tuỳ tiện.
-- Đề nghị người dùng xác nhận hoặc chọn lại các điểm xuất phát nằm trong phạm vi khu vực hệ thống đang hỗ trợ ({{areasDescription}}).
-- Trả lời bằng giọng điệu tự nhiên, thông minh, súc tích (1-2 đoạn ngắn), không dùng văn mẫu máy móc.
-""";
+            var unresolvablePrompt = await ManagedTemplates.RenderAsync(prompts, "meeting.unresolved", cancellationToken, ("userPrompt", $"{request.Prompt}"), ("areasDescription", $"{areasDescription}"), ("unresolvedOrigins", $"{string.Join(", ", unresolvedOrigins.Select(u => $"{u.Name} ({u.Location})"))}"));
 
             var insightMessages = new List<AgentModelMessage>
             {
-                new(AgentModelRole.System, "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh."),
+                new(AgentModelRole.System, await ManagedTemplates.RenderAsync(prompts, "meeting.advisor", cancellationToken)),
                 new(AgentModelRole.User, unresolvablePrompt)
             };
 
@@ -913,7 +842,7 @@ Nhiệm vụ của bạn:
             if (string.IsNullOrWhiteSpace(unresolvableInsight))
             {
                 var missingList = string.Join(", ", unresolvedOrigins.Select(u => u.Location));
-                unresolvableInsight = $"Hệ thống hiện tại chỉ mới có dữ liệu địa điểm tại các khu vực: {areasDescription}. Các điểm xuất phát ({missingList}) hiện chưa có trong cơ sở dữ liệu nên không thể tính toán toạ độ và lộ trình chính xác. Bạn vui lòng xác nhận hoặc chọn điểm xuất phát trong phạm vi các khu vực hệ thống hỗ trợ nhé!";
+                unresolvableInsight = await ManagedTemplates.RenderAsync(prompts, "message.search.origins-missing", cancellationToken, ("areasDescription", $"{areasDescription}"), ("missingList", $"{missingList}"));
             }
 
             return Ok(new MeetingSearchPromptResponse(
@@ -937,7 +866,7 @@ Nhiệm vụ của bạn:
                     resolvedOrigins.Add(new MeetingSearchOriginItem(
                         Id: $"friend_{friendIdx++}",
                         Name: f.Name,
-                        Address: "Vị trí bạn bè",
+                        Address: "Friend location",
                         Lat: f.Latitude,
                         Lng: f.Longitude,
                         AvatarUrl: f.AvatarUrl,
@@ -971,31 +900,13 @@ Nhiệm vụ của bạn:
 
                 // Chuẩn bị danh sách các địa điểm ứng viên để MiniMax rà soát tính toàn vẹn (Tier 2 Integrity Verification)
                 var candidateListPrompt = string.Join("\n", finalResults.Select((r, idx) =>
-                    $"- [{r.PlaceId}] {r.Name} | Thể loại: {r.Category ?? "Chưa rõ"} | Địa chỉ: {r.Address ?? "TP.HCM"} | Cách: {r.AverageDistanceKm:F1}km (~{(r.AverageDurationMinutes ?? (r.AverageDistanceKm / 25.0 * 60.0)):F0}p)"));
+                    $"- [{r.PlaceId}] {r.Name} | Category: {r.Category ?? "Unknown"} | Address: {r.Address ?? "TP.HCM"} | Distance: {r.AverageDistanceKm:F1}km (~{(r.AverageDurationMinutes ?? (r.AverageDistanceKm / 25.0 * 60.0)):F0}p)"));
 
                 var verifierSystemPrompt =
-                    "Bạn là chuyên gia thẩm định và điều phối điểm hẹn thông minh của hệ thống LOSM.\n" +
-                    "Nhiệm vụ của bạn là rà soát (verify/filter) danh sách các địa điểm ứng viên hệ thống vừa tìm được so với yêu cầu ban đầu của người dùng:\n" +
-                    "1. Kiểm tra kỹ: người dùng đang muốn tìm thể loại/món ăn hay đặc điểm cụ thể nào (ví dụ: món Nhật, ramen, sushi, cafe, quán chay, quán nhậu, v.v.).\n" +
-                    "2. Thẩm định từng địa điểm trong danh sách ứng viên:\n" +
-                    "   - Giữ lại và ưu tiên các địa điểm THỰC SỰ ĐÚNG với yêu cầu của người dùng.\n" +
-                    "   - Loại bỏ các địa điểm hoàn toàn lạc đề hoặc không đúng thể loại (ví dụ: người dùng tìm quán Nhật mà địa điểm là quán thuần món Việt, quán lẩu mắm, quán cafe hay quán bia hơi).\n" +
-                    "3. Viết 1-2 câu nhận xét tư vấn (ai_insight) thật tự nhiên, súc tích và hữu ích:\n" +
-                    "   - Nếu có địa điểm phù hợp: nêu lý do quán đứng đầu là lựa chọn lý tưởng nhất cho nhóm.\n" +
-                    "   - Nếu KHÔNG CÓ địa điểm nào trong danh sách thực sự đúng yêu cầu cụ thể của người dùng: thông báo trung thực rằng cơ sở dữ liệu hiện tại chưa có quán phù hợp với yêu cầu này trong khu vực, và trả về danh sách rỗng.\n" +
-                    "4. Tuyệt đối không dùng văn mẫu máy móc hay khen một quán lạc đề là đúng món người dùng yêu cầu.\n\n" +
-                    "Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:\n" +
-                    "{\n" +
-                    "  \"valid_place_ids\": [\"id_1\", \"id_2\", ...],\n" +
-                    "  \"ai_insight\": \"Lời tư vấn nhận xét ngắn gọn, tự nhiên...\"\n" +
-                    "}";
+                    await ManagedTemplates.RenderAsync(prompts, "meeting.verify.system", cancellationToken);
 
                 var verifierUserPrompt =
-                    $"Yêu cầu ban đầu của người dùng: \"{request.Prompt}\"\n" +
-                    $"Truy vấn bóc tách: \"{parsedQuery}\" (Nhóm: \"{parsedTargetCategory}\", Sở thích: \"{parsedSpecificPreference}\")\n" +
-                    $"Thành viên / Điểm xuất phát: {originsSummary}\n\n" +
-                    $"Danh sách các địa điểm ứng viên hệ thống tìm được:\n{candidateListPrompt}\n\n" +
-                    "Hãy thẩm định danh sách trên và trả về kết quả JSON.";
+                    await ManagedTemplates.RenderAsync(prompts, "meeting.verify.user", cancellationToken, ("Prompt", $"{request.Prompt}"), ("parsedQuery", $"{parsedQuery}"), ("parsedTargetCategory", $"{parsedTargetCategory}"), ("parsedSpecificPreference", $"{parsedSpecificPreference}"), ("originsSummary", $"{originsSummary}"), ("candidateListPrompt", $"{candidateListPrompt}"));
 
                 var verifierMessages = new List<AgentModelMessage>
                 {
@@ -1067,42 +978,32 @@ Nhiệm vụ của bạn:
                     var top = finalResults[0];
                     if (isAnchorSearch)
                     {
-                        insight = $"Địa điểm phù hợp nhất gần {resolvedOrigins[0].Name} là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách mốc khoảng {top.AverageDistanceKm:F1} km.";
+                        insight = await ManagedTemplates.RenderAsync(prompts, "message.search.anchor-result", cancellationToken, ("anchorName", $"{resolvedOrigins[0].Name}"), ("Name", $"{top.Name}"), ("Address", $"{top.Address ?? "TP.HCM"}"), ("AverageDistanceKm", $"{top.AverageDistanceKm:F1}"));
                     }
                     else if (resolvedOrigins.Count <= 1)
                     {
-                        insight = $"Địa điểm gợi ý phù hợp nhất cho bạn là \"{top.Name}\" ({top.Address ?? "TP.HCM"}), cách vị trí của bạn khoảng {top.AverageDistanceKm:F1} km.";
+                        insight = await ManagedTemplates.RenderAsync(prompts, "message.search.single-result", cancellationToken, ("Name", $"{top.Name}"), ("Address", $"{top.Address ?? "TP.HCM"}"), ("AverageDistanceKm", $"{top.AverageDistanceKm:F1}"));
                     }
                     else
                     {
-                        insight = $"Điểm hẹn tối ưu nhất cho nhóm là \"{top.Name}\" ({top.Address ?? "TP.HCM"}). Khoảng cách trung bình giữa các thành viên là {top.AverageDistanceKm:F1} km với độ công bằng lộ trình đạt {Math.Round(top.FairnessScore * 100)}%.";
+                        insight = await ManagedTemplates.RenderAsync(prompts, "message.search.group-result", cancellationToken, ("Name", $"{top.Name}"), ("Address", $"{top.Address ?? "TP.HCM"}"), ("AverageDistanceKm", $"{top.AverageDistanceKm:F1}"), ("fairnessPercent", $"{Math.Round(top.FairnessScore * 100)}"));
                     }
                 }
                 else
                 {
-                    insight = $"Hệ thống chưa tìm thấy địa điểm nào đúng theo yêu cầu \"{parsedQuery}\" trong khu vực hỗ trợ ({areasDescription}). Bạn có thể thử thay đổi tiêu chí tìm kiếm nhé!";
+                    insight = await ManagedTemplates.RenderAsync(prompts, "message.search.no-match", cancellationToken, ("parsedQuery", $"{parsedQuery}"), ("areasDescription", $"{areasDescription}"));
                 }
             }
         }
         else
         {
             var emptySearchPrompt = isAnchorSearch
-                ? $$"""
-Người dùng muốn tìm: "{{parsedQuery}}" ở gần mốc "{{resolvedOrigins[0].Name}}".
-Hệ thống đang có dữ liệu tại: {{areasDescription}}.
-Trong bán kính tìm kiếm quanh mốc này hiện chưa tìm thấy địa điểm nào phù hợp với '{{parsedQuery}}'.
-Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi thể loại địa điểm hoặc mở rộng bán kính tìm kiếm.
-"""
-                : $$"""
-Người dùng muốn tìm: "{{parsedQuery}}" cho nhóm {{resolvedOrigins.Count}} người.
-Hệ thống đang có dữ liệu tại: {{areasDescription}}.
-Tâm điểm nhóm đã được tính toán nhưng không tìm thấy địa điểm nào phù hợp với từ khoá '{{parsedQuery}}' trong cơ sở dữ liệu và bán kính tìm kiếm.
-Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi thể loại địa điểm (ví dụ cà phê, quán ăn) hoặc nới rộng bán kính tìm kiếm.
-""";
+                ? await ManagedTemplates.RenderAsync(prompts, "meeting.empty.anchor", cancellationToken, ("parsedQuery", $"{parsedQuery}"), ("anchorName", $"{resolvedOrigins[0].Name}"), ("areasDescription", $"{areasDescription}"))
+                : await ManagedTemplates.RenderAsync(prompts, "meeting.empty.group", cancellationToken, ("parsedQuery", $"{parsedQuery}"), ("memberCount", $"{resolvedOrigins.Count}"), ("areasDescription", $"{areasDescription}"));
 
             var insightMessages = new List<AgentModelMessage>
             {
-                new(AgentModelRole.System, "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh."),
+                new(AgentModelRole.System, await ManagedTemplates.RenderAsync(prompts, "meeting.advisor", cancellationToken)),
                 new(AgentModelRole.User, emptySearchPrompt)
             };
 
@@ -1121,8 +1022,8 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
             if (string.IsNullOrWhiteSpace(emptyInsight))
             {
                 emptyInsight = isAnchorSearch
-                    ? $"Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện chưa tìm thấy địa điểm '{parsedQuery}' nào gần {resolvedOrigins[0].Name}. Bạn thử đổi sang thể loại khác hoặc nới rộng bán kính xem sao nhé!"
-                    : $"Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện không tìm thấy địa điểm '{parsedQuery}' nào phù hợp cho nhóm. Bạn thử đổi sang thể loại khác như quán cà phê hoặc quán ăn xem sao nhé!";
+                    ? await ManagedTemplates.RenderAsync(prompts, "message.search.empty-anchor", cancellationToken, ("areasDescription", $"{areasDescription}"), ("parsedQuery", $"{parsedQuery}"), ("anchorName", $"{resolvedOrigins[0].Name}"))
+                    : await ManagedTemplates.RenderAsync(prompts, "message.search.empty-group", cancellationToken, ("areasDescription", $"{areasDescription}"), ("parsedQuery", $"{parsedQuery}"));
             }
 
             insight = emptyInsight;
@@ -1164,7 +1065,7 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
         return Ok(response);
     }
 
-    private static async Task<(bool IsValid, string? Reason)> ValidateAnchorWithLlmAsync(
+    private async Task<(bool IsValid, string? Reason)> ValidateAnchorWithLlmAsync(
         IAgentModelClient modelClient,
         string userPrompt,
         string requestedAnchor,
@@ -1176,33 +1077,10 @@ Hãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi 
         try
         {
             var anchorValidationSystemPrompt =
-                "Bạn là chuyên gia thẩm định dữ liệu địa lý và mốc tìm kiếm (search anchor) của hệ thống bản đồ LOSM.\n" +
-                "Nhiệm vụ của bạn là kiểm tra xem địa điểm mà cơ sở dữ liệu hệ thống vừa tìm được có thực sự là mốc địa danh/vị trí người dùng mong muốn hay không:\n" +
-                "1. Yêu cầu của người dùng: Người dùng đang muốn tìm kiếm xung quanh mốc địa danh/vị trí nào trong câu yêu cầu?\n" +
-                "2. Đối chiếu với địa điểm CSDL tìm được:\n" +
-                "   - Tên địa điểm, địa chỉ, thể loại có thực sự khớp với mốc địa danh người dùng cần hay không?\n" +
-                "   - CẢNH BÁO FALSE POSITIVE: CSDL tìm kiếm theo từ khoá (text match) có thể tìm nhầm các công ty tư nhân, văn phòng quảng cáo, phòng vé, bảng hiệu kinh doanh có tên chứa từ khoá (ví dụ: người dùng tìm 'Sân bay Tân Sơn Nhất' nhưng CSDL lại trả về công ty 'Quảng Cáo Tại Sân Bay Tân Sơn Nhất' tại đường Phạm Ngọc Thạch; người dùng tìm 'Bến xe Miền Đông' nhưng CSDL trả về phòng vé tư nhân ở quận khác).\n" +
-                $"   - KIỂM TRA PHẠM VI HỆ THỐNG: CSDL hệ thống hiện tại CHỈ MỚI CÓ DỮ LIỆU tại các khu vực: {areasDescription}. Nếu mốc địa danh thực tế mà người dùng yêu cầu nằm ngoài các khu vực này (ví dụ: Sân bay Tân Sơn Nhất thực tế ở Quận Tân Bình, không thuộc {areasDescription}), và kết quả tìm thấy chỉ là một doanh nghiệp dịch vụ trùng tên nằm trong khu vực hỗ trợ, thì đây là kết quả KHÔNG HỢP LỆ (invalid).\n" +
-                "3. Xuất kết quả thẩm định dưới dạng JSON:\n" +
-                "   - \"is_valid\": true nếu địa điểm tìm thấy THỰC SỰ là mốc địa danh người dùng yêu cầu.\n" +
-                "   - \"is_valid\": false nếu đây là doanh nghiệp/văn phòng trùng tên, sai lệch bản chất, hoặc mốc địa danh người dùng yêu cầu thực tế nằm ngoài phạm vi các khu vực hệ thống đang hỗ trợ.\n" +
-                $"   - \"reason\": Nếu false, giải thích ngắn gọn, tự nhiên, lịch sự (1-2 câu) cho người dùng biết địa điểm tìm thấy chỉ là doanh nghiệp/dịch vụ trùng tên hoặc mốc địa danh này nằm ngoài phạm vi hỗ trợ của hệ thống ({areasDescription}), và đề xuất người dùng chọn mốc khác trong phạm vi hỗ trợ. Nếu true, trả về chuỗi rỗng \"\".\n\n" +
-                "Chỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:\n" +
-                "{\n" +
-                "  \"is_valid\": true,\n" +
-                "  \"reason\": \"...\"\n" +
-                "}";
+                await ManagedTemplates.RenderAsync(prompts, "meeting.anchor.system", cancellationToken, ("areasDescription", $"{areasDescription}"));
 
             var anchorValidationUserPrompt =
-                $"Yêu cầu ban đầu của người dùng: \"{userPrompt}\"\n" +
-                $"Mốc địa danh trích xuất: \"{requestedAnchor}\"\n" +
-                $"Địa điểm CSDL tìm được:\n" +
-                $"- Tên: {geocoded.Name}\n" +
-                $"- Địa chỉ: {geocoded.DisplayName ?? geocoded.Name}\n" +
-                $"- Thể loại: {geocoded.Category ?? "Không rõ"}\n" +
-                $"- Toạ độ: {geocoded.Latitude}, {geocoded.Longitude}\n" +
-                $"Các khu vực hệ thống đang hỗ trợ: {areasDescription}\n\n" +
-                "Hãy thẩm định tính hợp lệ của mốc địa danh trên.";
+                await ManagedTemplates.RenderAsync(prompts, "meeting.anchor.user", cancellationToken, ("userPrompt", $"{userPrompt}"), ("requestedAnchor", $"{requestedAnchor}"), ("Name", $"{geocoded.Name}"), ("DisplayName", $"{geocoded.DisplayName ?? geocoded.Name}"), ("Category", $"{geocoded.Category ?? "Unknown"}"), ("Latitude", $"{geocoded.Latitude}"), ("Longitude", $"{geocoded.Longitude}"), ("areasDescription", $"{areasDescription}"));
 
             var validationMessages = new List<AgentModelMessage>
             {

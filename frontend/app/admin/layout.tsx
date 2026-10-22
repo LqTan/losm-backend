@@ -40,6 +40,7 @@ const items = [
   { href: "/admin/overture", label: "Overture Import", icon: Database },
   { href: "/admin/ranking-model", label: "AI Model (ONNX)", icon: Cpu },
   { href: "/admin/category-mappings", label: "Category Mappings", icon: Tags },
+  { href: "/admin/prompts", label: "Agent Prompts", icon: Settings },
   { href: "/admin/hangfire", label: "Hangfire Jobs", icon: Activity },
 ];
 

@@ -39,11 +39,11 @@ public sealed class FlagInvalidPlaceTool
     public override ToolKind Kind => ToolKind.WriteAutoApply;
 
     public override ToolDisplay Display => new(
-        DisplayName: "Báo cáo địa điểm sai lệch",
-        CallingMessage: "Đang đánh dấu loại bỏ địa điểm sai lệch dữ liệu...",
-        SuccessMessage: "Đã loại bỏ địa điểm sai lệch khỏi hệ thống",
-        FailedMessage: "Không thể đánh dấu địa điểm",
-        PendingConfirmationMessage: "Chờ bạn xác nhận"
+        DisplayName: "Flag invalid place",
+        CallingMessage: "Flagging invalid place data...",
+        SuccessMessage: "Invalid place excluded from search",
+        FailedMessage: "Failed to flag place",
+        PendingConfirmationMessage: "Awaiting confirmation"
     );
 
     protected override async Task<string> ExecuteAsync(
@@ -52,7 +52,7 @@ public sealed class FlagInvalidPlaceTool
     {
         if (string.IsNullOrWhiteSpace(arguments.Reason))
         {
-            throw new ArgumentException("Lý do đánh dấu không hợp lệ là bắt buộc.", nameof(arguments.Reason));
+            throw new ArgumentException("A reason for flagging the place is required.", nameof(arguments.Reason));
         }
 
         Places.Domain.Entities.Place? place = null;
@@ -70,18 +70,18 @@ public sealed class FlagInvalidPlaceTool
 
         if (place is null)
         {
-            _logger.LogWarning("FlagInvalidPlaceTool: Không tìm thấy địa điểm {PlaceId} / {PlaceName}", arguments.PlaceId, arguments.PlaceName);
+            _logger.LogWarning("FlagInvalidPlaceTool: Place not found {PlaceId} / {PlaceName}", arguments.PlaceId, arguments.PlaceName);
             return JsonSerializer.Serialize(new
             {
                 success = false,
-                message = "Không tìm thấy địa điểm tương ứng để đánh dấu."
+                message = "No matching place found to flag."
             }, JsonOptions);
         }
 
         place.MarkAsNotSafe(arguments.Reason);
         await _placeRepository.UpdateAsync(place, cancellationToken);
 
-        _logger.LogInformation("FlagInvalidPlaceTool: Đã đánh dấu địa điểm '{PlaceName}' ({PlaceId}) là Not Safe vì: {Reason}", place.Name, place.Id, arguments.Reason);
+        _logger.LogInformation("FlagInvalidPlaceTool: Flagged '{PlaceName}' ({PlaceId}) as unsafe: {Reason}", place.Name, place.Id, arguments.Reason);
 
         return JsonSerializer.Serialize(new
         {
@@ -89,7 +89,7 @@ public sealed class FlagInvalidPlaceTool
             placeId = place.Id,
             placeName = place.Name,
             reason = arguments.Reason,
-            message = $"Đã đánh dấu địa điểm '{place.Name}' là không hợp lệ và loại bỏ khỏi hệ thống."
+            message = $"Place '{place.Name}' marked invalid and excluded from search."
         }, JsonOptions);
     }
 }

@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentCore.Application.Abstractions;
@@ -13,6 +14,7 @@ namespace AgentCore.Infrastructure.AgentRuntime;
 
 public sealed class AgentRunner : IAgentRunner
 {
+    private readonly PromptProvider? _prompts;
     private readonly IAgentModelClient _modelClient;
     private readonly IAgentToolRegistry _toolRegistry;
     private readonly IAgentSessionRepository _sessionRepository;
@@ -34,9 +36,11 @@ public sealed class AgentRunner : IAgentRunner
         ILastSearchContextStore lastSearchContextStore,
         ITuningProvider tuning,
         ILogger<AgentRunner> logger,
-        Areas.Application.Abstractions.IAreaRepository? areaRepository = null
+        Areas.Application.Abstractions.IAreaRepository? areaRepository = null,
+        PromptProvider? prompts = null
     )
     {
+        _prompts = prompts;
         _modelClient = modelClient;
         _toolRegistry = toolRegistry;
         _sessionRepository = sessionRepository;
@@ -189,6 +193,9 @@ public sealed class AgentRunner : IAgentRunner
         await _sessionRepository.UpdateAsync(session, cancellationToken);
 
         var messages = BuildModelMessages(session);
+        var agentPrompt = PromptFile.Load("agent-system.txt");
+        if (_prompts is not null) agentPrompt = await _prompts.ResolveAsync("agent-system", agentPrompt, cancellationToken);
+        messages.Insert(0, new AgentModelMessage(AgentModelRole.System, agentPrompt));
 
         if (_areaRepository != null)
         {
@@ -199,23 +206,15 @@ public sealed class AgentRunner : IAgentRunner
                 if (activeAreaNames.Count > 0)
                 {
                     var areasDesc = string.Join(", ", activeAreaNames);
+                    var areaContextPrompt = PromptFile.Load("area-context-system.txt");
+                    if (_prompts is not null)
+                        areaContextPrompt = await _prompts.ResolveAsync(
+                            "area-context-system", areaContextPrompt, cancellationToken);
                     messages.Insert(
                         0,
                         new AgentModelMessage(
                             AgentModelRole.System,
-                            $"NGỮ CẢNH DỮ LIỆU ĐỘNG CỦA HỆ THỐNG:\n" +
-                            $"- Cơ sở dữ liệu của hệ thống hiện tại CHỈ MỚI CÓ dữ liệu địa điểm tại các khu vực được kích hoạt: {areasDesc}.\n" +
-                            $"- Đối với các địa điểm xuất phát hoặc yêu cầu tìm kiếm ngoài {areasDesc}, hệ thống chưa có dữ liệu toạ độ hoặc địa điểm.\n" +
-                            $"- Khi công cụ (search_places, search_meeting_places, geocode_place) không tìm thấy kết quả hoặc trả về rỗng [] / geocode_failed, bạn PHẢI hiểu là địa điểm đó nằm ngoài phạm vi dữ liệu hệ thống ({areasDesc}), tuyệt đối không tự bịa toạ độ, và giải thích rõ ràng cho người dùng biết phạm vi dữ liệu để xin xác nhận hoặc đề nghị người dùng chọn lại địa điểm.\n" +
-                            $"- KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ĐỊA ĐIỂM (Data Integrity Check):\n" +
-                            $"  1. Khi nhận danh sách địa điểm từ công cụ, hãy kiểm tra tính nhất quán giữa Tên, Địa chỉ và Khu vực ({areasDesc}).\n" +
-                            $"  2. NẾU phát hiện địa điểm có toạ độ cắm trong {areasDesc} nhưng tên đường hoặc địa chỉ ghi rõ thuộc quận khác (ví dụ: Tân Phú, Bình Tân, Quận 4, Quận 12...) hoặc toạ độ địa danh bị cắm sai lệch nghiêm trọng sang nơi khác, bạn PHẢI gọi công cụ 'flag_invalid_place' để đánh dấu loại bỏ địa điểm đó khỏi hệ thống, đồng thời không đưa vào gợi ý cho người dùng.\n" +
-                            $"  3. PHÂN BIỆT RÕ: Địa điểm chỉ đơn thuần 'không hợp gu / không đúng yêu cầu' của người dùng thì KHÔNG gọi flag_invalid_place; CHỈ gọi flag_invalid_place khi toạ độ hoặc địa chỉ bị SAI / LỆCH rõ ràng.\n" +
-                            $"- CHỈ ĐƯỜNG VÀ TÍNH TOÁN LỘ TRÌNH (get_directions):\n" +
-                            $"  Khi người dùng hỏi đường đi, chỉ đường, hỏi cách di chuyển hoặc lộ trình cho một thành viên/người cụ thể (ví dụ: 'Chỉ đường cho người ở Bến Thành', 'Chỉ đường cho Người 1', 'Đường đi từ Chợ Bến Thành tới quán Highlands'):\n" +
-                            $"  1. Nhìn vào lịch sử hội thoại gần nhất để xác định điểm xuất phát của người đó (origin) và địa điểm đến (destination).\n" +
-                            $"  2. Gọi công cụ 'get_directions' với origin, destination và member_name. TUYỆT ĐỐI KHÔNG tự ước lượng toạ độ hay đường đi mà không gọi công cụ này.\n" +
-                            $"  3. Dựa trên kết quả công cụ trả về (quãng đường km, thời gian phút, tên đường chính), trả lời tự nhiên, súc tích và giải thích tuyến đường cho người dùng."
+                            areaContextPrompt.Replace("{areasDesc}", areasDesc)
                         )
                     );
                 }
@@ -229,6 +228,7 @@ public sealed class AgentRunner : IAgentRunner
         if (!string.IsNullOrWhiteSpace(approvedPlan))
         {
             var approvedPlanSystemPrompt = PromptFile.Load("approved-plan-system.txt");
+            if (_prompts is not null) approvedPlanSystemPrompt = await _prompts.ResolveAsync("approved-plan-system", approvedPlanSystemPrompt, cancellationToken);
             var injectedPrompt =
                 approvedPlanSystemPrompt.Replace("{approvedPlan}", approvedPlan);
 
@@ -303,7 +303,7 @@ public sealed class AgentRunner : IAgentRunner
                     session.Id
                 );
 
-                var errorAnswer = "Rất tiếc, trợ lý AI đang gặp sự cố tạm thời khi kết nối với mô hình xử lý. Bạn vui lòng thử lại sau giây lát nhé.";
+                var errorAnswer = await ManagedTemplates.RenderAsync(_prompts, "message.agent.unavailable", cancellationToken);
                 session.AddMessage(AgentMessageRole.Assistant, errorAnswer);
                 await _sessionRepository.UpdateAsync(session, cancellationToken);
 
@@ -433,8 +433,8 @@ public sealed class AgentRunner : IAgentRunner
         );
 
         var fallbackAnswer = attachedPlaces.Count > 0
-            ? $"Mình đã tìm thấy một số địa điểm phù hợp gần khu vực bạn yêu cầu ({string.Join(", ", attachedPlaces.Take(3).Select(p => p.Name))}). Bạn có thể xem danh sách địa điểm đính kèm."
-            : "Mình đã cố gắng tìm kiếm nhưng hiện chưa thấy địa điểm nào thật sự phù hợp quanh khu vực này. Bạn có thể cho mình biết cụ thể hơn về tên quán hoặc gợi ý khu vực khác không?";
+            ? await ManagedTemplates.RenderAsync(_prompts, "message.agent.results", cancellationToken, ("placeNames", $"{string.Join(", ", attachedPlaces.Take(3).Select(p => p.Name))}"))
+            : await ManagedTemplates.RenderAsync(_prompts, "message.agent.empty", cancellationToken);
 
         session.AddMessage(AgentMessageRole.Assistant, fallbackAnswer);
         await _sessionRepository.UpdateAsync(session, cancellationToken);
@@ -655,7 +655,7 @@ public sealed class AgentRunner : IAgentRunner
                 ? StepSummary.Finalize
                 : StepSummary.FinalizeFailed,
             AgentActivityStepKind.ModelResponse => StepSummary.Thinking,
-            _ => succeeded ? "Đang xử lý..." : "Xử lý thất bại"
+            _ => succeeded ? "Processing..." : "Processing failed"
         };
 
         var step = new AgentActivityStep(

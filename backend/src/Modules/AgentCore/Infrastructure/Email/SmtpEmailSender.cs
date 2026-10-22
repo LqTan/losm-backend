@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,13 +8,16 @@ namespace AgentCore.Infrastructure.Email;
 
 public sealed class SmtpEmailSender : IEmailSender, Common.Email.IEmailSender
 {
+    private readonly PromptProvider? _prompts;
     private readonly SmtpOptions _options;
     private readonly ILogger<SmtpEmailSender> _logger;
 
     public SmtpEmailSender(
         IOptions<SmtpOptions> options,
-        ILogger<SmtpEmailSender> logger)
+        ILogger<SmtpEmailSender> logger,
+        PromptProvider? prompts = null)
     {
+        _prompts = prompts;
         _options = options.Value;
         _logger = logger;
     }
@@ -24,13 +28,15 @@ public sealed class SmtpEmailSender : IEmailSender, Common.Email.IEmailSender
     {
         var host = string.IsNullOrWhiteSpace(_options.Host) ? "smtp.gmail.com" : _options.Host;
         var fromAddress = string.IsNullOrWhiteSpace(_options.FromAddress) ? "lequantan1974@gmail.com" : _options.FromAddress;
-        var fromName = string.IsNullOrWhiteSpace(_options.FromName) ? "LOSM - Tìm Điểm Hẹn" : _options.FromName;
+        var fromName = string.IsNullOrWhiteSpace(_options.FromName) ? "LOSM - Meeting Places" : _options.FromName;
         var user = string.IsNullOrWhiteSpace(_options.User) ? fromAddress : _options.User;
         var password = string.IsNullOrWhiteSpace(_options.Password) ? "yizzeeqflhipoaup" : _options.Password;
         var port = _options.Port > 0 ? _options.Port : 587;
 
         try
         {
+            if (_prompts is not null)
+                fromName = await _prompts.ResolveAsync("email.sender-name", fromName, cancellationToken);
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(fromName, fromAddress));
             message.To.Add(new MailboxAddress(request.ToName, request.ToAddress));

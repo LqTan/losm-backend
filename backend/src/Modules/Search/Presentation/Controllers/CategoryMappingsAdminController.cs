@@ -50,11 +50,11 @@ public sealed class CategoryMappingsAdminController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.GroupName))
         {
-            return BadRequest(new { error = "Tên nhóm (GroupName) là bắt buộc." });
+            return BadRequest(new { error = "GroupName is required." });
         }
 
         await _provider.AddOrUpdateGroupAsync(request.GroupName, request.Categories ?? [], ct);
-        return Ok(new { message = $"Đã cập nhật nhóm '{request.GroupName}'.", groups = _provider.GetCategoryGroups() });
+        return Ok(new { message = $"Group '{request.GroupName}' updated.", groups = _provider.GetCategoryGroups() });
     }
 
     [HttpDelete("groups/{name}")]
@@ -62,8 +62,8 @@ public sealed class CategoryMappingsAdminController : ControllerBase
     public async Task<IActionResult> DeleteGroup(string name, CancellationToken ct)
     {
         var deleted = await _provider.DeleteGroupAsync(name, ct);
-        if (!deleted) return NotFound(new { error = $"Không tìm thấy nhóm '{name}' để xoá." });
-        return Ok(new { message = $"Đã xoá nhóm '{name}'.", groups = _provider.GetCategoryGroups() });
+        if (!deleted) return NotFound(new { error = $"Group '{name}' not found." });
+        return Ok(new { message = $"Group '{name}' deleted.", groups = _provider.GetCategoryGroups() });
     }
 
     [HttpPost("groups/{name}/categories")]
@@ -75,11 +75,11 @@ public sealed class CategoryMappingsAdminController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Category))
         {
-            return BadRequest(new { error = "Category không được để trống." });
+            return BadRequest(new { error = "Category is required." });
         }
 
         await _provider.AddCategoryToGroupAsync(name, request.Category, ct);
-        return Ok(new { message = $"Đã thêm category '{request.Category}' vào nhóm '{name}'.", groups = _provider.GetCategoryGroups() });
+        return Ok(new { message = $"Category '{request.Category}' added to group '{name}'.", groups = _provider.GetCategoryGroups() });
     }
 
     [HttpDelete("groups/{name}/categories/{category}")]
@@ -90,8 +90,8 @@ public sealed class CategoryMappingsAdminController : ControllerBase
         CancellationToken ct)
     {
         var removed = await _provider.RemoveCategoryFromGroupAsync(name, category, ct);
-        if (!removed) return NotFound(new { error = $"Không tìm thấy category '{category}' trong nhóm '{name}'." });
-        return Ok(new { message = $"Đã xoá category '{category}' khỏi nhóm '{name}'.", groups = _provider.GetCategoryGroups() });
+        if (!removed) return NotFound(new { error = $"Category '{category}' not found in group '{name}'." });
+        return Ok(new { message = $"Category '{category}' removed from group '{name}'.", groups = _provider.GetCategoryGroups() });
     }
 
     [HttpGet("overrides")]
@@ -110,11 +110,11 @@ public sealed class CategoryMappingsAdminController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Keyword) || string.IsNullOrWhiteSpace(request.TargetCategory))
         {
-            return BadRequest(new { error = "Keyword và TargetCategory không được để trống." });
+            return BadRequest(new { error = "Keyword and TargetCategory are required." });
         }
 
         await _provider.AddOrUpdateOverrideAsync(request.Keyword, request.TargetCategory, ct);
-        return Ok(new { message = $"Đã cập nhật override '{request.Keyword}' -> '{request.TargetCategory}'." });
+        return Ok(new { message = $"Override '{request.Keyword}' -> '{request.TargetCategory}' updated." });
     }
 
     [HttpDelete("overrides/{keyword}")]
@@ -122,8 +122,8 @@ public sealed class CategoryMappingsAdminController : ControllerBase
     public async Task<IActionResult> DeleteOverride(string keyword, CancellationToken ct)
     {
         var deleted = await _provider.DeleteOverrideAsync(keyword, ct);
-        if (!deleted) return NotFound(new { error = $"Không tìm thấy override '{keyword}' để xoá." });
-        return Ok(new { message = $"Đã xoá override '{keyword}'." });
+        if (!deleted) return NotFound(new { error = $"Override '{keyword}' not found." });
+        return Ok(new { message = $"Override '{keyword}' deleted." });
     }
 
     [HttpPost("reset")]
@@ -131,7 +131,7 @@ public sealed class CategoryMappingsAdminController : ControllerBase
     public async Task<IActionResult> ResetDefaults(CancellationToken ct)
     {
         var res = await _provider.ResetToDefaultsAsync(ct);
-        return Ok(new { message = "Đã đặt lại cấu hình 13 nhóm Colab chuẩn mặc định.", config = res });
+        return Ok(new { message = "The 13 default Colab category groups have been restored.", config = res });
     }
 
     [HttpPost("test-match")]

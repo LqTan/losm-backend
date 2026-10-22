@@ -47,7 +47,7 @@ public sealed class RetryMeetingEmailsHandler
                 Guid.Empty,
                 "InvalidActionType",
                 false,
-                "Action này không phải create_meeting.");
+                "This action is not create_meeting.");
         }
 
         if (original.Status != PendingAgentActionStatus.PartiallyFailed &&
@@ -58,7 +58,7 @@ public sealed class RetryMeetingEmailsHandler
                 Guid.Empty,
                 "InvalidStatus",
                 false,
-                "Chỉ retry được meeting ở trạng thái PartiallyFailed hoặc Failed.");
+                "Only meetings with PartiallyFailed or Failed status can be retried.");
         }
 
         using var doc = JsonDocument.Parse(original.PayloadJson);
@@ -72,7 +72,7 @@ public sealed class RetryMeetingEmailsHandler
                 Guid.Empty,
                 "NoDispatcher",
                 false,
-                "Không tìm thấy dispatcher cho create_meeting.");
+                "No dispatcher found for create_meeting.");
         }
 
         var retryAction = new PendingAgentAction(

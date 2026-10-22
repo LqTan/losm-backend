@@ -1,5 +1,6 @@
 "use client";
 
+import { isCurrentUserOrigin } from "@/lib/origin-labels";
 import L from "leaflet";
 import {
   CircleMarker,
@@ -293,7 +294,7 @@ export default function MapView({
       {groupOrigins &&
         groupOrigins.map((orig, idx) => {
           const color = ORIGIN_COLORS[idx % ORIGIN_COLORS.length];
-          const isMe = Boolean(orig.isMe || orig.name?.trim().toLowerCase() === "tôi");
+          const isMe = isCurrentUserOrigin(orig);
           const avatar = isMe ? (orig.avatarUrl || currentUserAvatar) : orig.avatarUrl;
 
           return (

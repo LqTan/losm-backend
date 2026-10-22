@@ -47,11 +47,11 @@ public sealed class SearchPlacesTool
     public override bool SuppliesPlaces => true;
 
     public override ToolDisplay Display => new(
-        DisplayName: "Tìm địa điểm",
-        CallingMessage: "Đang tìm kiếm các địa điểm phù hợp...",
-        SuccessMessage: "Đã tìm thấy địa điểm",
-        FailedMessage: "Không tìm thấy địa điểm nào",
-        PendingConfirmationMessage: "Chờ bạn xác nhận"
+        DisplayName: "Search places",
+        CallingMessage: "Searching for matching places...",
+        SuccessMessage: "Places found",
+        FailedMessage: "No places found",
+        PendingConfirmationMessage: "Awaiting confirmation"
     );
 
     protected override async Task<string> ExecuteAsync(

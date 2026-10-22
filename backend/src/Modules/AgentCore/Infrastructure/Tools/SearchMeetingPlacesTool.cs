@@ -48,11 +48,11 @@ public sealed class SearchMeetingPlacesTool
     public override bool SuppliesPlaces => true;
 
     public override ToolDisplay Display => new(
-        DisplayName: "Tìm điểm hẹn nhóm",
-        CallingMessage: "Đang tính toán lộ trình OSRM và tìm điểm hẹn công bằng...",
-        SuccessMessage: "Đã tìm thấy các điểm hẹn tối ưu cho cả nhóm",
-        FailedMessage: "Không tìm thấy điểm hẹn phù hợp",
-        PendingConfirmationMessage: "Chờ bạn xác nhận"
+        DisplayName: "Find group meeting places",
+        CallingMessage: "Calculating routes and finding fair meeting places...",
+        SuccessMessage: "Group meeting places found",
+        FailedMessage: "No suitable meeting places found",
+        PendingConfirmationMessage: "Awaiting confirmation"
     );
 
     protected override async Task<string> ExecuteAsync(

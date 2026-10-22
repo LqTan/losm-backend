@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using System.Text.Json;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Enums;
@@ -9,13 +10,16 @@ namespace AgentCore.Infrastructure.Planning;
 
 public sealed class LlmAgentPlanner : IAgentPlanner
 {
+    private readonly PromptProvider? _prompts;
     private readonly IAgentModelClient _modelClient;
     private readonly IAgentToolRegistry _toolRegistry;
     public LlmAgentPlanner(
         IAgentModelClient modelClient,
-        IAgentToolRegistry toolRegistry
+        IAgentToolRegistry toolRegistry,
+        PromptProvider? prompts = null
     )
     {
+        _prompts = prompts;
         _modelClient = modelClient;
         _toolRegistry = toolRegistry;
     }
@@ -28,11 +32,12 @@ public sealed class LlmAgentPlanner : IAgentPlanner
         CancellationToken cancellationToken = default
     )
     {
-        var tools = _toolRegistry.GetAll().Select(x => new
+        var tools = new List<object>();
+        foreach (var tool in _toolRegistry.GetAll())
         {
-            x.Name,
-            x.Description
-        });
+            var description = _prompts is null ? tool.Description : await _prompts.ResolveAsync("tool." + tool.Name, tool.Description, cancellationToken);
+            tools.Add(new { tool.Name, Description = description });
+        }
         var history = conversation.OrderBy(x => x.CreatedAt).Select(x => new
         {
             role = x.Role.ToString(),
@@ -57,7 +62,7 @@ public sealed class LlmAgentPlanner : IAgentPlanner
         {
             new(
                 AgentModelRole.System,
-                PromptFile.Load("planner-system.txt")
+                _prompts is null ? PromptFile.Load("planner-system.txt") : await _prompts.ResolveAsync("planner-system", PromptFile.Load("planner-system.txt"), cancellationToken)
             ),
             new(
                 AgentModelRole.User,

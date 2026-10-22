@@ -35,11 +35,11 @@ public sealed class GetSupportedAreasTool
         "when they search for places or meetings.";
 
     public override ToolDisplay Display => new(
-        DisplayName: "Kiểm tra khu vực hỗ trợ",
-        CallingMessage: "Đang kiểm tra các khu vực hệ thống hỗ trợ...",
-        SuccessMessage: "Đã xác định các khu vực hỗ trợ",
-        FailedMessage: "Không thể lấy danh sách khu vực hỗ trợ",
-        PendingConfirmationMessage: "Chờ bạn xác nhận"
+        DisplayName: "Check supported areas",
+        CallingMessage: "Checking supported areas...",
+        SuccessMessage: "Supported areas found",
+        FailedMessage: "Failed to load supported areas",
+        PendingConfirmationMessage: "Awaiting confirmation"
     );
 
     protected override async Task<string> ExecuteAsync(
@@ -69,7 +69,7 @@ public sealed class GetSupportedAreasTool
                     maxLng = a.BboxMaxLng
                 }
             }).ToList(),
-            summary = $"Hệ thống hiện tại đang hỗ trợ dữ liệu tại: {string.Join(", ", filtered.Select(a => a.Name))}."
+            summary = $"Data is currently available in: {string.Join(", ", filtered.Select(a => a.Name))}."
         };
 
         return JsonSerializer.Serialize(result, JsonOptions);

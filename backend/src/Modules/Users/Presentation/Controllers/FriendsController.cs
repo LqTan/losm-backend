@@ -16,6 +16,7 @@ namespace Users.Presentation.Controllers;
 public sealed class FriendsController : ControllerBase
 {
     private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+    private readonly IEmailTemplateRenderer _templates;
     private readonly UsersDbContext _dbContext;
     private readonly IEmailSender _emailSender;
     private readonly IConfiguration _config;
@@ -25,8 +26,10 @@ public sealed class FriendsController : ControllerBase
         UsersDbContext dbContext,
         IEmailSender emailSender,
         IConfiguration config,
-        ILogger<FriendsController> logger)
+        ILogger<FriendsController> logger,
+        IEmailTemplateRenderer templates)
     {
+        _templates = templates;
         _dbContext = dbContext;
         _emailSender = emailSender;
         _config = config;
@@ -42,7 +45,7 @@ public sealed class FriendsController : ControllerBase
         var targetEmail = dto.TargetEmail.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(targetEmail) || !EmailRegex.IsMatch(targetEmail))
         {
-            return BadRequest(new { message = "Vui lòng nhập địa chỉ email hợp lệ." });
+            return BadRequest(new { message = "Please enter a valid email address." });
         }
         if (!TryGetUserId(out var senderId))
         {
@@ -57,7 +60,7 @@ public sealed class FriendsController : ControllerBase
 
         if (string.Equals(sender.Email, targetEmail, StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(new { message = "Bạn không thể gửi lời mời kết bạn cho chính mình." });
+            return BadRequest(new { message = "You cannot send a friend request to yourself." });
         }
 
         var existingFriendship = await _dbContext.Friendships
@@ -70,12 +73,12 @@ public sealed class FriendsController : ControllerBase
         {
             if (existingFriendship.Status == FriendshipStatus.Accepted)
             {
-                return BadRequest(new { message = "Hai bạn đã là bạn bè trên hệ thống." });
+                return BadRequest(new { message = "You are already friends." });
             }
 
             if (existingFriendship.Status == FriendshipStatus.Pending)
             {
-                return BadRequest(new { message = "Lời mời kết bạn đã được gửi trước đó và đang chờ phản hồi." });
+                return BadRequest(new { message = "A friend request has already been sent and is awaiting a response." });
             }
         }
 
@@ -97,39 +100,18 @@ public sealed class FriendsController : ControllerBase
         var frontendUrl = ResolveFrontendUrl();
         var inviteUrl = $"{frontendUrl}/friends/invite?token={token}&email={Uri.EscapeDataString(targetEmail)}";
 
-        var html = $@"
-<div style=""font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;"">
-  <div style=""border-bottom: 2px solid #3b82f6; padding-bottom: 16px; margin-bottom: 24px;"">
-    <h1 style=""margin: 0; color: #1e293b; font-size: 22px; font-weight: 700;"">📍 LOSM - Tìm Điểm Hẹn</h1>
-    <p style=""margin: 4px 0 0 0; color: #64748b; font-size: 13px;"">Nền tảng tìm điểm hẹn công bằng và tối ưu lộ trình</p>
-  </div>
-
-  <p style=""font-size: 15px; line-height: 1.6; margin-bottom: 16px;"">
-    Xin chào,
-  </p>
-  <p style=""font-size: 15px; line-height: 1.6; margin-bottom: 24px;"">
-    <strong>{sender.Username}</strong> ({sender.Email}) vừa gửi lời mời kết bạn với bạn trên <strong>LOSM</strong>. 
-    Khi trở thành bạn bè, hai bạn có thể cùng nhau tìm quán cà phê, nhà hàng và điểm hẹn chung với khoảng cách và thời gian di chuyển công bằng nhất!
-  </p>
-
-  <div style=""text-align: center; margin: 32px 0;"">
-    <a href=""{inviteUrl}"" style=""background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);"">
-      Xem và chấp nhận lời mời kết bạn
-    </a>
-  </div>
-
-  <p style=""font-size: 12px; color: #94a3b8; line-height: 1.5; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;"">
-    Nếu nút bấm trên không hoạt động, bạn có thể sao chép và dán liên kết sau vào trình duyệt:<br/>
-    <a href=""{inviteUrl}"" style=""color: #2563eb; word-break: break-all;"">{inviteUrl}</a>
-  </p>
-</div>";
-
-        var plainText = $"Xin chào!\n\n{sender.Username} ({sender.Email}) vừa gửi lời mời kết bạn với bạn trên LOSM.\nNhấn vào liên kết sau để xem và chấp nhận lời mời:\n{inviteUrl}\n";
+        var values = new Dictionary<string, string?>
+        {
+            ["senderName"] = sender.Username, ["senderEmail"] = sender.Email, ["inviteUrl"] = inviteUrl
+        };
+        var html = await _templates.RenderAsync("email.friend.html", values, cancellationToken);
+        var plainText = await _templates.RenderAsync("email.friend.text", values, cancellationToken);
+        var subject = await _templates.RenderAsync("email.friend.subject", values, cancellationToken);
 
         await _emailSender.SendAsync(new EmailRequest(
             ToAddress: targetEmail,
             ToName: receiver?.Username ?? targetEmail,
-            Subject: $"[LOSM] {sender.Username} đã gửi cho bạn lời mời kết bạn",
+            Subject: subject,
             HtmlBody: html,
             PlainTextBody: plainText
         ), cancellationToken);
@@ -137,7 +119,7 @@ public sealed class FriendsController : ControllerBase
         return Ok(new
         {
             success = true,
-            message = $"Đã gửi lời mời kết bạn đến {targetEmail} thành công!",
+            message = $"Friend request sent to {targetEmail}.",
             token
         });
     }
@@ -150,7 +132,7 @@ public sealed class FriendsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(token))
         {
-            return BadRequest(new { message = "Mã token không hợp lệ." });
+            return BadRequest(new { message = "Invalid token." });
         }
 
         var friendship = await _dbContext.Friendships
@@ -159,7 +141,7 @@ public sealed class FriendsController : ControllerBase
 
         if (friendship is null)
         {
-            return NotFound(new { message = "Lời mời kết bạn không tồn tại hoặc đã hết hạn." });
+            return NotFound(new { message = "Friend request not found or expired." });
         }
 
         var userExists = await _dbContext.Users.AnyAsync(u => u.Email == friendship.ReceiverEmail, cancellationToken);
@@ -212,7 +194,7 @@ public sealed class FriendsController : ControllerBase
 
         if (friendship is null)
         {
-            return NotFound(new { message = "Không tìm thấy lời mời kết bạn." });
+            return NotFound(new { message = "Friend request not found." });
         }
 
         var isRecipient = friendship.ReceiverId == currentUserId ||
@@ -231,7 +213,7 @@ public sealed class FriendsController : ControllerBase
             {
                 success = true,
                 status = "Accepted",
-                message = $"Bạn và {friendship.Sender.Username} đã trở thành bạn bè!",
+                message = $"You and {friendship.Sender.Username} are now friends.",
                 friend = new
                 {
                     id = friendship.SenderId,
@@ -248,7 +230,7 @@ public sealed class FriendsController : ControllerBase
             {
                 success = true,
                 status = "Declined",
-                message = "Đã từ chối lời mời kết bạn."
+                message = "Friend request declined."
             });
         }
     }
@@ -376,13 +358,13 @@ public sealed class FriendsController : ControllerBase
 
         if (friendship is null)
         {
-            return NotFound(new { message = "Không tìm thấy lời mời hoặc mối quan hệ bạn bè để xóa." });
+            return NotFound(new { message = "No friend request or friendship found to delete." });
         }
 
         _dbContext.Friendships.Remove(friendship);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { success = true, message = "Đã xóa thành công." });
+        return Ok(new { success = true, message = "Deleted successfully." });
     }
 
     private bool TryGetUserId(out Guid userId)

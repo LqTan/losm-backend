@@ -47,11 +47,11 @@ public sealed class GetDirectionsTool : AgentTool<GetDirectionsToolArguments>
     public override bool SuppliesPlaces => false;
 
     public override ToolDisplay Display => new(
-        DisplayName: "Chỉ đường di chuyển",
-        CallingMessage: "Đang tính toán tuyến đường và thời gian di chuyển...",
-        SuccessMessage: "Đã tìm thấy lộ trình di chuyển tối ưu",
-        FailedMessage: "Không tìm thấy lộ trình phù hợp",
-        PendingConfirmationMessage: "Chờ xác nhận"
+        DisplayName: "Get directions",
+        CallingMessage: "Calculating route and travel time...",
+        SuccessMessage: "Route found",
+        FailedMessage: "No suitable route found",
+        PendingConfirmationMessage: "Awaiting confirmation"
     );
 
     protected override async Task<string> ExecuteAsync(
@@ -75,7 +75,7 @@ public sealed class GetDirectionsTool : AgentTool<GetDirectionsToolArguments>
             return JsonSerializer.Serialize(new
             {
                 succeeded = false,
-                error = $"Không tìm thấy toạ độ của điểm xuất phát '{arguments.Origin}'."
+                error = $"Coordinates not found for origin '{arguments.Origin}'."
             }, JsonOptions);
         }
 
@@ -85,7 +85,7 @@ public sealed class GetDirectionsTool : AgentTool<GetDirectionsToolArguments>
             return JsonSerializer.Serialize(new
             {
                 succeeded = false,
-                error = $"Không tìm thấy toạ độ của điểm đến '{arguments.Destination}'."
+                error = $"Coordinates not found for destination '{arguments.Destination}'."
             }, JsonOptions);
         }
 
@@ -100,7 +100,7 @@ public sealed class GetDirectionsTool : AgentTool<GetDirectionsToolArguments>
             return JsonSerializer.Serialize(new
             {
                 succeeded = false,
-                error = $"Không tìm thấy tuyến đường khả dụng từ '{originLoc.Value.Name}' đến '{destLoc.Value.Name}'."
+                error = $"No route available from '{originLoc.Value.Name}' to '{destLoc.Value.Name}'."
             }, JsonOptions);
         }
 

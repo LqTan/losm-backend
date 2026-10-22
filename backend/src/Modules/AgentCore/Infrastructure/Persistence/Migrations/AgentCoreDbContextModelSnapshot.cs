@@ -22,6 +22,17 @@ namespace AgentCore.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AgentCore.Domain.Entities.PromptRevision", b =>
+                {
+                    b.Property<string>("Key").HasMaxLength(150).HasColumnType("nvarchar(150)");
+                    b.Property<long>("Version").HasColumnType("bigint");
+                    b.Property<string>("Content").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<DateTime>("ChangedAt").HasColumnType("datetime2");
+                    b.Property<Guid?>("ChangedBy").HasColumnType("uniqueidentifier");
+                    b.HasKey("Key", "Version");
+                    b.ToTable("AgentPromptRevisions");
+                });
+
             modelBuilder.Entity("AgentCore.Domain.Entities.AgentMessage", b =>
                 {
                     b.Property<Guid>("Id")

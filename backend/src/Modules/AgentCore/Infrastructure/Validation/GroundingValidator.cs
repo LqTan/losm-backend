@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using System.Text.Json;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Enums;
@@ -8,12 +9,15 @@ namespace AgentCore.Infrastructure.Validation;
 public sealed class GroundingValidator
     : IAgentResponseValidator
 {
+    private readonly PromptProvider? _prompts;
     private readonly IAgentModelClient _modelClient;
 
     public GroundingValidator(
-        IAgentModelClient modelClient
+        IAgentModelClient modelClient,
+        PromptProvider? prompts = null
     )
     {
+        _prompts = prompts;
         _modelClient = modelClient;
     }
 
@@ -49,7 +53,7 @@ public sealed class GroundingValidator
         {
             new(
                 AgentModelRole.System,
-                GroundingInstructions.Load()
+                _prompts is null ? GroundingInstructions.Load() : await _prompts.ResolveAsync("grounding-system", GroundingInstructions.Load(), cancellationToken)
             ),
 
             new(

@@ -44,6 +44,6 @@ public sealed class GetAgentSessionsByUserHandler
             return trimmed.Length <= 60 ? trimmed : trimmed[..60] + "…";
         }
 
-        return "Cuộc trò chuyện mới";
+        return "New conversation";
     }
 }

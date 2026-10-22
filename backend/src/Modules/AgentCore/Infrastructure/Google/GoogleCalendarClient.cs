@@ -38,7 +38,7 @@ public sealed class GoogleCalendarClient : IGoogleCalendarClient
                 false,
                 null,
                 null,
-                "Google OAuth chưa được cấu hình (ClientId/ClientSecret trống).");
+                "Google OAuth is not configured (ClientId/ClientSecret is missing).");
         }
 
         var token = await _tokenRepository.GetByUserIdAsync(
@@ -50,7 +50,7 @@ public sealed class GoogleCalendarClient : IGoogleCalendarClient
                 false,
                 null,
                 null,
-                "User chưa kết nối Google Calendar.");
+                "The user has not connected Google Calendar.");
         }
 
         try

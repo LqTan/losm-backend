@@ -21,10 +21,10 @@ public sealed record ToolDisplay(
 {
     public static ToolDisplay Default(string toolName) => new(
         DisplayName: toolName,
-        CallingMessage: $"Đang thực hiện {toolName}",
-        SuccessMessage: $"Đã thực hiện {toolName} xong",
-        FailedMessage: $"{toolName} lỗi",
-        PendingConfirmationMessage: "Chờ bạn xác nhận",
+        CallingMessage: $"Running {toolName}",
+        SuccessMessage: $"Completed {toolName}",
+        FailedMessage: $"{toolName} failed",
+        PendingConfirmationMessage: "Awaiting confirmation",
         ErrorHintMessage: null
     );
 }

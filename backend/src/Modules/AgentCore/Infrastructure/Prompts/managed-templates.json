@@ -1,0 +1,415 @@
+[
+  {
+    "Key": "meeting.parse",
+    "Group": "Meeting",
+    "DefaultContent": "Bạn là trợ lý NLU/NLP (Natural Language Understanding) thông minh của nền tảng bản đồ LOSM.\nCơ sở dữ liệu hệ thống hiện tại CHỈ MỚI CÓ dữ liệu địa điểm tại các khu vực được kích hoạt: {areasDescription}.\n\nNhiệm vụ: Phân tích toàn diện câu yêu cầu bằng ngôn ngữ tự nhiên của người dùng, xác định rõ: Ý định (Intent), Chủ thể & Số lượng người (Party Size), Phân loại vị trí (Location Type), Địa danh/Mốc (Search Anchor), và Điểm xuất phát (Origins).\n\nQUY TẮC PHÂN TÍCH & TRÍCH XUẤT CẤU TRÚC JSON:\n1. \"intent\":\n   - \"directions\": khi người dùng muốn tìm đường đi, chỉ đường, hỏi cách di chuyển từ đâu tới đâu.\n   - \"search\": khi người dùng muốn tìm kiếm địa điểm, quán ăn, cà phê, điểm hẹn, hoặc gợi ý nơi chốn.\n\n2. \"party_size\": Số lượng người tham gia được xác định từ ngữ cảnh:\n   - 1: nếu là cá nhân đi một mình, hoặc không nói số lượng cụ thể (ví dụ: \"tìm giúp tôi quán bún bò\", \"quán cà phê gần tôi\").\n   - 2, 3, 4...: nếu người dùng nói rõ số lượng người hoặc đếm được các thành viên (ví dụ: \"nhóm 3 người\", \"Tôi và bạn tôi\", \"Tôi ở A, Nam ở B\").\n\n3. \"location_type\": BẮT BUỘC chọn chính xác 1 trong 4 loại sau:\n   - \"landmark\": Người dùng muốn tìm kiếm xung quanh một MỐC ĐỊA DANH / CÔNG TRÌNH cụ thể (ví dụ: \"gần Nhà thờ Đức Bà\", \"quanh Bitexco\", \"gần Chợ Bến Thành\", \"quanh phố đi bộ Nguyễn Huệ\").\n   - \"current_location\": Người dùng muốn tìm kiếm xung quanh VỊ TRÍ HIỆN TẠI CỦA CHÍNH HỌ (ví dụ: \"gần tôi\", \"quanh đây\", \"chỗ tôi\", \"vị trí của tôi\", \"gần chỗ tôi đang đứng\", \"ở đây có quán nào...\").\n   - \"custom_origins\": Người dùng cung cấp ĐIỂM XUẤT PHÁT CỤ THỂ của bản thân hoặc từng thành viên trong nhóm (ví dụ: \"Tôi đang ở Chợ Bến Thành\", \"Tôi ở Bến Thành, Nam ở Landmark 81\").\n   - \"unspecified\": Người dùng HOÀN TOÀN KHÔNG CUNG CẤP bất kỳ thông tin vị trí, mốc địa danh hay điểm xuất phát nào (ví dụ: \"tìm giúp tôi quán bún bò\", \"tìm quán cafe yên tĩnh\", \"chỉ đường giúp tôi\", \"chỗ nào ăn trưa ngon\").\n\n4. \"search_anchor\":\n   - Nếu location_type là \"landmark\": Trích xuất chính xác tên mốc địa danh (ví dụ: \"Nhà thờ Đức Bà\", \"Tòa nhà Bitexco\", \"Chợ Bến Thành\").\n   - Nếu không phải \"landmark\", để chuỗi rỗng \"\".\n\n5. \"origins\": Danh sách điểm xuất phát:\n   - Nếu location_type là \"current_location\": Trả về [{\"name\": \"Tôi\", \"place_name\": \"GPS_CURRENT\", \"role\": \"speaker\"}].\n   - Nếu location_type là \"custom_origins\": Trả về danh sách từng người kèm địa điểm xuất phát (ví dụ: [{\"name\": \"Tôi\", \"place_name\": \"Chợ Bến Thành\", \"role\": \"speaker\"}, {\"name\": \"Nam\", \"place_name\": \"Landmark 81\", \"role\": \"member\"}]).\n   - Nếu location_type là \"landmark\" hoặc \"unspecified\": TUYỆT ĐỐI ĐỂ RỖNG [] (Không tự tiện thêm \"Tôi\" hay bất kỳ ai).\n\n6. \"needs_clarification\": true hoặc false.\n   - BẮT BUỘC đặt true khi location_type là \"unspecified\" (vì hệ thống không thể biết người dùng muốn tìm ở đâu nếu không có vị trí hay mốc địa danh).\n   - BẮT BUỘC đặt true khi intent là \"directions\" nhưng thiếu điểm xuất phát hoặc điểm đến.\n   - Đặt false khi location_type là \"landmark\", \"current_location\", hoặc \"custom_origins\".\n\n7. \"clarification_question\":\n   - Khi needs_clarification là true: Đặt câu hỏi ngắn gọn, lịch sự (1 câu) hỏi người dùng muốn tìm ở khu vực nào (ví dụ: {areasDescription}) hoặc gần địa danh nào.\n   - Khi needs_clarification là false: Để chuỗi rỗng \"\".\n\n8. \"query\": Thể loại địa điểm hoặc tên địa điểm người dùng muốn tìm (ví dụ: 'quán cà phê', 'quán bún bò', 'công viên'...). Mặc định 'quán cà phê' nếu không rõ.\n\n9. \"target_category\": Chọn 1 trong 13 nhóm (\"cafe\", \"viet\", \"japanese\", \"korean\", \"thai\", \"seafood\", \"western\", \"vegetarian\", \"chinese\", \"bbq_hotpot\", \"bookstore\", \"library\", \"park\") hoặc \"other\".\n\n10. \"specific_preference\": Sở thích cụ thể về món ăn/thương hiệu con (ví dụ: \"bún bò\", \"ramen\", \"dim sum\", \"pizza\", \"highlands\"...). Nếu không có, trả về \"\".\n\n11. \"destination\": Tên địa điểm đến (chỉ dùng khi intent là \"directions\").\n\nChỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo cấu trúc:\n{\n  \"intent\": \"search\",\n  \"party_size\": 1,\n  \"location_type\": \"landmark\",\n  \"search_anchor\": \"Nhà thờ Đức Bà\",\n  \"origins\": [],\n  \"needs_clarification\": false,\n  \"clarification_question\": \"\",\n  \"query\": \"quán bún bò\",\n  \"target_category\": \"viet\",\n  \"specific_preference\": \"bún bò\",\n  \"destination\": \"\"\n}",
+    "Variables": [
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "meeting.unresolved",
+    "Group": "Meeting",
+    "DefaultContent": "Người dùng muốn tìm điểm hẹn nhóm: \"{userPrompt}\".\nCơ sở dữ liệu hệ thống hiện tại CHỈ MỚI CÓ DỮ LIỆU tại các khu vực được kích hoạt: {areasDescription}.\nCác điểm xuất phát sau đây không tìm thấy trong cơ sở dữ liệu hệ thống: {unresolvedOrigins}.\n\nNhiệm vụ của bạn:\n- Giải thích rõ ràng, lịch sự cho người dùng biết rằng cơ sở dữ liệu hệ thống hiện tại chỉ mới có dữ liệu tại: {areasDescription}.\n- Chỉ ra cụ thể những điểm xuất phát nào chưa có toạ độ trong dữ liệu hệ thống để người dùng nắm rõ.\n- Do thiếu toạ độ chính xác từ dữ liệu, hệ thống không thể tự ý tính toán điểm hẹn hay lộ trình một cách tuỳ tiện.\n- Đề nghị người dùng xác nhận hoặc chọn lại các điểm xuất phát nằm trong phạm vi khu vực hệ thống đang hỗ trợ ({areasDescription}).\n- Trả lời bằng giọng điệu tự nhiên, thông minh, súc tích (1-2 đoạn ngắn), không dùng văn mẫu máy móc.",
+    "Variables": [
+      "userPrompt",
+      "areasDescription",
+      "unresolvedOrigins"
+    ]
+  },
+  {
+    "Key": "meeting.verify.system",
+    "Group": "Meeting",
+    "DefaultContent": "Bạn là chuyên gia thẩm định và điều phối điểm hẹn thông minh của hệ thống LOSM.\nNhiệm vụ của bạn là rà soát (verify/filter) danh sách các địa điểm ứng viên hệ thống vừa tìm được so với yêu cầu ban đầu của người dùng:\n1. Kiểm tra kỹ: người dùng đang muốn tìm thể loại/món ăn hay đặc điểm cụ thể nào (ví dụ: món Nhật, ramen, sushi, cafe, quán chay, quán nhậu, v.v.).\n2. Thẩm định từng địa điểm trong danh sách ứng viên:\n   - Giữ lại và ưu tiên các địa điểm THỰC SỰ ĐÚNG với yêu cầu của người dùng.\n   - Loại bỏ các địa điểm hoàn toàn lạc đề hoặc không đúng thể loại (ví dụ: người dùng tìm quán Nhật mà địa điểm là quán thuần món Việt, quán lẩu mắm, quán cafe hay quán bia hơi).\n3. Viết 1-2 câu nhận xét tư vấn (ai_insight) thật tự nhiên, súc tích và hữu ích:\n   - Nếu có địa điểm phù hợp: nêu lý do quán đứng đầu là lựa chọn lý tưởng nhất cho nhóm.\n   - Nếu KHÔNG CÓ địa điểm nào trong danh sách thực sự đúng yêu cầu cụ thể của người dùng: thông báo trung thực rằng cơ sở dữ liệu hiện tại chưa có quán phù hợp với yêu cầu này trong khu vực, và trả về danh sách rỗng.\n4. Tuyệt đối không dùng văn mẫu máy móc hay khen một quán lạc đề là đúng món người dùng yêu cầu.\n\nChỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:\n{\n  \"valid_place_ids\": [\"id_1\", \"id_2\", ...],\n  \"ai_insight\": \"Lời tư vấn nhận xét ngắn gọn, tự nhiên...\"\n}",
+    "Variables": []
+  },
+  {
+    "Key": "meeting.verify.user",
+    "Group": "Meeting",
+    "DefaultContent": "Yêu cầu ban đầu của người dùng: \"{Prompt}\"\nTruy vấn bóc tách: \"{parsedQuery}\" (Nhóm: \"{parsedTargetCategory}\", Sở thích: \"{parsedSpecificPreference}\")\nThành viên / Điểm xuất phát: {originsSummary}\n\nDanh sách các địa điểm ứng viên hệ thống tìm được:\n{candidateListPrompt}\n\nHãy thẩm định danh sách trên và trả về kết quả JSON.",
+    "Variables": [
+      "Prompt",
+      "parsedQuery",
+      "parsedTargetCategory",
+      "parsedSpecificPreference",
+      "originsSummary",
+      "candidateListPrompt"
+    ]
+  },
+  {
+    "Key": "meeting.anchor.system",
+    "Group": "Meeting",
+    "DefaultContent": "Bạn là chuyên gia thẩm định dữ liệu địa lý và mốc tìm kiếm (search anchor) của hệ thống bản đồ LOSM.\nNhiệm vụ của bạn là kiểm tra xem địa điểm mà cơ sở dữ liệu hệ thống vừa tìm được có thực sự là mốc địa danh/vị trí người dùng mong muốn hay không:\n1. Yêu cầu của người dùng: Người dùng đang muốn tìm kiếm xung quanh mốc địa danh/vị trí nào trong câu yêu cầu?\n2. Đối chiếu với địa điểm CSDL tìm được:\n   - Tên địa điểm, địa chỉ, thể loại có thực sự khớp với mốc địa danh người dùng cần hay không?\n   - CẢNH BÁO FALSE POSITIVE: CSDL tìm kiếm theo từ khoá (text match) có thể tìm nhầm các công ty tư nhân, văn phòng quảng cáo, phòng vé, bảng hiệu kinh doanh có tên chứa từ khoá (ví dụ: người dùng tìm 'Sân bay Tân Sơn Nhất' nhưng CSDL lại trả về công ty 'Quảng Cáo Tại Sân Bay Tân Sơn Nhất' tại đường Phạm Ngọc Thạch; người dùng tìm 'Bến xe Miền Đông' nhưng CSDL trả về phòng vé tư nhân ở quận khác).\n   - KIỂM TRA PHẠM VI HỆ THỐNG: CSDL hệ thống hiện tại CHỈ MỚI CÓ DỮ LIỆU tại các khu vực: {areasDescription}. Nếu mốc địa danh thực tế mà người dùng yêu cầu nằm ngoài các khu vực này (ví dụ: Sân bay Tân Sơn Nhất thực tế ở Quận Tân Bình, không thuộc {areasDescription}), và kết quả tìm thấy chỉ là một doanh nghiệp dịch vụ trùng tên nằm trong khu vực hỗ trợ, thì đây là kết quả KHÔNG HỢP LỆ (invalid).\n3. Xuất kết quả thẩm định dưới dạng JSON:\n   - \"is_valid\": true nếu địa điểm tìm thấy THỰC SỰ là mốc địa danh người dùng yêu cầu.\n   - \"is_valid\": false nếu đây là doanh nghiệp/văn phòng trùng tên, sai lệch bản chất, hoặc mốc địa danh người dùng yêu cầu thực tế nằm ngoài phạm vi các khu vực hệ thống đang hỗ trợ.\n   - \"reason\": Nếu false, giải thích ngắn gọn, tự nhiên, lịch sự (1-2 câu) cho người dùng biết địa điểm tìm thấy chỉ là doanh nghiệp/dịch vụ trùng tên hoặc mốc địa danh này nằm ngoài phạm vi hỗ trợ của hệ thống ({areasDescription}), và đề xuất người dùng chọn mốc khác trong phạm vi hỗ trợ. Nếu true, trả về chuỗi rỗng \"\".\n\nChỉ xuất ra DUY NHẤT một chuỗi JSON hợp lệ theo định dạng:\n{\n  \"is_valid\": true,\n  \"reason\": \"...\"\n}",
+    "Variables": [
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "meeting.anchor.user",
+    "Group": "Meeting",
+    "DefaultContent": "Yêu cầu ban đầu của người dùng: \"{userPrompt}\"\nMốc địa danh trích xuất: \"{requestedAnchor}\"\nĐịa điểm CSDL tìm được:\n- Tên: {Name}\n- Địa chỉ: {DisplayName}\n- Thể loại: {Category}\n- Toạ độ: {Latitude}, {Longitude}\nCác khu vực hệ thống đang hỗ trợ: {areasDescription}\n\nHãy thẩm định tính hợp lệ của mốc địa danh trên.",
+    "Variables": [
+      "userPrompt",
+      "requestedAnchor",
+      "Name",
+      "DisplayName",
+      "Category",
+      "Latitude",
+      "Longitude",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "meeting.empty.anchor",
+    "Group": "Meeting",
+    "DefaultContent": "Người dùng muốn tìm: \"{parsedQuery}\" ở gần mốc \"{anchorName}\".\nHệ thống đang có dữ liệu tại: {areasDescription}.\nTrong bán kính tìm kiếm quanh mốc này hiện chưa tìm thấy địa điểm nào phù hợp với '{parsedQuery}'.\nHãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi thể loại địa điểm hoặc mở rộng bán kính tìm kiếm.",
+    "Variables": [
+      "parsedQuery",
+      "anchorName",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "meeting.empty.group",
+    "Group": "Meeting",
+    "DefaultContent": "Người dùng muốn tìm: \"{parsedQuery}\" cho nhóm {memberCount} người.\nHệ thống đang có dữ liệu tại: {areasDescription}.\nTâm điểm nhóm đã được tính toán nhưng không tìm thấy địa điểm nào phù hợp với từ khoá '{parsedQuery}' trong cơ sở dữ liệu và bán kính tìm kiếm.\nHãy giải thích ngắn gọn, tự nhiên và gợi ý người dùng đổi thể loại địa điểm (ví dụ cà phê, quán ăn) hoặc nới rộng bán kính tìm kiếm.",
+    "Variables": [
+      "parsedQuery",
+      "memberCount",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "meeting.advisor",
+    "Group": "Meeting",
+    "DefaultContent": "Bạn là chuyên gia tư vấn điều phối điểm hẹn nhóm thông minh.",
+    "Variables": []
+  },
+  {
+    "Key": "message.directions.clarify",
+    "Group": "Messages",
+    "DefaultContent": "Bạn muốn tìm đường đi từ đâu đến địa điểm nào ạ?",
+    "Variables": []
+  },
+  {
+    "Key": "message.directions.origin-missing",
+    "Group": "Messages",
+    "DefaultContent": "Hệ thống không tìm thấy toạ độ điểm xuất phát '{originTarget}' trong các khu vực hỗ trợ ({areasDescription}) để chỉ đường.",
+    "Variables": [
+      "originTarget",
+      "areasDescription"
+    ],
+    "SampleVariables": {
+      "originTarget": "Chợ Bến Thành",
+      "areasDescription": "Quận 1, Quận 3"
+    }
+  },
+  {
+    "Key": "message.directions.destination-missing",
+    "Group": "Messages",
+    "DefaultContent": "Hệ thống không tìm thấy toạ độ địa điểm đến '{destTarget}' trong các khu vực hỗ trợ ({areasDescription}) để tính đường đi.",
+    "Variables": [
+      "destTarget",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "message.directions.result",
+    "Group": "Messages",
+    "DefaultContent": "Đã tìm thấy lộ trình cho {memberName} từ {startName} đến '{destinationName}': khoảng cách {DistanceKm} km (~{durationMinutes} phút lái xe). Lộ trình đã được vẽ trên bản đồ.",
+    "Variables": [
+      "memberName",
+      "startName",
+      "destinationName",
+      "DistanceKm",
+      "durationMinutes"
+    ]
+  },
+  {
+    "Key": "message.search.clarify",
+    "Group": "Messages",
+    "DefaultContent": "Bạn muốn tìm '{parsedQuery}' ở khu vực nào hoặc gần địa điểm cụ thể nào (ví dụ: {areasDescription})?",
+    "Variables": [
+      "parsedQuery",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "message.search.anchor-rejected",
+    "Group": "Messages",
+    "DefaultContent": "Mốc địa danh '{anchorName}' nằm ngoài phạm vi các khu vực hệ thống đang hỗ trợ ({areasDescription}) hoặc không tìm thấy dữ liệu phù hợp. Bạn vui lòng chọn mốc địa danh khác nhé!",
+    "Variables": [
+      "anchorName",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "message.search.anchor-missing",
+    "Group": "Messages",
+    "DefaultContent": "Hệ thống không tìm thấy toạ độ mốc địa danh '{anchorName}' trong các khu vực đang hỗ trợ ({areasDescription}). Bạn vui lòng chọn mốc địa danh khác hoặc kiểm tra lại nhé!",
+    "Variables": [
+      "anchorName",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "message.search.origins-missing",
+    "Group": "Messages",
+    "DefaultContent": "Hệ thống hiện tại chỉ mới có dữ liệu địa điểm tại các khu vực: {areasDescription}. Các điểm xuất phát ({missingList}) hiện chưa có trong cơ sở dữ liệu nên không thể tính toán toạ độ và lộ trình chính xác. Bạn vui lòng xác nhận hoặc chọn điểm xuất phát trong phạm vi các khu vực hệ thống hỗ trợ nhé!",
+    "Variables": [
+      "areasDescription",
+      "missingList"
+    ]
+  },
+  {
+    "Key": "message.search.anchor-result",
+    "Group": "Messages",
+    "DefaultContent": "Địa điểm phù hợp nhất gần {anchorName} là \"{Name}\" ({Address}), cách mốc khoảng {AverageDistanceKm} km.",
+    "Variables": [
+      "anchorName",
+      "Name",
+      "Address",
+      "AverageDistanceKm"
+    ]
+  },
+  {
+    "Key": "message.search.single-result",
+    "Group": "Messages",
+    "DefaultContent": "Địa điểm gợi ý phù hợp nhất cho bạn là \"{Name}\" ({Address}), cách vị trí của bạn khoảng {AverageDistanceKm} km.",
+    "Variables": [
+      "Name",
+      "Address",
+      "AverageDistanceKm"
+    ]
+  },
+  {
+    "Key": "message.search.group-result",
+    "Group": "Messages",
+    "DefaultContent": "Điểm hẹn tối ưu nhất cho nhóm là \"{Name}\" ({Address}). Khoảng cách trung bình giữa các thành viên là {AverageDistanceKm} km với độ công bằng lộ trình đạt {fairnessPercent}%.",
+    "Variables": [
+      "Name",
+      "Address",
+      "AverageDistanceKm",
+      "fairnessPercent"
+    ]
+  },
+  {
+    "Key": "message.search.no-match",
+    "Group": "Messages",
+    "DefaultContent": "Hệ thống chưa tìm thấy địa điểm nào đúng theo yêu cầu \"{parsedQuery}\" trong khu vực hỗ trợ ({areasDescription}). Bạn có thể thử thay đổi tiêu chí tìm kiếm nhé!",
+    "Variables": [
+      "parsedQuery",
+      "areasDescription"
+    ]
+  },
+  {
+    "Key": "message.search.empty-anchor",
+    "Group": "Messages",
+    "DefaultContent": "Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện chưa tìm thấy địa điểm '{parsedQuery}' nào gần {anchorName}. Bạn thử đổi sang thể loại khác hoặc nới rộng bán kính xem sao nhé!",
+    "Variables": [
+      "areasDescription",
+      "parsedQuery",
+      "anchorName"
+    ]
+  },
+  {
+    "Key": "message.search.empty-group",
+    "Group": "Messages",
+    "DefaultContent": "Trong phạm vi dữ liệu hệ thống ({areasDescription}), hiện không tìm thấy địa điểm '{parsedQuery}' nào phù hợp cho nhóm. Bạn thử đổi sang thể loại khác như quán cà phê hoặc quán ăn xem sao nhé!",
+    "Variables": [
+      "areasDescription",
+      "parsedQuery"
+    ]
+  },
+  {
+    "Key": "message.agent.unavailable",
+    "Group": "Messages",
+    "DefaultContent": "Rất tiếc, trợ lý AI đang gặp sự cố tạm thời khi kết nối với mô hình xử lý. Bạn vui lòng thử lại sau giây lát nhé.",
+    "Variables": []
+  },
+  {
+    "Key": "message.agent.results",
+    "Group": "Messages",
+    "DefaultContent": "Mình đã tìm thấy một số địa điểm phù hợp gần khu vực bạn yêu cầu ({placeNames}). Bạn có thể xem danh sách địa điểm đính kèm.",
+    "Variables": [
+      "placeNames"
+    ]
+  },
+  {
+    "Key": "message.agent.empty",
+    "Group": "Messages",
+    "DefaultContent": "Mình đã cố gắng tìm kiếm nhưng hiện chưa thấy địa điểm nào thật sự phù hợp quanh khu vực này. Bạn có thể cho mình biết cụ thể hơn về tên quán hoặc gợi ý khu vực khác không?",
+    "Variables": []
+  },
+  {
+    "Key": "email.schedule.subject",
+    "Group": "Email",
+    "DefaultContent": "[LOSM] Thư mời: {title} @ {place}",
+    "Variables": [
+      "title",
+      "place"
+    ],
+    "SampleVariables": {
+      "title": "Họp triển khai dự án",
+      "place": "Highlands Coffee Hàm Nghi"
+    }
+  },
+  {
+    "Key": "email.schedule.calendar",
+    "Group": "Email",
+    "DefaultContent": "Địa điểm: {place}\nĐịa chỉ: {address}\n{note}",
+    "Variables": [
+      "place",
+      "address",
+      "note"
+    ],
+    "SampleVariables": {
+      "place": "Highlands Coffee Hàm Nghi",
+      "address": "123 Hàm Nghi, Quận 1",
+      "note": "Gặp mặt thảo luận kế hoạch dự án"
+    }
+  },
+  {
+    "Key": "email.schedule.html",
+    "Group": "Email",
+    "DefaultContent": "<div style=\"font-family:Arial,sans-serif;max-width:580px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px\">\n<h1 style=\"color:#2563eb\">LOSM Meeting Invite</h1>\n<p>Lời mời gặp mặt từ <strong>{host}</strong></p>\n<h2>{title}</h2>\n<p>Thời gian: {time} (GMT+7)</p>\n<p>Địa điểm: {place}</p><p>Địa chỉ: {address}</p><p>Ghi chú: {note}</p>\n<p><a href=\"{directionsUrl}\">Xem bản đồ &amp; Chỉ đường trên LOSM</a></p>\n<p><a href=\"{viewUrl}\">Xem chi tiết cuộc hẹn</a></p>\n<p>{attachmentNotice}</p><p>Được gửi từ nền tảng LOSM.</p>\n</div>",
+    "Variables": [
+      "host",
+      "title",
+      "time",
+      "place",
+      "address",
+      "note",
+      "directionsUrl",
+      "viewUrl",
+      "attachmentNotice"
+    ],
+    "SampleVariables": {
+      "host": "Nguyễn Văn A",
+      "title": "Họp triển khai dự án",
+      "time": "14:00 - Thứ Tư, 25/10/2026",
+      "place": "Highlands Coffee Hàm Nghi",
+      "address": "123 Hàm Nghi, Quận 1",
+      "note": "Mang theo laptop cá nhân",
+      "directionsUrl": "https://losm.vn/directions?place=123",
+      "viewUrl": "https://losm.vn/meetings/456",
+      "attachmentNotice": "Kèm theo tệp lịch mời (.ics) đính kèm."
+    }
+  },
+  {
+    "Key": "email.schedule.text",
+    "Group": "Email",
+    "DefaultContent": "LOSM Meeting Invite: {title}\nThời gian: {time} (GMT+7)\nĐịa điểm: {place}\nĐịa chỉ: {address}\nGhi chú: {note}\nChỉ đường trên bản đồ LOSM: {directionsUrl}\nXem chi tiết cuộc hẹn: {viewUrl}\n{attachmentNotice}",
+    "Variables": [
+      "title",
+      "time",
+      "place",
+      "address",
+      "note",
+      "directionsUrl",
+      "viewUrl",
+      "attachmentNotice"
+    ],
+    "SampleVariables": {
+      "title": "Họp triển khai dự án",
+      "time": "14:00 - Thứ Tư, 25/10/2026",
+      "place": "Highlands Coffee Hàm Nghi",
+      "address": "123 Hàm Nghi, Quận 1",
+      "note": "Mang theo laptop cá nhân",
+      "directionsUrl": "https://losm.vn/directions?place=123",
+      "viewUrl": "https://losm.vn/meetings/456",
+      "attachmentNotice": "Kèm theo tệp lịch mời (.ics) đính kèm."
+    }
+  },
+  {
+    "Key": "email.attachment-notice",
+    "Group": "Email",
+    "DefaultContent": "Tệp lịch .ics đính kèm hỗ trợ thêm vào ứng dụng lịch của bạn.",
+    "Variables": []
+  },
+  {
+    "Key": "email.calendar.subject",
+    "Group": "Email",
+    "DefaultContent": "[LocationSearch] {title}",
+    "Variables": [
+      "title"
+    ]
+  },
+  {
+    "Key": "email.calendar.html",
+    "Group": "Email",
+    "DefaultContent": "<h2>{title}</h2><p>Bạn có cuộc hẹn mới.</p>\n<p>Thời gian: {time} UTC ({duration} phút)</p>\n<p>Địa điểm: {address}</p><p>Mục đích: {purpose}</p><p>Ghi chú: {note}</p>\n<p>Google Calendar: <a href=\"{calendarUrl}\">{calendarUrl}</a></p><p>{attachmentNotice}</p>",
+    "Variables": [
+      "title",
+      "time",
+      "duration",
+      "address",
+      "purpose",
+      "note",
+      "calendarUrl",
+      "attachmentNotice"
+    ]
+  },
+  {
+    "Key": "email.calendar.text",
+    "Group": "Email",
+    "DefaultContent": "Cuộc hẹn: {title}\nThời gian: {time} UTC ({duration} phút)\nĐịa điểm: {address}\nMục đích: {purpose}\nGhi chú: {note}\nGoogle Calendar: {calendarUrl}\n{attachmentNotice}",
+    "Variables": [
+      "title",
+      "time",
+      "duration",
+      "address",
+      "purpose",
+      "note",
+      "calendarUrl",
+      "attachmentNotice"
+    ]
+  },
+  {
+    "Key": "email.friend.html",
+    "Group": "Email",
+    "DefaultContent": "\n<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;\">\n  <div style=\"border-bottom: 2px solid #3b82f6; padding-bottom: 16px; margin-bottom: 24px;\">\n    <h1 style=\"margin: 0; color: #1e293b; font-size: 22px; font-weight: 700;\">📍 LOSM - Meeting Places</h1>\n    <p style=\"margin: 4px 0 0 0; color: #64748b; font-size: 13px;\">Nền tảng tìm điểm hẹn công bằng và tối ưu lộ trình</p>\n  </div>\n\n  <p style=\"font-size: 15px; line-height: 1.6; margin-bottom: 16px;\">\n    Xin chào,\n  </p>\n  <p style=\"font-size: 15px; line-height: 1.6; margin-bottom: 24px;\">\n    <strong>{senderName}</strong> ({senderEmail}) vừa gửi lời mời kết bạn với bạn trên <strong>LOSM</strong>. \n    Khi trở thành bạn bè, hai bạn có thể cùng nhau tìm quán cà phê, nhà hàng và điểm hẹn chung với khoảng cách và thời gian di chuyển công bằng nhất!\n  </p>\n\n  <div style=\"text-align: center; margin: 32px 0;\">\n    <a href=\"{inviteUrl}\" style=\"background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 14px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);\">\n      Xem và chấp nhận lời mời kết bạn\n    </a>\n  </div>\n\n  <p style=\"font-size: 12px; color: #94a3b8; line-height: 1.5; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;\">\n    Nếu nút bấm trên không hoạt động, bạn có thể sao chép và dán liên kết sau vào trình duyệt:<br/>\n    <a href=\"{inviteUrl}\" style=\"color: #2563eb; word-break: break-all;\">{inviteUrl}</a>\n  </p>\n</div>",
+    "Variables": [
+      "senderName",
+      "senderEmail",
+      "inviteUrl"
+    ],
+    "SampleVariables": {
+      "senderName": "Nguyễn Văn A",
+      "senderEmail": "nguyenvana@gmail.com",
+      "inviteUrl": "https://losm.vn/friends/accept?token=sample123"
+    }
+  },
+  {
+    "Key": "email.friend.text",
+    "Group": "Email",
+    "DefaultContent": "Xin chào!\n\n{senderName} ({senderEmail}) vừa gửi lời mời kết bạn với bạn trên LOSM.\nNhấn vào liên kết sau để xem và chấp nhận lời mời:\n{inviteUrl}\n",
+    "Variables": [
+      "senderName",
+      "senderEmail",
+      "inviteUrl"
+    ],
+    "SampleVariables": {
+      "senderName": "Nguyễn Văn A",
+      "senderEmail": "nguyenvana@gmail.com",
+      "inviteUrl": "https://losm.vn/friends/accept?token=sample123"
+    }
+  },
+  {
+    "Key": "email.friend.subject",
+    "Group": "Email",
+    "DefaultContent": "[LOSM] {senderName} đã gửi cho bạn lời mời kết bạn",
+    "Variables": [
+      "senderName"
+    ],
+    "SampleVariables": {
+      "senderName": "Nguyễn Văn A"
+    }
+  },
+  {
+    "Key": "email.sender-name",
+    "Group": "Email",
+    "DefaultContent": "LOSM - Tìm Điểm Hẹn",
+    "Variables": []
+  }
+]

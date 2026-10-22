@@ -53,7 +53,7 @@ public class UsersController : ControllerBase
         [FromServices] Users.Application.Abstractions.IUserRepository repo)
     {
         if (string.IsNullOrWhiteSpace(email))
-            return BadRequest(new { exists = false, message = "Email không được để trống." });
+            return BadRequest(new { exists = false, message = "Email is required." });
 
         var user = await repo.GetByEmailAsync(email.Trim().ToLowerInvariant());
         return Ok(new
@@ -73,7 +73,7 @@ public class UsersController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest(new { message = "Email không được để trống." });
+            return BadRequest(new { message = "Email is required." });
 
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await repo.GetByEmailAsync(email);
@@ -137,7 +137,7 @@ public class UsersController : ControllerBase
         var clientId = config["Google:ClientId"];
         if (string.IsNullOrWhiteSpace(clientId))
         {
-            return BadRequest(new { message = "Chưa cấu hình Google:ClientId trong appsettings.json." });
+            return BadRequest(new { message = "Google:ClientId is not configured in appsettings.json." });
         }
 
         var backendUrl = ResolveBackendUrl(config);

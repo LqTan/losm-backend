@@ -120,7 +120,7 @@ public sealed class GetMeetingsForUserHandler
             action.CreatedAt,
             action.ConfirmedAt,
             action.CompletedAt,
-            payload?.Title ?? payload?.PlaceName ?? "(không có tiêu đề)",
+            payload?.Title ?? payload?.PlaceName ?? "(untitled)",
             payload?.Purpose,
             payload?.Note,
             payload?.StartAt,

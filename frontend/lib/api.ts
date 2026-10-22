@@ -23,6 +23,7 @@ export class ApiError extends Error {
 }
 
 import { handleAuthExpired } from "./auth";
+import { getApiErrorMessage } from "./api-error";
 
 async function request<T>(
   path: string,
@@ -52,10 +53,7 @@ async function request<T>(
     ) {
       handleAuthExpired();
     }
-    const message =
-      data && typeof data === "object" && "message" in data
-        ? String((data as { message?: unknown }).message ?? res.statusText)
-        : res.statusText;
+    const message = getApiErrorMessage(data, res.statusText);
     throw new ApiError(res.status, message, data);
   }
 

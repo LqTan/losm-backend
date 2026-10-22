@@ -154,8 +154,8 @@ public sealed class CreateMeetingTool
             actionType: "create_meeting",
             payloadJson: payloadJson,
             description:
-                $"Tạo cuộc hẹn '{arguments.Title}' tại '{place.Name}' lúc " +
-                $"{arguments.StartAt:HH:mm dd/MM} với {arguments.AttendeeEmails.Length} người tham dự",
+                $"Create meeting '{arguments.Title}' at '{place.Name}' on " +
+                $"{arguments.StartAt:HH:mm dd/MM} with {arguments.AttendeeEmails.Length} attendees",
             confirmationId: confirmationId,
             idempotencyKey: idempotencyKey
         );

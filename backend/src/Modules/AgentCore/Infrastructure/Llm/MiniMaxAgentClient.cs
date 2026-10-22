@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -11,13 +12,16 @@ namespace AgentCore.Infrastructure.Llm;
 
 public sealed class MiniMaxAgentClient : IAgentModelClient
 {
+    private readonly PromptProvider? _prompts;
     private readonly HttpClient _httpClient;
     private readonly MiniMaxAgentClientOptions _options;
 
     public MiniMaxAgentClient(
         HttpClient httpClient,
-        IOptions<MiniMaxAgentClientOptions> options)
+        IOptions<MiniMaxAgentClientOptions> options,
+        PromptProvider? prompts = null)
     {
+        _prompts = prompts;
         _httpClient = httpClient;
         _options = options.Value;
     }
@@ -35,7 +39,13 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
             );
         }
 
-        var messagesWithSystem = InjectSystemPrompt(messages);
+        var messagesWithSystem = await InjectSystemPromptAsync(messages, cancellationToken);
+        var mappedTools = new List<object>();
+        foreach (var tool in tools)
+        {
+            var description = _prompts is null ? tool.Description : await _prompts.ResolveAsync("tool." + tool.Name, tool.Description, cancellationToken);
+            mappedTools.Add(MapTool(tool, description));
+        }
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -50,7 +60,7 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
             {
                 model = _options.Model,
                 messages = messagesWithSystem.Select(MapMessage),
-                tools = tools.Select(MapTool)
+                tools = mappedTools
             }
         );
 
@@ -140,7 +150,7 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
     }
 
     private static object MapTool(
-        IAgentTool tool
+        IAgentTool tool, string description
     )
     {
         return new
@@ -149,7 +159,7 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
             function = new
             {
                 name = tool.Name,
-                description = tool.Description,
+                description,
                 parameters = tool.ParametersSchema
             }
         };
@@ -208,11 +218,12 @@ public sealed class MiniMaxAgentClient : IAgentModelClient
         return stripped.Trim();
     }
 
-    private static IReadOnlyList<AgentModelMessage> InjectSystemPrompt(
-        IReadOnlyList<AgentModelMessage> messages
+    private async Task<IReadOnlyList<AgentModelMessage>> InjectSystemPromptAsync(
+        IReadOnlyList<AgentModelMessage> messages, CancellationToken ct
     )
     {
         var systemPrompt = PromptFile.Load("agent-system.txt");
+        if (_prompts is not null) systemPrompt = await _prompts.ResolveAsync("agent-system", systemPrompt, ct);
 
         var existing = messages.FirstOrDefault();
 

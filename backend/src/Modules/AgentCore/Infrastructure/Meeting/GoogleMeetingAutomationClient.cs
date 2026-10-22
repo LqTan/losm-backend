@@ -1,3 +1,4 @@
+using AgentCore.Infrastructure.PromptsManagement;
 using AgentCore.Infrastructure.Email;
 using AgentCore.Infrastructure.Google;
 using Ical.Net;
@@ -11,6 +12,7 @@ namespace AgentCore.Infrastructure.Meeting;
 
 public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstractions.IMeetingAutomationClient
 {
+    private readonly PromptProvider? _prompts;
     private readonly IGoogleCalendarClient _calendarClient;
     private readonly IEmailSender _emailSender;
     private readonly AgentCore.Application.Abstractions.IUserGoogleTokenRepository _tokenRepository;
@@ -24,8 +26,10 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
         AgentCore.Application.Abstractions.IUserGoogleTokenRepository tokenRepository,
         IOptions<MeetingOptions> meetingOptions,
         IOptions<SmtpOptions> smtpOptions,
-        ILogger<GoogleMeetingAutomationClient> logger)
+        ILogger<GoogleMeetingAutomationClient> logger,
+        PromptProvider? prompts = null)
     {
+        _prompts = prompts;
         _calendarClient = calendarClient;
         _emailSender = emailSender;
         _tokenRepository = tokenRepository;
@@ -67,7 +71,7 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
                 false,
                 false,
                 null,
-                calendarResult.Error ?? "Google Calendar tạo event thất bại.");
+                calendarResult.Error ?? "Failed to create the Google Calendar event.");
         }
 
         var emailsSent = await SendInvitationsAsync(
@@ -81,7 +85,7 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
                 true,
                 false,
                 calendarResult.EventId,
-                "Calendar đã tạo nhưng gửi email thất bại.");
+                "Calendar event created, but email delivery failed.");
         }
 
         return new AgentCore.Application.Models.MeetingAutomationResult(
@@ -106,7 +110,7 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
         if (token is null)
         {
             return new AgentCore.Application.Models.MeetingAutomationResult(
-                false, false, null, "User chưa kết nối Google Calendar.");
+                false, false, null, "The user has not connected Google Calendar.");
         }
 
         var sourceActionId = TryGetGuid(payload, "sourceActionId");
@@ -118,8 +122,8 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
 
         return new AgentCore.Application.Models.MeetingAutomationResult(
             false, false, null,
-            "Retry không thể re-create calendar event từ trong GoogleMeetingAutomationClient; " +
-            "hãy gọi lại create_meeting với cùng idempotencyKey.");
+            "This retry cannot recreate a calendar event; " +
+            "call create_meeting again with the same idempotencyKey.");
     }
 
     private async Task<bool> SendInvitationsAsync(
@@ -136,7 +140,11 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
             ? BuildIcsAttachment(meeting, calendarResult)
             : null;
 
-        var html = BuildHtmlBody(meeting, calendarResult);
+        var attachmentNotice = icsBytes is not null
+            ? await ManagedTemplates.RenderAsync(_prompts, "email.attachment-notice", cancellationToken) : string.Empty;
+        var html = await BuildBodyAsync("email.calendar.html", meeting, calendarResult, attachmentNotice, cancellationToken);
+        var plainText = await BuildBodyAsync("email.calendar.text", meeting, calendarResult, attachmentNotice, cancellationToken);
+        var subject = await ManagedTemplates.RenderAsync(_prompts, "email.calendar.subject", cancellationToken, ("title", meeting.Title));
 
         var firstError = string.Empty;
         foreach (var email in meeting.AttendeeEmails)
@@ -154,9 +162,9 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
                 new EmailRequest(
                     ToAddress: email,
                     ToName: email,
-                    Subject: $"[LocationSearch] {meeting.Title}",
+                    Subject: subject,
                     HtmlBody: html,
-                    PlainTextBody: BuildTextBody(meeting, calendarResult),
+                    PlainTextBody: plainText,
                     Attachments: attachments),
                 cancellationToken);
 
@@ -221,54 +229,13 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
         return System.Text.Encoding.UTF8.GetBytes(serialized);
     }
 
-    private static string BuildHtmlBody(MeetingPayloadData meeting, CalendarEventResult result)
-    {
-        var link = string.IsNullOrEmpty(result.HtmlLink)
-            ? string.Empty
-            : $"<p>Mở trong Google Calendar: <a href=\"{result.HtmlLink}\">{result.HtmlLink}</a></p>";
-        var placeLine = string.IsNullOrEmpty(meeting.Address)
-            ? string.Empty
-            : $"<p>Địa điểm: <strong>{System.Net.WebUtility.HtmlEncode(meeting.Address)}</strong></p>";
-        var purposeLine = string.IsNullOrEmpty(meeting.Purpose)
-            ? string.Empty
-            : $"<p>Mục đích: {System.Net.WebUtility.HtmlEncode(meeting.Purpose)}</p>";
-        var noteLine = string.IsNullOrEmpty(meeting.Note)
-            ? string.Empty
-            : $"<p>Ghi chú: {System.Net.WebUtility.HtmlEncode(meeting.Note)}</p>";
-
-        return $"""
-            <p>Bạn có cuộc hẹn mới:</p>
-            <h2>{System.Net.WebUtility.HtmlEncode(meeting.Title)}</h2>
-            <p>Thời gian: <strong>{meeting.StartAtUtc:HH:mm dd/MM/yyyy} UTC</strong> ({meeting.DurationMinutes} phút)</p>
-            {placeLine}
-            {purposeLine}
-            {noteLine}
-            {link}
-            <p>File lịch (.ics) đính kèm để Add to Calendar.</p>
-            """;
-    }
-
-    private static string BuildTextBody(MeetingPayloadData meeting, CalendarEventResult result)
-    {
-        var lines = new List<string>
-        {
-            $"Cuộc hẹn: {meeting.Title}",
-            $"Thời gian: {meeting.StartAtUtc:HH:mm dd/MM/yyyy} UTC ({meeting.DurationMinutes} phút)"
-        };
-        if (!string.IsNullOrEmpty(meeting.Address))
-        {
-            lines.Add($"Địa điểm: {meeting.Address}");
-        }
-        if (!string.IsNullOrEmpty(meeting.Purpose))
-        {
-            lines.Add($"Mục đích: {meeting.Purpose}");
-        }
-        if (!string.IsNullOrEmpty(result.HtmlLink))
-        {
-            lines.Add($"Mở trong Google Calendar: {result.HtmlLink}");
-        }
-        return string.Join("\n", lines);
-    }
+    private Task<string> BuildBodyAsync(string key, MeetingPayloadData meeting, CalendarEventResult result,
+        string attachmentNotice, CancellationToken cancellationToken) =>
+        ManagedTemplates.RenderAsync(_prompts, key, cancellationToken,
+            ("title", meeting.Title), ("time", meeting.StartAtUtc.ToString("HH:mm dd/MM/yyyy")),
+            ("duration", meeting.DurationMinutes), ("address", meeting.Address),
+            ("purpose", meeting.Purpose), ("note", meeting.Note), ("calendarUrl", result.HtmlLink),
+            ("attachmentNotice", attachmentNotice));
 
     private static Guid? TryGetGuid(System.Text.Json.JsonElement payload, string name)
     {
@@ -334,8 +301,8 @@ public sealed class GoogleMeetingAutomationClient : AgentCore.Application.Abstra
         return new MeetingPayloadData(
             Title: payload.TryGetProperty("title", out var t) &&
                 t.ValueKind == System.Text.Json.JsonValueKind.String
-                ? t.GetString() ?? "Cuộc hẹn"
-                : "Cuộc hẹn",
+                ? t.GetString() ?? "Meeting"
+                : "Meeting",
             Purpose: payload.TryGetProperty("purpose", out var p) &&
                 p.ValueKind == System.Text.Json.JsonValueKind.String
                 ? p.GetString()

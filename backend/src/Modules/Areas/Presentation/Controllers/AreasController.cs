@@ -164,7 +164,7 @@ public sealed class AreasController : ControllerBase
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return BadRequest(new { message = "Vui lòng nhập tên khu vực." });
+            return BadRequest(new { message = "Area name is required." });
 
         var trimmed = query.Trim();
         try
@@ -225,9 +225,9 @@ public sealed class AreasController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = $"Lỗi tìm kiếm OpenStreetMap: {ex.Message}" });
+            return StatusCode(500, new { message = $"OpenStreetMap search failed: {ex.Message}" });
         }
 
-        return NotFound(new { message = $"Không tìm thấy vị trí '{trimmed}' trên OpenStreetMap." });
+        return NotFound(new { message = $"Location '{trimmed}' not found on OpenStreetMap." });
     }
 }

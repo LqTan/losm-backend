@@ -87,7 +87,7 @@ public sealed class CreateReviewTool
             actionType: "create_review",
             payloadJson: payloadJson,
             description:
-                $"Gửi đánh giá {arguments.Rating} sao" +
+                $"Submit a {arguments.Rating}-star review" +
                 (string.IsNullOrWhiteSpace(arguments.Comment)
                     ? string.Empty
                     : $": \"{arguments.Comment}\""),

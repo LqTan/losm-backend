@@ -107,7 +107,7 @@ public sealed class RetryMeetingEmailsTool
             actionType: "retry_meeting_emails",
             payloadJson: payloadJson,
             description:
-                $"Gửi lại email mời cho cuộc hẹn '{original.Description}'",
+                $"Resend invitations for meeting '{original.Description}'",
             confirmationId: confirmationId
         );
 

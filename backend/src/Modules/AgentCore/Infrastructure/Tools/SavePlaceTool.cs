@@ -123,10 +123,10 @@ public sealed class SavePlaceTool
             actionType: "save_place",
             payloadJson: payloadJson,
             description:
-                $"Lưu '{place.Name}' vào Saved Places" +
+                $"Save '{place.Name}' to Saved Places" +
                 (string.IsNullOrWhiteSpace(arguments.Note)
                     ? string.Empty
-                    : $" với ghi chú: {arguments.Note}"),
+                    : $" with note: {arguments.Note}"),
             confirmationId: confirmationId
         );
 
