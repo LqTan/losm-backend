@@ -1,4 +1,6 @@
 using System.Text;
+using Transit;
+using Transit.Infrastructure;
 using AgentCore;
 using AgentCore.Infrastructure.Persistence;
 using Areas;
@@ -101,6 +103,7 @@ builder.Services.AddUsers(builder.Configuration);
 builder.Services.AddSearch(builder.Configuration);
 builder.Services.AddAreas(builder.Configuration);
 builder.Services.AddOverture(builder.Configuration);
+builder.Services.AddTransit(builder.Configuration);
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -191,6 +194,7 @@ using (var scope = app.Services.CreateScope())
     await sp.GetRequiredService<PlacesDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<AreasDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<OvertureDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<TransitDbContext>().Database.MigrateAsync();
     if (!app.Environment.IsProduction())
     {
         await sp.GetRequiredService<Sandbox.Infrastructure.Persistence.SandboxDbContext>().Database.MigrateAsync();

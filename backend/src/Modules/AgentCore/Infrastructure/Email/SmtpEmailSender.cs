@@ -1,3 +1,4 @@
+using AgentCore.Application.Abstractions;
 using AgentCore.Infrastructure.PromptsManagement;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Logging;

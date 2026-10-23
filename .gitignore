@@ -17,3 +17,6 @@ backend/src/LocationSearch.Api/appsettings.json
 **/TestResults/
 **/.coverage
 **/*.coverage
+
+# Private Transit uploads and validated import snapshots
+backend/src/LocationSearch.Api/storage/transit/

@@ -61,10 +61,51 @@ src/
     ├── Reviews/                — review CRUD
     ├── Users/                  — auth, JWT
     ├── AgentCore/              — agent plans + tool registry
+    ├── Transit/                — GTFS/network datasets, batch imports, routing
+    ├── Areas/                  — district bounding box & active areas
+    ├── Overture/               — POI dataset configuration & sync
+    ├── Configuration/          — Elasticsearch config store
     └── Sandbox/                — Todos sample
 ```
 
 Each module exposes `AddXxx(IServiceCollection)` extension called from `Program.cs`.
+
+## Architecture Guidelines (Clean Architecture & CQRS)
+
+Hệ thống được tổ chức theo mô hình **Modular Monolith** kết hợp **Clean Architecture (4 tầng)** và **CQRS** (lấy module `Users` làm chuẩn tham chiếu):
+
+```
+Modules/<ModuleName>/
+├── Domain/                       # 1. Lõi nghiệp vụ (Core)
+│   └── Entities/                 #    Entities, POCO, Value Objects (không phụ thuộc EF Core hay tầng ngoài)
+├── Application/                  # 2. Ứng dụng & điều phối (Use Cases)
+│   ├── Abstractions/             #    Interfaces (IRepository, ITokenProvider, IEmailSender, v.v.) — DIP
+│   └── <Feature>/
+│       ├── Commands/             #    CQRS Commands (Command, Handler, Result)
+│       └── Queries/              #    CQRS Queries (Query, Handler, DTO)
+├── Infrastructure/               # 3. Hạ tầng & công nghệ (I/O, DB, External)
+│   ├── Persistence/              #    DbContext, EF Core Migrations
+│   ├── Repositories/             #    Hiện thực hóa các Repository interface từ Application
+│   ├── Configurations/           #    Entity type configuration cho EF Core
+│   └── Services/Adapters         #    Implementations của external services, storage, email, oauth, v.v.
+├── Presentation/                 # 4. Giao tiếp (Giao diện API)
+│   ├── Controllers/              #    API Controllers (chỉ gọi Application Handlers / Abstractions)
+│   └── Contracts/                #    Request & Response DTOs cho HTTP endpoint
+└── DependencyInjection.cs        # Entry point đăng ký DI cho module (Add<ModuleName>)
+```
+
+### Quy tắc phân tầng bắt buộc:
+1. **Chiều phụ thuộc (Dependency Inversion)**: `Presentation -> Application -> Domain <- Infrastructure`.
+2. **CẤM Presentation (Controller) phụ thuộc trực tiếp vào Infrastructure**:
+   - Controller **tuyệt đối không inject DbContext** hay các class/services cụ thể của tầng `Infrastructure` để viết query, transaction hoặc I/O trực tiếp.
+   - Controller chỉ tiếp nhận HTTP request, map sang Command/Query, ủy quyền xử lý cho Handler ở tầng Application và trả về HTTP status code phù hợp.
+   - Toàn bộ interface/contract mà Controller hoặc Application cần phải được định nghĩa trong `Application/Abstractions`.
+
+## Language & Coding Standards
+
+- **TUYỆT ĐỐI KHÔNG để bất kỳ từ tiếng Việt nào trong file `.cs`**:
+  - Toàn bộ mã nguồn trong các file `.cs` (bao gồm: API response messages, error messages, exception messages, placeholder strings, comments, logging messages, v.v.) **bắt buộc 100% bằng tiếng Anh**.
+  - Không hardcode chuỗi tiếng Việt trong code C# (ngoại trừ các tên riêng địa danh nghiệp vụ bắt buộc như `"Quận 1"` hoặc dữ liệu seed đặc thù nếu có).
 
 ## Database Migrations
 

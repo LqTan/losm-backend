@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using AgentCore.Application.Abstractions;
-using AgentCore.Infrastructure.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;

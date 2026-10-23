@@ -33,9 +33,12 @@
     <ProjectReference Include="..\Modules\AgentCore\AgentCore.csproj" />
     <ProjectReference Include="..\Modules\Areas\Areas.csproj" />
     <ProjectReference Include="..\Modules\Overture\Overture.csproj" />
+    <ProjectReference Include="..\Modules\Transit\Transit.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Remove="storage\transit\**" />
+    <None Remove="storage\transit\**" />
     <Content Update="storage\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

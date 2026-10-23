@@ -52,7 +52,7 @@ public sealed class PromptsAdminController(PromptCatalog catalog, IPromptStore s
             }
             else
             {
-                effectiveValues[v] = $"[Mẫu: {v}]";
+                effectiveValues[v] = $"[Sample: {v}]";
             }
         }
 

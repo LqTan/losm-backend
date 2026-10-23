@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentCore.Application.Abstractions;
 using AgentCore.Application.Agent.Queries.GetMeetingsForUser;
-using AgentCore.Infrastructure.Email;
 using Ical.Net;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;

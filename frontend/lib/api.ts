@@ -30,7 +30,7 @@ async function request<T>(
   init: RequestInit & { token?: string | null } = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (init.token) {
@@ -61,6 +61,8 @@ async function request<T>(
 }
 
 export const api = {
+  upload: <T>(path: string, body: FormData, token?: string | null) =>
+    request<T>(path, { method: "POST", body, token }),
   get: <T>(path: string, token?: string | null) =>
     request<T>(path, { method: "GET", token }),
   post: <T>(path: string, body: unknown, token?: string | null) =>

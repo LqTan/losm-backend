@@ -1,7 +1,7 @@
+using AgentCore.Application.Abstractions;
 using AgentCore.Domain.Entities;
 using AgentCore.Infrastructure.PromptsManagement;
 using AgentCore.Presentation.Controllers;
-using AgentCore.Infrastructure.Email;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

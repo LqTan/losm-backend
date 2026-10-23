@@ -1,6 +1,4 @@
-using Microsoft.Extensions.Logging;
-
-namespace AgentCore.Infrastructure.Email;
+namespace AgentCore.Application.Abstractions;
 
 public sealed record EmailAttachment(
     string FileName,

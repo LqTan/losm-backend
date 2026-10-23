@@ -7,8 +7,13 @@ const apiBase =
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: { proxyClientMaxBodySize: "27mb" },
   async rewrites() {
     return [
+      {
+        source: "/api/admin/transit/:path*",
+        destination: `${apiBase}/api/admin/transit/:path*`,
+      },
       {
         source: "/api/admin/hangfire-proxy",
         destination: `${apiBase}/api/admin/hangfire-proxy`,

@@ -1,4 +1,4 @@
-using AgentCore.Infrastructure.Email;
+using AgentCore.Application.Abstractions;
 using AgentCore.Presentation.Controllers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
