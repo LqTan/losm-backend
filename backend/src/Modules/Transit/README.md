@@ -80,14 +80,21 @@ retention, is the source of truth for import history.
 
 Safety flags are keyed by dataset + source stop ID, outside the snapshots. Neither
 replacement nor restore removes a flag. Admin inspection includes flagged rows
-and highlights them; future user-facing network queries must exclude flagged stops.
+and highlights them; assistant network queries exclude flagged stops.
 Flagging is for clearly wrong coordinates/addresses, not preferences.
 
 Complete source networks are retained, including out-of-area stops, to preserve
 connectivity. Areas continues to define district-level end-user service scope;
-importing a network does not expand Areas. Transit administration does not implement
-journey recommendations or bus/metro transfers. Those consume this data in the
-subsequent Search/AgentCore feature.
+importing a network does not expand Areas. The assistant supports nearby/name stop searches, route details and direct journeys
+through `search_transit_stops`, `get_transit_routes` and `find_transit_journey`.
+Queries use only applied snapshots and active districts, exclude unsafe stops, and
+respect direction and uninterrupted stop sequences. Journeys cannot cross excluded
+intermediate stops. Missing or ambiguous locations require clarification.
+
+The unified frontend assistant uses `/api/agent` for every message and renders
+structured transit results alongside place and direction results. The model selects
+tools from the shared registry without frontend mode or keyword routing. Access/egress distances are straight-line estimates. Transfers, pedestrian
+routing and real-time arrivals are not implemented; fares remain reference values.
 
 ## Storage and retention
 

@@ -1,5 +1,13 @@
 "use client";
 
+import TransitResults from "@/components/ai/TransitResults";
+import {
+  type TransitChatResult,
+  type TransitChatJourney,
+  type TransitChatLocation,
+  type TransitChatStop,
+} from "@/lib/transit-chat";
+import { fetchPedestrianStreetRoute, fetchBusStreetRoute } from "@/lib/transit-routing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,11 +59,28 @@ export interface ActivityStep {
 
 export interface AttachedPlace {
   id?: string;
+  placeId?: string;
   name?: string;
   address?: string;
   latitude?: number;
   longitude?: number;
   category?: string;
+}
+
+import { formatRouteNumber } from "@/lib/transit";
+
+export interface TransitRouteDetails {
+  origin?: { name: string; latitude: number; longitude: number };
+  destination?: { name: string; latitude: number; longitude: number };
+  boardingStop: { id: string; name: string; address?: string; latitude: number; longitude: number };
+  alightingStop: { id: string; name: string; address?: string; latitude: number; longitude: number };
+  walkOriginToBoarding?: [number, number][];
+  transitCoordinates: [number, number][];
+  walkAlightingToDest?: [number, number][];
+  intermediateStops?: Array<{ id: string; name: string; latitude: number; longitude: number }>;
+  routeNumber?: string | number;
+  routeName?: string;
+  stopCount?: number;
 }
 
 export interface AttachedRoute {
@@ -70,6 +95,7 @@ export interface AttachedRoute {
   durationMinutes: number;
   summary?: string | null;
   coordinates: [number, number][];
+  transitDetails?: TransitRouteDetails;
 }
 
 export interface ChatMessage {
@@ -84,11 +110,16 @@ export interface ChatMessage {
   aiInsight?: string | null;
   supportedAreas?: string[];
   attachedRoute?: AttachedRoute;
+  transitResults?: TransitChatResult[];
+  attachedPlaces?: AttachedPlace[];
   rankingMethod?: string;
   timestamp: string;
 }
 
 const QUICK_PROMPTS = [
+  "Tìm trạm xe buýt gần tôi",
+  "Tuyến xe buýt 01 đi qua những trạm nào?",
+  "Đi xe buýt từ Bến Thành đến Bến Bạch Đằng",
   "Tìm quán cafe yên tĩnh làm việc",
   "Nhóm 3 người: BV Chợ Rẫy, Chợ Bà Chiểu, SĐV Phú Nhuận",
   "Tôi ở Chợ Bến Thành, bạn tôi ở Landmark 81, tìm quán cafe",
@@ -119,6 +150,66 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
   return R * c;
 }
 
+function formatStepSummary(step: ActivityStep): string {
+  const toolName = step.toolName;
+  if (!toolName) {
+    if (step.summary === "Response ready") return "Đã hoàn thành câu trả lời";
+    if (step.summary === "Thinking") return "Đang phân tích và lập kế hoạch";
+    return step.summary || "Đã xử lý xong";
+  }
+
+  const toolDisplayMap: Record<string, { call: string; result: string }> = {
+    search_transit_stops: {
+      call: "Đang tra cứu các trạm xe buýt/metro...",
+      result: "Đã tìm thấy các trạm xe buýt/metro phù hợp",
+    },
+    get_transit_routes: {
+      call: "Đang tải thông tin tuyến xe buýt/metro...",
+      result: "Đã tải thông tin lộ trình tuyến xe",
+    },
+    find_transit_journey: {
+      call: "Đang kiểm tra các tuyến xe buýt/metro kết nối trực tiếp...",
+      result: "Đã tìm thấy hành trình xe buýt/metro phù hợp",
+    },
+    search_places: {
+      call: "Đang tìm kiếm các địa điểm trong khu vực...",
+      result: "Đã tìm thấy các địa điểm phù hợp",
+    },
+    search_meeting_places: {
+      call: "Đang tính toán toạ độ và tìm điểm hẹn nhóm công bằng...",
+      result: "Đã xác định các điểm hẹn nhóm tối ưu",
+    },
+    get_directions: {
+      call: "Đang tính toán tuyến đường di chuyển...",
+      result: "Đã tính toán xong lộ trình di chuyển",
+    },
+    geocode_place: {
+      call: "Đang xác định toạ độ địa danh...",
+      result: "Đã xác định toạ độ địa danh",
+    },
+    place_reviews: {
+      call: "Đang đọc đánh giá của địa điểm...",
+      result: "Đã tải đánh giá của địa điểm",
+    },
+    get_supported_areas: {
+      call: "Đang kiểm tra các khu vực hệ thống hỗ trợ...",
+      result: "Đã xác nhận danh sách khu vực hỗ trợ",
+    },
+    flag_invalid_place: {
+      call: "Đang đánh dấu địa điểm sai lệch dữ liệu...",
+      result: "Đã gắn cờ địa điểm sai lệch toạ độ",
+    },
+  };
+
+  const entry = toolDisplayMap[toolName];
+  if (entry) {
+    if (step.kind === 0) return entry.call;
+    return step.succeeded ? entry.result : `${entry.result} (thất bại)`;
+  }
+
+  return step.summary || `Công cụ: ${toolName}`;
+}
+
 interface Props {
   userLocation: { lat: number; lng: number } | null;
   onSelectPlaceOnMap?: (
@@ -135,6 +226,7 @@ interface Props {
     origins: Array<{ id: string; name: string; address: string; lat: number; lng: number }>
   ) => void;
   onSelectMeetingPlace?: (place: MeetingPlace, shouldCloseModal?: boolean) => void;
+  onSelectOriginRoute?: (place: MeetingPlace, origin: OriginItem) => void;
   onScheduleMeeting?: (place: Place, participants?: Array<{ name: string; email: string }>) => void;
   onRouteReceived?: (route: AttachedRoute) => void;
   activeMeetingPlaceId?: string | null;
@@ -145,10 +237,12 @@ interface Props {
 
 export default function AiChatWidget({
   userLocation,
+  onSelectPlaceOnMap,
   onOpenMeetingModal,
   onResetMap,
   onGroupSearchResults,
   onSelectMeetingPlace,
+  onSelectOriginRoute,
   onScheduleMeeting,
   onRouteReceived,
   activeMeetingPlaceId,
@@ -300,11 +394,12 @@ export default function AiChatWidget({
     {
       id: "welcome",
       sender: "ai",
-      text: "Xin chào! Tôi là Trợ lý AI của LOSM. Bạn có thể hỏi gợi ý địa điểm cá nhân, tìm điểm hẹn nhóm công bằng hoặc yêu cầu chỉ đường giữa các vị trí. Hãy nhập yêu cầu của bạn!",
+      text: "Xin chào! Tôi là Trợ lý AI của LOSM. Bạn có thể hỏi gợi ý địa điểm cá nhân, tìm điểm hẹn nhóm công bằng chỉ đường, tìm trạm xe buýt/metro hoặc tra tuyến công cộng. Hãy nhập yêu cầu của bạn!",
       timestamp: "Vừa xong",
     },
   ]);
   const [input, setInput] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [liveSteps, setLiveSteps] = useState<ActivityStep[]>([]);
   const [expandedStepsMap, setExpandedStepsMap] = useState<Record<string, boolean>>({});
@@ -340,11 +435,12 @@ export default function AiChatWidget({
 
   // Nút Tạo chat mới: Xóa tin nhắn, xóa form và xóa các điểm trên bản đồ
   function handleNewChat() {
+    setSessionId(null);
     setMessages([
       {
         id: "welcome",
         sender: "ai",
-        text: "Xin chào! Tôi là Trợ lý AI của LOSM. Bạn có thể hỏi gợi ý địa điểm cá nhân, tìm điểm hẹn nhóm công bằng hoặc yêu cầu chỉ đường giữa các vị trí. Hãy nhập yêu cầu của bạn!",
+        text: "Xin chào! Tôi là Trợ lý AI của LOSM. Bạn có thể hỏi gợi ý địa điểm cá nhân, tìm điểm hẹn nhóm công bằng chỉ đường, tìm trạm xe buýt/metro hoặc tra tuyến công cộng. Hãy nhập yêu cầu của bạn!",
         timestamp: "Vừa xong",
       },
     ]);
@@ -381,16 +477,15 @@ export default function AiChatWidget({
     setInput("");
     setLoading(true);
 
-    const initialSteps: ActivityStep[] = [
+    setLiveSteps([
       {
         order: 1,
         kind: 0,
         toolName: "analyze_intent",
-        summary: "Đang phân tích yêu cầu và thông tin địa điểm...",
+        summary: "Đang phân tích yêu cầu và mục tiêu...",
         succeeded: false,
       },
-    ];
-    setLiveSteps(initialSteps);
+    ]);
 
     const timer1 = setTimeout(() => {
       setLiveSteps([
@@ -398,18 +493,18 @@ export default function AiChatWidget({
           order: 1,
           kind: 1,
           toolName: "analyze_intent",
-          summary: "Đã phân tích mục tiêu tìm kiếm",
+          summary: "Đã phân tích mục tiêu & ý định",
           succeeded: true,
         },
         {
           order: 2,
           kind: 0,
-          toolName: "geocode_locations",
-          summary: "Đang tra cứu toạ độ thực tế...",
+          toolName: "query_data",
+          summary: "Đang tra cứu dữ liệu địa điểm & mạng lưới giao thông...",
           succeeded: false,
         },
       ]);
-    }, 700);
+    }, 600);
 
     const timer2 = setTimeout(() => {
       setLiveSteps([
@@ -417,196 +512,280 @@ export default function AiChatWidget({
           order: 1,
           kind: 1,
           toolName: "analyze_intent",
-          summary: "Đã phân tích mục tiêu tìm kiếm",
+          summary: "Đã phân tích mục tiêu & ý định",
           succeeded: true,
         },
         {
           order: 2,
           kind: 1,
-          toolName: "geocode_locations",
-          summary: "Đã xác định toạ độ các vị trí",
+          toolName: "query_data",
+          summary: "Đã kết nối dữ liệu địa điểm & mạng lưới giao thông",
           succeeded: true,
         },
         {
           order: 3,
           kind: 0,
-          toolName: "process_routing_matrix",
-          summary: "Đang tính toán dữ liệu khoảng cách & lộ trình OSRM...",
+          toolName: "find_solution",
+          summary: "Đang tính toán tối ưu kết quả và lộ trình...",
           succeeded: false,
         },
       ]);
-    }, 1500);
+    }, 1400);
 
     const myLat = userLocation?.lat ?? 10.7769;
     const myLng = userLocation?.lng ?? 106.7009;
 
     try {
       const token = getToken();
-
-      const payload = {
-        prompt: text,
-        userLatitude: myLat,
-        userLongitude: myLng,
-        friends: selectedFriends.map((f) => ({
-          name: f.name,
-          latitude: f.lat,
-          longitude: f.lng,
-          avatarUrl: f.avatarUrl,
-        })),
-      };
+      const friendsContext = selectedFriends.length
+        ? `\nSelected group members (context only): ${JSON.stringify(
+            selectedFriends.map((f) => ({
+              name: f.name,
+              latitude: f.lat,
+              longitude: f.lng,
+            }))
+          )}`
+        : "";
 
       const res = await api.post<{
-        query: string;
-        centroid: { lat: number; lng: number };
-        origins: OriginItem[];
-        results: MeetingPlace[];
-        aiInsight?: string;
-        supportedAreas?: string[];
+        sessionId: string;
+        answer: string;
+        steps: ActivityStep[];
+        attachedPlaces?: AttachedPlace[];
         attachedRoute?: AttachedRoute;
-        rankingMethod?: string;
-      }>("/api/agent/meeting-search", payload, token);
+        transitResults?: TransitChatResult[];
+        meetingResults?: {
+          query: string;
+          centroid?: { latitude: number; longitude: number };
+          searchRadiusKm?: number;
+          origins?: Array<{ name?: string; latitude: number; longitude: number; displayName?: string }>;
+          results?: Array<{
+            placeId: string;
+            name: string;
+            address?: string;
+            latitude: number;
+            longitude: number;
+            category?: string;
+            openingHours?: string;
+            distanceKmByOrigin?: number[];
+            averageDistanceKm?: number;
+            maxDistanceKm?: number;
+            spreadKm?: number;
+            relevanceScore?: number;
+            distanceScore?: number;
+            fairnessScore?: number;
+            finalScore?: number;
+            durationMinutesByOrigin?: number[];
+            averageDurationMinutes?: number;
+            spreadMinutes?: number;
+            isRoadRouting?: boolean;
+          }>;
+        };
+      }>(
+        "/api/agent",
+        {
+          message: text + friendsContext,
+          latitude: myLat,
+          longitude: myLng,
+          sessionId,
+        },
+        token
+      );
 
       clearTimeout(timer1);
       clearTimeout(timer2);
 
-      const rawItems = res?.results ?? [];
-      const items = [...rawItems].sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0));
-      const returnedOrigins: OriginItem[] = res?.origins ?? [];
-      const centroidCoord = res?.centroid ? { lat: res.centroid.lat, lng: res.centroid.lng } : null;
-      const supported = res?.supportedAreas ?? [];
-      const route = res?.attachedRoute;
+      setSessionId(res.sessionId);
 
-      // Xử lý tuyến đường nếu có (Intent chỉ đường)
-      if (route) {
-        onRouteReceived?.(route);
+      // 1. Tuyến đường di chuyển (Directions)
+      if (res.attachedRoute) {
+        onRouteReceived?.(res.attachedRoute);
       }
 
-      // Cập nhật bản đồ nếu có danh sách địa điểm
-      if (items.length > 0) {
-        onGroupSearchResults?.(items, centroidCoord, returnedOrigins);
+      // 2. Điểm hẹn nhóm (Search Meeting Places)
+      let meetingItems: MeetingPlace[] = [];
+      let centroidCoord: { lat: number; lng: number } | null = null;
+      let returnedOrigins: OriginItem[] = [];
+
+      if (res.meetingResults?.results && res.meetingResults.results.length > 0) {
+        meetingItems = res.meetingResults.results.map((r) => ({
+          placeId: r.placeId,
+          name: r.name,
+          address: r.address || null,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          category: r.category || null,
+          openingHours: r.openingHours || null,
+          distanceKmByOrigin: r.distanceKmByOrigin || [],
+          averageDistanceKm: r.averageDistanceKm || 0,
+          maxDistanceKm: r.maxDistanceKm || 0,
+          spreadKm: r.spreadKm || 0,
+          relevanceScore: r.relevanceScore || 1,
+          distanceScore: r.distanceScore || 1,
+          fairnessScore: r.fairnessScore || 1,
+          finalScore: r.finalScore || 1,
+          durationMinutesByOrigin: r.durationMinutesByOrigin,
+          averageDurationMinutes: r.averageDurationMinutes,
+          spreadMinutes: r.spreadMinutes,
+          isRoadRouting: r.isRoadRouting ?? true,
+        })).sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0));
+
+        centroidCoord = res.meetingResults.centroid
+          ? { lat: res.meetingResults.centroid.latitude, lng: res.meetingResults.centroid.longitude }
+          : null;
+
+        returnedOrigins = (res.meetingResults.origins || []).map((o, idx) => ({
+          id: `origin_${idx}`,
+          name: o.name || `Người ${idx + 1}`,
+          address: o.displayName || o.name || "Điểm xuất phát",
+          lat: o.latitude,
+          lng: o.longitude,
+          avatarUrl: selectedFriends[idx]?.avatarUrl,
+          isMe: idx === 0,
+        }));
+
+        onGroupSearchResults?.(meetingItems, centroidCoord, returnedOrigins);
       }
 
-      // Xây dựng các bước trực quan dựa trên kết quả trả về
-      let completedSteps: ActivityStep[] = [];
-      if (route) {
-        completedSteps = [
-          {
-            order: 1,
-            kind: 1,
-            toolName: "extract_members",
-            summary: `Đã phân tích yêu cầu lộ trình của ${route.memberName || route.originName}`,
-            succeeded: true,
-          },
-          {
-            order: 2,
-            kind: 1,
-            toolName: "geocode_origins",
-            summary: `Đã xác định toạ độ: ${route.originName} -> ${route.destinationName}`,
-            succeeded: true,
-          },
-          {
-            order: 3,
-            kind: 3,
-            toolName: "get_directions",
-            summary: `Đã tính toán lộ trình OSRM: ${route.distanceKm.toFixed(1)} km (~${Math.round(route.durationMinutes)} phút)`,
-            succeeded: true,
-          },
-        ];
-      } else if (items.length > 0) {
-        if (returnedOrigins.length <= 1) {
-          completedSteps = [
-            {
-              order: 1,
-              kind: 1,
-              toolName: "extract_intent",
-              summary: `Đã phân tích yêu cầu tìm kiếm: "${res.query || text}"`,
-              succeeded: true,
-            },
-            {
-              order: 2,
-              kind: 1,
-              toolName: "search_places",
-              summary: `Đã tra cứu địa điểm trong khu vực (${supported.join(", ")})`,
-              succeeded: true,
-            },
-            {
-              order: 3,
-              kind: 3,
-              toolName: "finalize_places",
-              summary: `Đã tìm thấy ${items.length} địa điểm phù hợp`,
-              succeeded: true,
-            },
-          ];
-        } else {
-          completedSteps = [
-            {
-              order: 1,
-              kind: 1,
-              toolName: "extract_members",
-              summary: `Đã phân tích nhóm ${returnedOrigins.length} thành viên`,
-              succeeded: true,
-            },
-            {
-              order: 2,
-              kind: 1,
-              toolName: "geocode_origins",
-              summary: `Đã tra cứu toạ độ thực tế của các điểm xuất phát`,
-              succeeded: true,
-            },
-            {
-              order: 3,
-              kind: 1,
-              toolName: "osrm_matrix",
-              summary: `Đã tính toán ma trận lộ trình & thời gian OSRM thực tế`,
-              succeeded: true,
-            },
-            {
-              order: 4,
-              kind: 3,
-              toolName: "finalize_meeting",
-              summary: `Đã chọn ${items.length} điểm hẹn công bằng tối ưu nhất`,
-              succeeded: true,
-            },
-          ];
-        }
+      // 3. Phương tiện công cộng (Transit)
+      const tResults = res.transitResults ?? [];
+      const allJourneys = tResults.flatMap((r) => r.journeys || []);
+      const allRoutes = tResults.flatMap((r) => r.routes || []);
+      const allStops = tResults.flatMap((r) => r.stops || []);
+
+      // 4. Các bước xử lý của Agent (Dựa trên kết quả thực tế đã tìm thấy)
+      const completedSteps: ActivityStep[] = [];
+
+      completedSteps.push({
+        order: 1,
+        kind: 1,
+        toolName: "analyze_intent",
+        summary: `Đã phân tích yêu cầu: "${text}"`,
+        succeeded: true,
+      });
+
+      if (allJourneys.length > 0) {
+        completedSteps.push({
+          order: 2,
+          kind: 1,
+          toolName: "query_transit",
+          summary: "Đã tra cứu dữ liệu mạng lưới trạm & tuyến xe buýt/metro nội bộ",
+          succeeded: true,
+        });
+        completedSteps.push({
+          order: 3,
+          kind: 3,
+          toolName: "find_transit_journey",
+          summary: `Đã tìm thấy ${allJourneys.length} hành trình xe buýt/metro trực tiếp`,
+          succeeded: true,
+        });
+      } else if (allRoutes.length > 0) {
+        completedSteps.push({
+          order: 2,
+          kind: 1,
+          toolName: "query_transit",
+          summary: "Đã tra cứu dữ liệu mạng lưới tuyến xe buýt/metro nội bộ",
+          succeeded: true,
+        });
+        completedSteps.push({
+          order: 3,
+          kind: 3,
+          toolName: "get_transit_routes",
+          summary: `Đã tải thông tin ${allRoutes.length} tuyến xe buýt/metro`,
+          succeeded: true,
+        });
+      } else if (allStops.length > 0) {
+        completedSteps.push({
+          order: 2,
+          kind: 1,
+          toolName: "query_transit",
+          summary: "Đã tra cứu dữ liệu trạm dừng xe buýt/metro nội bộ",
+          succeeded: true,
+        });
+        completedSteps.push({
+          order: 3,
+          kind: 3,
+          toolName: "search_transit_stops",
+          summary: `Đã tìm thấy ${allStops.length} trạm dừng phù hợp`,
+          succeeded: true,
+        });
+      } else if (res.attachedRoute) {
+        completedSteps.push({
+          order: 2,
+          kind: 1,
+          toolName: "geocode_locations",
+          summary: `Đã xác định toạ độ: ${res.attachedRoute.originName} -> ${res.attachedRoute.destinationName}`,
+          succeeded: true,
+        });
+        completedSteps.push({
+          order: 3,
+          kind: 3,
+          toolName: "get_directions",
+          summary: `Đã tính toán lộ trình: ${res.attachedRoute.distanceKm.toFixed(1)} km (~${Math.round(res.attachedRoute.durationMinutes)} phút)`,
+          succeeded: true,
+        });
+      } else if (meetingItems.length > 0) {
+        completedSteps.push({
+          order: 2,
+          kind: 1,
+          toolName: "geocode_origins",
+          summary: `Đã xác định toạ độ các điểm xuất phát của nhóm (${returnedOrigins.length} thành viên)`,
+          succeeded: true,
+        });
+        completedSteps.push({
+          order: 3,
+          kind: 3,
+          toolName: "search_meeting_places",
+          summary: `Đã chọn ${meetingItems.length} điểm hẹn nhóm công bằng tối ưu nhất`,
+          succeeded: true,
+        });
+      } else if (res.attachedPlaces && res.attachedPlaces.length > 0) {
+        completedSteps.push({
+          order: 2,
+          kind: 1,
+          toolName: "search_places",
+          summary: "Đã tra cứu các địa điểm trong khu vực hoạt động",
+          succeeded: true,
+        });
+        completedSteps.push({
+          order: 3,
+          kind: 3,
+          toolName: "finalize_places",
+          summary: `Đã tìm thấy ${res.attachedPlaces.length} địa điểm phù hợp`,
+          succeeded: true,
+        });
       } else {
-        completedSteps = [
-          {
-            order: 1,
-            kind: 1,
-            toolName: "search_places",
-            summary: `Đã tra cứu theo yêu cầu "${text}"`,
-            succeeded: true,
-          },
-          {
-            order: 2,
-            kind: 1,
-            toolName: "check_supported_areas",
-            summary: `Khu vực hỗ trợ: ${supported.join(", ") || "Quận 1"}`,
-            succeeded: true,
-          },
-          {
-            order: 3,
-            kind: 3,
-            toolName: "finalize",
-            summary: "Không tìm thấy kết quả phù hợp",
-            succeeded: false,
-          },
-        ];
+        completedSteps.push({
+          order: 2,
+          kind: 3,
+          toolName: "finalize",
+          summary: "Đã hoàn thành phản hồi yêu cầu",
+          succeeded: true,
+        });
       }
 
+      const stepsToDisplay: ActivityStep[] =
+        res.steps && res.steps.length > 0
+          ? res.steps
+              .filter((s) => s.kind === 0 || s.kind === 1 || s.kind === 3)
+              .map((s) => ({
+                ...s,
+                summary: formatStepSummary(s),
+              }))
+          : completedSteps;
+
+      const newAiId = `ai_${Date.now()}`;
       const aiMsg: ChatMessage = {
-        id: `ai_${Date.now()}`,
+        id: newAiId,
         sender: "ai",
-        text: res?.aiInsight || (route ? `Tôi đã tìm thấy tuyến đường tối ưu cho bạn.` : `Tôi đã tìm kiếm các địa điểm phù hợp theo yêu cầu của bạn.`),
-        steps: completedSteps,
-        meetingPlaces: items,
-        origins: returnedOrigins,
+        text: res.answer,
+        steps: stepsToDisplay,
+        attachedPlaces: res.attachedPlaces,
+        attachedRoute: res.attachedRoute,
+        transitResults: res.transitResults,
+        meetingPlaces: meetingItems.length > 0 ? meetingItems : undefined,
+        origins: returnedOrigins.length > 0 ? returnedOrigins : undefined,
         centroid: centroidCoord,
-        aiInsight: res?.aiInsight,
-        supportedAreas: supported,
-        attachedRoute: route,
-        rankingMethod: res?.rankingMethod ?? (items.some((it) => it.isOnnxScored) ? "onnx" : "system"),
         timestamp: new Date().toLocaleTimeString("vi-VN", {
           hour: "2-digit",
           minute: "2-digit",
@@ -614,22 +793,23 @@ export default function AiChatWidget({
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+      setExpandedStepsMap((prev) => ({ ...prev, [newAiId]: true }));
 
-      if (route) {
+      if (allJourneys.length > 0 || allRoutes.length > 0 || allStops.length > 0) {
+        toast.success("Đã tìm thấy thông tin phương tiện công cộng!");
+      } else if (res.attachedRoute) {
         toast.success("Đã tìm thấy tuyến đường và hiển thị lên bản đồ!");
-      } else if (items.length > 0) {
-        toast.success(`Đã tìm thấy ${items.length} địa điểm phù hợp!`);
-      } else {
-        toast.info("Không tìm thấy địa điểm phù hợp trong khu vực hỗ trợ.");
+      } else if (meetingItems.length > 0) {
+        toast.success(`Đã tìm thấy ${meetingItems.length} địa điểm gặp mặt phù hợp!`);
+      } else if (res.attachedPlaces && res.attachedPlaces.length > 0) {
+        toast.success(`Đã tìm thấy ${res.attachedPlaces.length} địa điểm phù hợp!`);
       }
     } catch (err) {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
       console.error("AI Assistant error:", err);
       const msg =
         err instanceof ApiError
           ? err.message
-          : "Có lỗi khi phân tích và tìm kiếm. Vui lòng thử lại.";
+          : "Có lỗi khi phân tích và xử lý yêu cầu. Vui lòng thử lại.";
 
       setMessages((prev) => [
         ...prev,
@@ -642,6 +822,8 @@ export default function AiChatWidget({
       ]);
       toast.error(msg);
     } finally {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       setLoading(false);
       setLiveSteps([]);
     }
@@ -692,7 +874,7 @@ export default function AiChatWidget({
                     </Badge>
                   </CardTitle>
                   <p className="text-[10px] text-muted-foreground">
-                    Gợi ý địa điểm, tìm điểm hẹn nhóm & chỉ đường
+                    Địa điểm, điểm hẹn, chỉ đường & bus/metro
                   </p>
                 </div>
               </div>
@@ -823,6 +1005,193 @@ export default function AiChatWidget({
                       {/* Nội dung text thông thường (nếu không có aiInsight) */}
                       {!msg.aiInsight && <p className="whitespace-pre-wrap">{msg.text}</p>}
 
+                      {/* Thẻ gợi ý địa điểm: chỉ hiển thị khi là tra cứu địa điểm, không hiển thị đè lên kết quả phương tiện công cộng hay tìm đường */}
+                      {!msg.transitResults?.some((r) => (r.journeys && r.journeys.length > 0) || (r.routes && r.routes.length > 0) || (r.stops && r.stops.length > 0)) &&
+                        !msg.attachedRoute &&
+                        !msg.meetingPlaces?.length &&
+                        msg.attachedPlaces?.map((place, index) => (
+                        <div key={place.placeId ?? index} className="rounded-xl border p-2.5 space-y-1">
+                          <p className="font-medium">{place.name}</p>
+                          <p className="text-muted-foreground">{place.address}</p>
+                          {onSelectPlaceOnMap && place.latitude != null && place.longitude != null && (
+                            <div className="pt-1.5 border-t border-border/40">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  onSelectPlaceOnMap(
+                                    place.latitude!,
+                                    place.longitude!,
+                                    place.name ?? "",
+                                    { ...place, id: place.placeId }
+                                  );
+                                  toast.success(`Đã hiển thị "${place.name}" lên bản đồ!`);
+                                  handleClose();
+                                }}
+                                className="w-full h-7 text-[11px] font-medium gap-1.5 text-blue-600 hover:text-blue-700 border-blue-200 bg-blue-50/50 hover:bg-blue-100/60 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/40 cursor-pointer justify-center rounded-lg shadow-2xs"
+                              >
+                                <Compass className="h-3.5 w-3.5 text-primary" /> Xem trên bản đồ
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {msg.transitResults && (() => {
+                        const allJourneys = (msg.transitResults ?? []).flatMap((r) => r.journeys);
+
+                        const triggerJourneyRoute = async (
+                          journey: TransitChatJourney,
+                          origin?: TransitChatLocation | null,
+                          destination?: TransitChatLocation | null
+                        ) => {
+                          if (!onRouteReceived) return;
+
+                          const origLat =
+                            origin?.latitude ?? userLocation?.lat ?? journey.boardingStop.latitude;
+                          const origLng =
+                            origin?.longitude ?? userLocation?.lng ?? journey.boardingStop.longitude;
+                          const origName =
+                            origin?.name && origin.name !== "Origin" && origin.name !== "Location"
+                              ? origin.name
+                              : userLocation
+                              ? "Vị trí của bạn (GPS)"
+                              : "Điểm xuất phát";
+
+                          const destLat =
+                            destination?.latitude ?? journey.alightingStop.latitude;
+                          const destLng =
+                            destination?.longitude ?? journey.alightingStop.longitude;
+                          const destName =
+                            destination?.name &&
+                            destination.name !== "Destination" &&
+                            destination.name !== "Origin" &&
+                            destination.name !== "Location"
+                              ? destination.name
+                              : "Điểm đến";
+
+                          const rawBusStops: [number, number][] =
+                            journey.route.stops && journey.route.stops.length > 0
+                              ? journey.route.stops.map((s: TransitChatStop) => [s.latitude, s.longitude] as [number, number])
+                              : [
+                                  [journey.boardingStop.latitude, journey.boardingStop.longitude],
+                                  [journey.alightingStop.latitude, journey.alightingStop.longitude],
+                                ];
+
+                          toast.loading("Đang tính toán đường đi theo mạng lưới đường phố...", { id: "transit-routing" });
+
+                          // Tải lộ trình đi bộ và lộ trình xe buýt bám sát đường phố thực tế qua OSRM
+                          const [walkOriginToBoarding, transitCoords, walkAlightingToDest] = await Promise.all([
+                            fetchPedestrianStreetRoute(origLat, origLng, journey.boardingStop.latitude, journey.boardingStop.longitude),
+                            fetchBusStreetRoute(rawBusStops),
+                            fetchPedestrianStreetRoute(journey.alightingStop.latitude, journey.alightingStop.longitude, destLat, destLng),
+                          ]);
+
+                          toast.dismiss("transit-routing");
+
+                          const allCoords: [number, number][] = [
+                            [origLat, origLng],
+                            ...transitCoords,
+                            [destLat, destLng],
+                          ];
+
+                          const distKm =
+                            (journey.accessDistanceMeters + journey.egressDistanceMeters) / 1000 +
+                            transitCoords.length * 0.4;
+                          const durMin = Math.max(5, Math.round(distKm * 3.5));
+
+                          const transitRoute: AttachedRoute = {
+                            originName: origName,
+                            originLatitude: origLat,
+                            originLongitude: origLng,
+                            destinationName: destName,
+                            destinationLatitude: destLat,
+                            destinationLongitude: destLng,
+                            memberName: null,
+                            distanceKm: distKm,
+                            durationMinutes: durMin,
+                            summary: `Tuyến ${formatRouteNumber(journey.route.number)} · ${journey.route.name}`,
+                            coordinates: allCoords,
+                            transitDetails: {
+                              origin: { name: origName, latitude: origLat, longitude: origLng },
+                              destination: { name: destName, latitude: destLat, longitude: destLng },
+                              boardingStop: {
+                                id: String(journey.boardingStop.id),
+                                name: journey.boardingStop.name,
+                                address: journey.boardingStop.address,
+                                latitude: journey.boardingStop.latitude,
+                                longitude: journey.boardingStop.longitude,
+                              },
+                              alightingStop: {
+                                id: String(journey.alightingStop.id),
+                                name: journey.alightingStop.name,
+                                address: journey.alightingStop.address,
+                                latitude: journey.alightingStop.latitude,
+                                longitude: journey.alightingStop.longitude,
+                              },
+                              walkOriginToBoarding,
+                              transitCoordinates: transitCoords,
+                              walkAlightingToDest,
+                              intermediateStops: (journey.route.stops || []).slice(1, -1).map((s: TransitChatStop) => ({
+                                id: String(s.id),
+                                name: s.name,
+                                latitude: s.latitude,
+                                longitude: s.longitude,
+                              })),
+                              routeNumber: formatRouteNumber(journey.route.number),
+                              routeName: journey.route.name,
+                              stopCount: journey.stopCount,
+                            },
+                          };
+
+                          onRouteReceived(transitRoute);
+                          toast.success(
+                            `Đã hiển thị lộ trình tuyến ${formatRouteNumber(journey.route.number)} lên bản đồ!`
+                          );
+                          handleClose();
+                        };
+
+                        return (
+                          <TransitResults
+                            results={msg.transitResults}
+                            onSelectStop={(stop) => {
+                              const matchingJourney = allJourneys.find(
+                                (j) => j.boardingStop.id === stop.id || j.alightingStop.id === stop.id
+                              ) ?? (allJourneys.length > 0 ? allJourneys[0] : null);
+
+                              if (matchingJourney && onRouteReceived) {
+                                const parent = (msg.transitResults ?? []).find((r) =>
+                                  r.journeys.includes(matchingJourney)
+                                );
+                                triggerJourneyRoute(matchingJourney, parent?.origin, parent?.destination);
+                                return;
+                              }
+
+                              if (onSelectPlaceOnMap) {
+                                onSelectPlaceOnMap(
+                                  stop.latitude,
+                                  stop.longitude,
+                                  stop.name,
+                                  {
+                                    id: String(stop.id),
+                                    name: stop.name,
+                                    address: stop.address,
+                                    category: stop.mode === "Metro" ? "Ga metro" : "Trạm xe buýt",
+                                  }
+                                );
+                                toast.success(`Đã hiển thị trạm "${stop.name}" lên bản đồ!`);
+                                handleClose();
+                              }
+                            }}
+                            onSelectJourney={
+                              onRouteReceived
+                                ? (journey, origin, destination) => triggerJourneyRoute(journey, origin, destination)
+                                : undefined
+                            }
+                          />
+                        );
+                      })()}
+
                       {/* 4. Thẻ tuyến đường được AI tính toán qua get_directions */}
                       {msg.attachedRoute && (
                         <div className="mt-2.5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 text-xs space-y-1.5">
@@ -839,17 +1208,18 @@ export default function AiChatWidget({
                             Từ <strong className="text-foreground">{msg.attachedRoute.originName}</strong> đến <strong className="text-foreground">{msg.attachedRoute.destinationName}</strong>
                             {msg.attachedRoute.summary && <span> ({msg.attachedRoute.summary})</span>}
                           </div>
-                          <div className="pt-1.5 border-t border-border/40 flex justify-end">
+                          <div className="pt-1.5 border-t border-blue-500/20">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => {
                                 onRouteReceived?.(msg.attachedRoute!);
                                 toast.success(`Đã hiển thị tuyến đường lên bản đồ!`);
+                                handleClose();
                               }}
-                              className="h-6 text-[10px] px-2 gap-1 text-blue-600 hover:text-blue-700 border-blue-200 cursor-pointer"
+                              className="w-full h-7 text-[11px] font-medium gap-1.5 text-blue-600 hover:text-blue-700 border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/40 cursor-pointer justify-center rounded-lg shadow-2xs"
                             >
-                              <Compass className="h-3 w-3" /> Xem lại tuyến đường trên bản đồ
+                              <Compass className="h-3.5 w-3.5 text-primary" /> Xem tuyến đường trên bản đồ
                             </Button>
                           </div>
                         </div>
@@ -965,13 +1335,21 @@ export default function AiChatWidget({
 
                                   {/* Hiển thị khoảng cách: Nhóm nhiều người vs Cá nhân 1 người */}
                                   {isGroup ? (
-                                    isMaximized && (
-                                      <div className="bg-muted/40 rounded-lg p-2 space-y-1 border border-border/50 text-[10px]">
-                                        <div className="font-semibold text-muted-foreground text-[9px] uppercase tracking-wider flex items-center gap-1">
-                                          <Car className="h-3 w-3 text-primary" />
-                                          Khoảng cách & thời gian di chuyển từng người:
+                                    (
+                                      <div className="bg-muted/40 rounded-lg p-2 space-y-1.5 border border-border/50 text-[10px]">
+                                        <div className="font-semibold text-muted-foreground text-[9px] uppercase tracking-wider flex items-center justify-between">
+                                          <span className="flex items-center gap-1">
+                                            <Users className="h-3 w-3 text-primary" />
+                                            Khoảng cách từng người (bấm để xem đường đi):
+                                          </span>
                                         </div>
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-1">
+                                        <div
+                                          className={`grid gap-1.5 ${
+                                            isMaximized
+                                              ? "grid-cols-2 sm:grid-cols-3"
+                                              : "grid-cols-2 max-h-28 overflow-y-auto pr-1"
+                                          }`}
+                                        >
                                           {msg.origins!.map((orig, oIdx) => {
                                             const dist =
                                               item.distanceKmByOrigin && item.distanceKmByOrigin[oIdx] !== undefined
@@ -982,11 +1360,23 @@ export default function AiChatWidget({
                                                 ? item.durationMinutesByOrigin[oIdx]
                                                 : (dist / 25) * 60;
                                             return (
-                                              <div key={oIdx} className="flex items-center gap-1 text-muted-foreground truncate">
-                                                <span className="font-semibold text-foreground truncate max-w-[65px]">
+                                              <button
+                                                type="button"
+                                                key={oIdx}
+                                                onClick={() => {
+                                                  if (onSelectOriginRoute) {
+                                                    onSelectOriginRoute(item, orig);
+                                                  } else {
+                                                    onSelectMeetingPlace?.(item, true);
+                                                  }
+                                                }}
+                                                className="flex items-center justify-between gap-1 text-[10px] p-1.5 rounded-md border border-border/40 bg-background/60 hover:bg-muted hover:border-primary/50 text-foreground transition truncate text-left cursor-pointer"
+                                                title={`Xem tuyến đường từ ${orig.name} (${orig.address}) đến ${item.name}`}
+                                              >
+                                                <span className="font-semibold truncate max-w-[65px]">
                                                   {orig.name}:
                                                 </span>
-                                                <span>
+                                                <span className="text-muted-foreground shrink-0">
                                                   {dist.toFixed(1)} km
                                                   {dur !== undefined && dur !== null && (
                                                     <span className="ml-0.5 font-bold text-foreground">
@@ -994,7 +1384,7 @@ export default function AiChatWidget({
                                                     </span>
                                                   )}
                                                 </span>
-                                              </div>
+                                              </button>
                                             );
                                           })}
                                         </div>

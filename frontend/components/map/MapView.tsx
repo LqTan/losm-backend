@@ -13,6 +13,7 @@ import {
   useMap,
 } from "react-leaflet";
 import type { Place, MeetingPlace } from "@/types/place";
+import type { TransitRouteDetails } from "../ai/AiChatWidget";
 import { Fragment, useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 import AppTileLayer from "@/components/map/AppTileLayer";
@@ -94,6 +95,44 @@ function createTeardropPinIcon({
   });
 }
 
+function createTransitPinIcon({
+  color,
+  badgeText,
+  iconSvg,
+}: {
+  color: string;
+  badgeText: string;
+  iconSvg: string;
+}) {
+  const pinWidth = 36;
+  const pinHeight = 48;
+  const iconAnchorX = 18;
+  const iconAnchorY = 46;
+
+  const html = `
+    <div style="position: relative; width: ${pinWidth}px; height: ${pinHeight}px; display: flex; flex-direction: column; align-items: center; cursor: pointer; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
+      <svg width="${pinWidth}" height="${pinHeight}" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="position: absolute; left: 0; top: 0; pointer-events: none;">
+        <path d="M18 2 C9.2 2 2 9.2 2 18 C2 29 18 46 18 46 C18 46 34 29 34 18 C34 9.2 26.8 2 18 2 Z" fill="${color}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="18" cy="18" r="11" fill="#ffffff"/>
+      </svg>
+      <div style="position: absolute; top: 7px; left: 7px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 10;">
+        ${iconSvg}
+      </div>
+      <span style="position: absolute; top: -14px; background: ${color}; color: white; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 9999px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.25); border: 1px solid white; z-index: 20; max-width: 120px; overflow: hidden; text-overflow: ellipsis;">
+        ${badgeText}
+      </span>
+    </div>
+  `;
+
+  return L.divIcon({
+    className: "losm-transit-pin",
+    html,
+    iconSize: [pinWidth, pinHeight],
+    iconAnchor: [iconAnchorX, iconAnchorY],
+    popupAnchor: [0, -iconAnchorY],
+  });
+}
+
 export interface MapOrigin {
   id?: string;
   name: string;
@@ -117,23 +156,65 @@ interface Props {
     coordinates: [number, number][];
     distanceKm: number;
     durationMinutes: number;
+    transitDetails?: TransitRouteDetails;
   } | null;
 }
 
 function RouteBoundsController({
   route,
 }: {
-  route?: { coordinates: [number, number][] } | null;
+  route?: {
+    coordinates: [number, number][];
+    transitDetails?: TransitRouteDetails;
+  } | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    if (route && route.coordinates && route.coordinates.length > 1) {
-      const bounds = L.latLngBounds(route.coordinates);
+    if (!route) return;
+
+    const allPoints: [number, number][] = [];
+
+    if (route.transitDetails) {
+      const td = route.transitDetails;
+      if (td.origin && td.origin.latitude && td.origin.longitude) {
+        allPoints.push([td.origin.latitude, td.origin.longitude]);
+      }
+      if (td.destination && td.destination.latitude && td.destination.longitude) {
+        allPoints.push([td.destination.latitude, td.destination.longitude]);
+      }
+      if (td.boardingStop && td.boardingStop.latitude && td.boardingStop.longitude) {
+        allPoints.push([td.boardingStop.latitude, td.boardingStop.longitude]);
+      }
+      if (td.alightingStop && td.alightingStop.latitude && td.alightingStop.longitude) {
+        allPoints.push([td.alightingStop.latitude, td.alightingStop.longitude]);
+      }
+      if (td.intermediateStops && td.intermediateStops.length > 0) {
+        td.intermediateStops.forEach((s) => {
+          if (s.latitude && s.longitude) allPoints.push([s.latitude, s.longitude]);
+        });
+      }
+      if (td.walkOriginToBoarding) {
+        allPoints.push(...td.walkOriginToBoarding);
+      }
+      if (td.transitCoordinates) {
+        allPoints.push(...td.transitCoordinates);
+      }
+      if (td.walkAlightingToDest) {
+        allPoints.push(...td.walkAlightingToDest);
+      }
+    } else if (route.coordinates && route.coordinates.length > 0) {
+      allPoints.push(...route.coordinates);
+    }
+
+    if (allPoints.length > 1) {
+      const bounds = L.latLngBounds(allPoints);
       map.fitBounds(bounds, {
         padding: [80, 80],
         maxZoom: 16,
       });
+    } else if (allPoints.length === 1) {
+      map.flyTo(allPoints[0], 16);
     }
   }, [route, map]);
 
@@ -506,8 +587,9 @@ export default function MapView({
         );
       })}
 
-      {/* Standalone Marker for selectedPlace if not in places array */}
+      {/* Standalone Marker for selectedPlace if not in places array and no transit route active */}
       {selectedPlace &&
+        !navigationRoute?.transitDetails &&
         !places.some(
           (p) =>
             p.id === selectedPlace.id ||
@@ -564,28 +646,362 @@ export default function MapView({
         </Fragment>
       )}
 
-      {/* Driving Navigation Route from OSRM */}
-      {navigationRoute && navigationRoute.coordinates && navigationRoute.coordinates.length > 0 && (
+      {/* Transit Route Visualization (Walking dashed lines + Solid bus lines + Markers) */}
+      {navigationRoute?.transitDetails ? (
         <>
-          <Polyline
-            positions={navigationRoute.coordinates}
-            pathOptions={{
-              color: "#60a5fa",
-              weight: 8,
-              opacity: 0.45,
-              lineJoin: "round",
-            }}
-          />
-          <Polyline
-            positions={navigationRoute.coordinates}
-            pathOptions={{
-              color: "#2563eb",
-              weight: 4.5,
-              opacity: 0.95,
-              lineJoin: "round",
-            }}
-          />
+          {/* 1. Walk from origin to boarding stop (nét đứt đi bộ) */}
+          {navigationRoute.transitDetails.walkOriginToBoarding &&
+            navigationRoute.transitDetails.walkOriginToBoarding.length > 1 && (
+              <>
+                <Polyline
+                  positions={navigationRoute.transitDetails.walkOriginToBoarding}
+                  pathOptions={{
+                    color: "#fdba74",
+                    weight: 6,
+                    opacity: 0.5,
+                    dashArray: "6, 8",
+                    lineCap: "round",
+                  }}
+                />
+                <Polyline
+                  positions={navigationRoute.transitDetails.walkOriginToBoarding}
+                  pathOptions={{
+                    color: "#ea580c",
+                    weight: 3.5,
+                    opacity: 0.95,
+                    dashArray: "6, 8",
+                    lineCap: "round",
+                  }}
+                />
+              </>
+            )}
+
+          {/* 2. Bus ride solid route */}
+          {navigationRoute.transitDetails.transitCoordinates &&
+            navigationRoute.transitDetails.transitCoordinates.length > 0 && (
+              <>
+                <Polyline
+                  positions={navigationRoute.transitDetails.transitCoordinates}
+                  pathOptions={{
+                    color: "#60a5fa",
+                    weight: 9,
+                    opacity: 0.45,
+                    lineJoin: "round",
+                  }}
+                />
+                <Polyline
+                  positions={navigationRoute.transitDetails.transitCoordinates}
+                  pathOptions={{
+                    color: "#2563eb",
+                    weight: 5,
+                    opacity: 0.95,
+                    lineJoin: "round",
+                  }}
+                />
+              </>
+            )}
+
+          {/* 3. Walk from alighting stop to destination (nét đứt đi bộ) */}
+          {navigationRoute.transitDetails.walkAlightingToDest &&
+            navigationRoute.transitDetails.walkAlightingToDest.length > 1 && (
+              <>
+                <Polyline
+                  positions={navigationRoute.transitDetails.walkAlightingToDest}
+                  pathOptions={{
+                    color: "#fdba74",
+                    weight: 6,
+                    opacity: 0.5,
+                    dashArray: "6, 8",
+                    lineCap: "round",
+                  }}
+                />
+                <Polyline
+                  positions={navigationRoute.transitDetails.walkAlightingToDest}
+                  pathOptions={{
+                    color: "#ea580c",
+                    weight: 3.5,
+                    opacity: 0.95,
+                    dashArray: "6, 8",
+                    lineCap: "round",
+                  }}
+                />
+              </>
+            )}
+
+          {/* Transit Markers */}
+          {(() => {
+            const td = navigationRoute.transitDetails;
+            if (!td) return null;
+            const origin = td.origin;
+            const boarding = td.boardingStop;
+            const alighting = td.alightingStop;
+            const dest = td.destination;
+
+            const isAtBoardingStop =
+              !origin?.latitude ||
+              !origin?.longitude ||
+              Math.hypot(
+                (origin.latitude - boarding.latitude) * 111320,
+                (origin.longitude - boarding.longitude) *
+                  111320 *
+                  Math.cos((boarding.latitude * Math.PI) / 180)
+              ) < 35;
+
+            const isAtAlightingStop =
+              !dest?.latitude ||
+              !dest?.longitude ||
+              Math.hypot(
+                (dest.latitude - alighting.latitude) * 111320,
+                (dest.longitude - alighting.longitude) *
+                  111320 *
+                  Math.cos((alighting.latitude * Math.PI) / 180)
+              ) < 35;
+
+            return (
+              <>
+                {/* 4 & 5: Start / Boarding Stop Markers */}
+                {isAtBoardingStop ? (
+                  <Marker
+                    position={[boarding.latitude, boarding.longitude]}
+                    icon={createTransitPinIcon({
+                      color: "#2563eb",
+                      badgeText: "Xuất phát & Lên xe",
+                      iconSvg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`,
+                    })}
+                  >
+                    <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                      <span className="font-bold text-xs text-blue-700">
+                        Vị trí bạn đứng & Lên xe (Tuyến {td.routeNumber || ""}): {boarding.name}
+                      </span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="space-y-1 text-xs">
+                        <p className="font-bold text-blue-600 flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                          Vị trí bạn đứng & Lên xe (Tuyến {td.routeNumber || ""})
+                        </p>
+                        <p className="font-semibold text-gray-900">
+                          {origin?.name && origin.name !== "Điểm xuất phát"
+                            ? origin.name
+                            : boarding.name}
+                        </p>
+                        <p className="text-emerald-600 font-medium text-[11px]">
+                          Bạn đang ở ngay tại trạm xe buýt. Đón xe tại đây!
+                        </p>
+                        {boarding.address && (
+                          <p className="text-gray-500 text-[11px]">{boarding.address}</p>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ) : (
+                  <>
+                    {origin?.latitude && origin?.longitude && (
+                      <Marker
+                        position={[origin.latitude, origin.longitude]}
+                        icon={createTransitPinIcon({
+                          color: "#10b981",
+                          badgeText: "Xuất phát",
+                          iconSvg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a7 7 0 0 1 13 0v2"/></svg>`,
+                        })}
+                      >
+                        <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                          <span className="font-bold text-xs text-emerald-700">
+                            Điểm xuất phát: {origin.name}
+                          </span>
+                        </Tooltip>
+                        <Popup>
+                          <div className="space-y-1 text-xs">
+                            <p className="font-bold text-emerald-600 flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+                              Điểm xuất phát
+                            </p>
+                            <p className="font-semibold text-gray-900">{origin.name}</p>
+                            <p className="text-gray-500 text-[11px]">
+                              Đi bộ đến trạm đón xe buýt
+                            </p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+                    <Marker
+                      position={[boarding.latitude, boarding.longitude]}
+                      icon={createTransitPinIcon({
+                        color: "#2563eb",
+                        badgeText: "Trạm lên xe",
+                        iconSvg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`,
+                      })}
+                    >
+                      <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                        <span className="font-bold text-xs text-blue-700">
+                          Trạm lên xe: {boarding.name} (Tuyến {td.routeNumber || ""})
+                        </span>
+                      </Tooltip>
+                      <Popup>
+                        <div className="space-y-1 text-xs">
+                          <p className="font-bold text-blue-600 flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                            Trạm lên xe (Tuyến {td.routeNumber || ""})
+                          </p>
+                          <p className="font-semibold text-gray-900">{boarding.name}</p>
+                          {boarding.address && (
+                            <p className="text-gray-500 text-[11px]">{boarding.address}</p>
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  </>
+                )}
+
+                {/* 6. Intermediate Stops (dots with sequence and hover tooltip) */}
+                {td.intermediateStops?.map((s, idx) => (
+                  <CircleMarker
+                    key={`${s.id}-${idx}`}
+                    center={[s.latitude, s.longitude]}
+                    radius={5.5}
+                    pathOptions={{
+                      color: "#1d4ed8",
+                      fillColor: "#ffffff",
+                      fillOpacity: 1,
+                      weight: 2.5,
+                    }}
+                  >
+                    <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+                      <span className="font-bold text-xs text-blue-700">
+                        Trạm {idx + 1}: {s.name}
+                      </span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="text-xs space-y-1">
+                        <p className="font-bold text-blue-600 flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-blue-600 inline-block" />
+                          Trạm trung gian #{idx + 1}
+                        </p>
+                        <p className="font-semibold text-gray-900">{s.name}</p>
+                        <p className="text-gray-500 text-[11px]">
+                          Tuyến {td.routeNumber || ""} · {td.routeName || ""}
+                        </p>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+
+                {/* 7 & 8: Alighting / Destination Markers */}
+                {isAtAlightingStop ? (
+                  <Marker
+                    position={[alighting.latitude, alighting.longitude]}
+                    icon={createTransitPinIcon({
+                      color: "#f59e0b",
+                      badgeText: "Xuống & Đến nơi",
+                      iconSvg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`,
+                    })}
+                  >
+                    <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                      <span className="font-bold text-xs text-amber-700">
+                        Trạm xuống & Điểm đến: {dest?.name || alighting.name}
+                      </span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="space-y-1 text-xs">
+                        <p className="font-bold text-amber-600 flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
+                          Trạm xuống & Điểm đến
+                        </p>
+                        <p className="font-semibold text-gray-900">
+                          {dest?.name || alighting.name}
+                        </p>
+                        {alighting.address && (
+                          <p className="text-gray-500 text-[11px]">{alighting.address}</p>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ) : (
+                  <>
+                    <Marker
+                      position={[alighting.latitude, alighting.longitude]}
+                      icon={createTransitPinIcon({
+                        color: "#f59e0b",
+                        badgeText: "Trạm xuống",
+                        iconSvg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>`,
+                      })}
+                    >
+                      <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                        <span className="font-bold text-xs text-amber-700">
+                          Trạm xuống xe: {alighting.name}
+                        </span>
+                      </Tooltip>
+                      <Popup>
+                        <div className="space-y-1 text-xs">
+                          <p className="font-bold text-amber-600 flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
+                            Trạm xuống xe
+                          </p>
+                          <p className="font-semibold text-gray-900">{alighting.name}</p>
+                          {alighting.address && (
+                            <p className="text-gray-500 text-[11px]">{alighting.address}</p>
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+
+                    {dest?.latitude && dest?.longitude && (
+                      <Marker
+                        position={[dest.latitude, dest.longitude]}
+                        icon={createTransitPinIcon({
+                          color: "#ef4444",
+                          badgeText: "Điểm đến",
+                          iconSvg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+                        })}
+                      >
+                        <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                          <span className="font-bold text-xs text-rose-700">
+                            Điểm đến: {dest.name}
+                          </span>
+                        </Tooltip>
+                        <Popup>
+                          <div className="space-y-1 text-xs">
+                            <p className="font-bold text-rose-600 flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-rose-500 inline-block" />
+                              Điểm đến
+                            </p>
+                            <p className="font-semibold text-gray-900">{dest.name}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
+                  </>
+                )}
+              </>
+            );
+          })()}
         </>
+      ) : (
+        /* Driving Navigation Route from OSRM */
+        navigationRoute &&
+        navigationRoute.coordinates &&
+        navigationRoute.coordinates.length > 0 && (
+          <>
+            <Polyline
+              positions={navigationRoute.coordinates}
+              pathOptions={{
+                color: "#60a5fa",
+                weight: 8,
+                opacity: 0.45,
+                lineJoin: "round",
+              }}
+            />
+            <Polyline
+              positions={navigationRoute.coordinates}
+              pathOptions={{
+                color: "#2563eb",
+                weight: 4.5,
+                opacity: 0.95,
+                lineJoin: "round",
+              }}
+            />
+          </>
+        )
       )}
     </MapContainer>
   );

@@ -6,15 +6,17 @@ import ResultsSidebar from "@/components/search/ResultsSidebar";
 import PlaceCard from "../place/PlaceCard";
 import FairMeetingModal from "../meeting/FairMeetingModal";
 import type { OriginItem } from "../meeting/GroupMeetingFinder";
-import AiChatWidget, { type AttachedRoute } from "../ai/AiChatWidget";
+import AiChatWidget, { type AttachedRoute, type TransitRouteDetails } from "../ai/AiChatWidget";
 import UserNavDropdown from "../user/UserNavDropdown";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, getApiBase } from "@/lib/api";
 import { getToken, getUser } from "@/lib/auth";
 import type { StoredUser } from "@/lib/auth";
 import type { Place as PlaceType, MeetingPlace } from "@/types/place";
 import { toast } from "sonner";
-import { Bot, List, Loader2, LocateFixed, Users, X } from "lucide-react";
+import { Bot, Bus, List, Loader2, LocateFixed, Users, X } from "lucide-react";
+import { fetchPedestrianStreetRoute, fetchBusStreetRoute } from "@/lib/transit-routing";
+import { formatRouteNumber } from "@/lib/transit";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -79,11 +81,12 @@ export default function HomeMap() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [locating, setLocating] = useState(false);
 
-  // Real-world driving directions via OSRM
+  // Real-world driving or transit directions
   const [navigationRoute, setNavigationRoute] = useState<{
     coordinates: [number, number][];
     distanceKm: number;
     durationMinutes: number;
+    transitDetails?: TransitRouteDetails;
   } | null>(null);
   const [loadingDirections, setLoadingDirections] = useState(false);
   const [selectedRouteOriginId, setSelectedRouteOriginId] = useState<string | null>(null);
@@ -408,34 +411,131 @@ export default function HomeMap() {
 
     setLoadingDirections(true);
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${place.longitude},${place.latitude}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`OSRM HTTP ${res.status}`);
+      // 1. Thử tìm tuyến xe buýt công cộng trực tiếp trước
+      let transitFound = false;
+      try {
+        const apiBase = getApiBase();
+        const transitRes = await fetch(
+          `${apiBase}/api/transit/journey?originLat=${origin.lat}&originLon=${origin.lng}&originName=${encodeURIComponent(
+            originLabel
+          )}&destLat=${place.latitude}&destLon=${place.longitude}&destName=${encodeURIComponent(
+            place.name
+          )}&radiusMeters=850`
+        );
+        if (transitRes.ok) {
+          const transitData = await transitRes.json();
+          if (transitData.status === "ok" && transitData.journeys && transitData.journeys.length > 0) {
+            const journey = transitData.journeys[0];
+            const origLat = origin.lat;
+            const origLng = origin.lng;
+            const destLat = place.latitude;
+            const destLng = place.longitude;
+
+            const rawBusStops: [number, number][] =
+              journey.route.stops && journey.route.stops.length > 0
+                ? journey.route.stops.map((s: { latitude: number; longitude: number }) => [s.latitude, s.longitude] as [number, number])
+                : [
+                    [journey.boardingStop.latitude, journey.boardingStop.longitude],
+                    [journey.alightingStop.latitude, journey.alightingStop.longitude],
+                  ];
+
+            // Tải lộ trình đi bộ và lộ trình xe buýt bám sát đường phố thực tế qua OSRM
+            const [walkOriginToBoarding, transitCoords, walkAlightingToDest] = await Promise.all([
+              fetchPedestrianStreetRoute(origLat, origLng, journey.boardingStop.latitude, journey.boardingStop.longitude),
+              fetchBusStreetRoute(rawBusStops),
+              fetchPedestrianStreetRoute(journey.alightingStop.latitude, journey.alightingStop.longitude, destLat, destLng),
+            ]);
+
+            const allCoords: [number, number][] = [
+              [origLat, origLng],
+              ...walkOriginToBoarding,
+              ...transitCoords,
+              ...walkAlightingToDest,
+              [destLat, destLng],
+            ];
+
+            const distKm =
+              (journey.accessDistanceMeters + journey.egressDistanceMeters) / 1000 +
+              rawBusStops.length * 0.45;
+            const durMin = Math.max(6, Math.round(distKm * 3.5));
+
+            setNavigationRoute({
+              distanceKm: distKm,
+              durationMinutes: durMin,
+              coordinates: allCoords,
+              transitDetails: {
+                origin: { name: originLabel, latitude: origLat, longitude: origLng },
+                destination: { name: place.name, latitude: destLat, longitude: destLng },
+                boardingStop: {
+                  id: String(journey.boardingStop.id),
+                  name: journey.boardingStop.name,
+                  address: journey.boardingStop.address,
+                  latitude: journey.boardingStop.latitude,
+                  longitude: journey.boardingStop.longitude,
+                },
+                alightingStop: {
+                  id: String(journey.alightingStop.id),
+                  name: journey.alightingStop.name,
+                  address: journey.alightingStop.address,
+                  latitude: journey.alightingStop.latitude,
+                  longitude: journey.alightingStop.longitude,
+                },
+                walkOriginToBoarding,
+                transitCoordinates: transitCoords,
+                walkAlightingToDest,
+                intermediateStops: (journey.route.stops || []).slice(1, -1).map((s: { id: string | number; name: string; latitude: number; longitude: number }) => ({
+                  id: String(s.id),
+                  name: s.name,
+                  latitude: s.latitude,
+                  longitude: s.longitude,
+                })),
+                routeNumber: formatRouteNumber(journey.route.number),
+                routeName: journey.route.name,
+                stopCount: journey.stopCount,
+              },
+            });
+
+            toast.success(
+              `Đã tìm thấy tuyến xe buýt ${formatRouteNumber(journey.route.number)} cho ${originLabel} (${journey.stopCount} trạm, ~${durMin} phút)`
+            );
+            transitFound = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Public transit search failed, falling back to car driving:", err);
       }
-      const data = await res.json();
-      if (data?.code === "Ok" && data.routes && data.routes.length > 0) {
-        const bestRoute = data.routes[0];
-        const coords = (bestRoute.geometry?.coordinates ?? []).map(
-          ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
-        );
-        const distanceKm = (bestRoute.distance ?? 0) / 1000;
-        const durationMinutes = (bestRoute.duration ?? 0) / 60;
 
-        setNavigationRoute({
-          coordinates: coords,
-          distanceKm,
-          durationMinutes,
-        });
+      // 2. Nếu không tìm thấy tuyến xe buýt, fallback lái xe qua OSRM
+      if (!transitFound) {
+        const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${place.longitude},${place.latitude}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`OSRM HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data?.code === "Ok" && data.routes && data.routes.length > 0) {
+          const bestRoute = data.routes[0];
+          const coords = (bestRoute.geometry?.coordinates ?? []).map(
+            ([lng, lat]: [number, number]) => [lat, lng] as [number, number]
+          );
+          const distanceKm = (bestRoute.distance ?? 0) / 1000;
+          const durationMinutes = (bestRoute.duration ?? 0) / 60;
 
-        toast.success(
-          `Đã tìm thấy lộ trình từ ${originLabel}: ${distanceKm.toFixed(1)} km (~${Math.round(durationMinutes)} phút lái xe)`
-        );
-      } else {
-        toast.error(`Không tìm thấy tuyến đường khả dụng từ ${originLabel}.`);
+          setNavigationRoute({
+            coordinates: coords,
+            distanceKm,
+            durationMinutes,
+          });
+
+          toast.info(
+            `Không có tuyến buýt trực tiếp; đã mở lộ trình lái xe từ ${originLabel}: ${distanceKm.toFixed(1)} km (~${Math.round(durationMinutes)} phút)`
+          );
+        } else {
+          toast.error(`Không tìm thấy tuyến đường khả dụng từ ${originLabel}.`);
+        }
       }
     } catch (err) {
-      console.error("OSRM Route Error:", err);
+      console.error("Route Error:", err);
       toast.error("Không thể lấy dữ liệu lộ trình từ hệ thống định tuyến OSRM.");
     } finally {
       setLoadingDirections(false);
@@ -534,14 +634,22 @@ export default function HomeMap() {
   }, []);
 
   function handleAiRouteReceived(route: AttachedRoute) {
+    setSelectedPlace(null);
     setNavigationRoute({
       coordinates: route.coordinates,
       distanceKm: route.distanceKm,
       durationMinutes: route.durationMinutes,
+      transitDetails: route.transitDetails,
     });
-    const label = route.memberName || route.originName || "thành viên";
-    const dest = route.destinationName || "địa điểm";
-    toast.success(`Đã hiển thị đường đi của ${label} đến ${dest} (${route.distanceKm.toFixed(1)} km)`);
+    if (route.transitDetails) {
+      toast.success(
+        `Đã hiển thị lộ trình tuyến ${route.transitDetails.routeNumber || ""} (${route.originName} → ${route.destinationName})`
+      );
+    } else {
+      const label = route.memberName || route.originName || "thành viên";
+      const dest = route.destinationName || "địa điểm";
+      toast.success(`Đã hiển thị đường đi của ${label} đến ${dest} (${route.distanceKm.toFixed(1)} km)`);
+    }
   }
 
   function handleGroupSearchResults(
@@ -609,6 +717,25 @@ export default function HomeMap() {
     if (shouldCloseModal) {
       setIsAssistantOpen(false);
     }
+  }
+
+  function handleSelectOriginRoute(meetingPlace: MeetingPlace, origin: OriginItem) {
+    handleSelectGroupMeetingPlace(meetingPlace, true);
+    const targetPlace: PlaceType = {
+      id: meetingPlace.placeId,
+      placeId: meetingPlace.placeId,
+      name: meetingPlace.name,
+      category: meetingPlace.category,
+      address: meetingPlace.address,
+      latitude: meetingPlace.latitude,
+      longitude: meetingPlace.longitude,
+      distanceKm: meetingPlace.averageDistanceKm,
+      relevanceScore: meetingPlace.relevanceScore,
+      distanceScore: meetingPlace.distanceScore,
+      fairnessScore: meetingPlace.fairnessScore,
+      finalScore: meetingPlace.finalScore,
+    };
+    void handleGetDirections(targetPlace, origin);
   }
 
   function handleScheduleFromGroup(place: PlaceType, participants?: Array<{ name: string; email: string }>) {
@@ -796,6 +923,103 @@ export default function HomeMap() {
         />
       )}
 
+      {/* Floating Transit Route Card (chỉ hiện khi xem tuyến độc lập không có PlaceCard) */}
+      {navigationRoute?.transitDetails && !selectedPlace && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-card/95 border border-border shadow-xl rounded-2xl p-3.5 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between pb-2 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-bold text-xs">
+                <Bus className="h-4 w-4" />
+              </span>
+              <div>
+                <h4 className="text-xs font-bold text-foreground">
+                  Tuyến {navigationRoute.transitDetails.routeNumber}
+                  {navigationRoute.transitDetails.routeName ? ` · ${navigationRoute.transitDetails.routeName}` : ""}
+                </h4>
+                <p className="text-[10px] text-muted-foreground">
+                  {navigationRoute.transitDetails.stopCount} chặng giữa trạm · Không đổi tuyến
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNavigationRoute(null)}
+              className="h-7 w-7 rounded-full inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+              title="Đóng lộ trình"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-2.5 space-y-1.5 text-[11px]">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-muted-foreground shrink-0">Điểm xuất phát:</span>
+              <span className="font-semibold text-foreground truncate">
+                {navigationRoute.transitDetails.origin?.name || "Vị trí của bạn"}
+              </span>
+            </div>
+
+            {navigationRoute.transitDetails.walkOriginToBoarding &&
+            navigationRoute.transitDetails.walkOriginToBoarding.length > 1 ? (
+              <div className="flex items-center gap-2 pl-3 text-[10px] text-orange-600 dark:text-orange-400 font-medium">
+                <span className="border-l-2 border-dashed border-orange-500 h-3 ml-[3px] mr-1.5" />
+                Đi bộ đến trạm lên xe
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 pl-3 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="border-l-2 border-solid border-emerald-500 h-3 ml-[3px] mr-1.5" />
+                Đón xe trực tiếp tại vị trí xuất phát
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />
+              <span className="text-muted-foreground shrink-0">Trạm lên:</span>
+              <span className="font-semibold text-foreground truncate">
+                {navigationRoute.transitDetails.boardingStop.name}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 pl-3 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+              <span className="border-l-2 border-solid border-blue-500 h-3 ml-[3px] mr-1.5" />
+              Đi xe buýt {navigationRoute.transitDetails.stopCount} chặng
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+              <span className="text-muted-foreground shrink-0">Trạm xuống:</span>
+              <span className="font-semibold text-foreground truncate">
+                {navigationRoute.transitDetails.alightingStop.name}
+              </span>
+            </div>
+
+            {navigationRoute.transitDetails.destination && (
+              <>
+                {navigationRoute.transitDetails.walkAlightingToDest &&
+                navigationRoute.transitDetails.walkAlightingToDest.length > 1 && (
+                  <div className="flex items-center gap-2 pl-3 text-[10px] text-orange-600 dark:text-orange-400 font-medium">
+                    <span className="border-l-2 border-dashed border-orange-500 h-3 ml-[3px] mr-1.5" />
+                    Đi bộ đến điểm đến
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                  <span className="text-muted-foreground shrink-0">Điểm đến:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    {navigationRoute.transitDetails.destination.name &&
+                    navigationRoute.transitDetails.destination.name !== "Origin" &&
+                    navigationRoute.transitDetails.destination.name !== "Destination"
+                      ? navigationRoute.transitDetails.destination.name
+                      : "Điểm đến"}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Fair Meeting & Schedule Modal */}
       {isMeetingModalOpen && (
         <FairMeetingModal
@@ -818,6 +1042,7 @@ export default function HomeMap() {
         onResetMap={handleResetChatAndMap}
         onGroupSearchResults={handleGroupSearchResults}
         onSelectMeetingPlace={handleSelectGroupMeetingPlace}
+        onSelectOriginRoute={handleSelectOriginRoute}
         onScheduleMeeting={handleScheduleFromGroup}
         onRouteReceived={handleAiRouteReceived}
         activeMeetingPlaceId={activeMeetingPlace?.placeId}

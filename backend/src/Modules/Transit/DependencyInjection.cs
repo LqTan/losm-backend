@@ -11,6 +11,8 @@ public static class DependencyInjection
         services.AddDbContext<TransitDbContext>(o => o.UseSqlServer(config.GetConnectionString("DefaultConnection"), sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "transit")));
         services.AddSingleton<TransitStorage>();
         services.AddScoped<TransitValidator>();
+        services.AddScoped<Transit.Application.Abstractions.ITransitNetworkRepository, Transit.Infrastructure.Repositories.TransitNetworkRepository>();
+        services.AddScoped<Transit.Application.Network.Queries.TransitQueryHandler>();
         services.AddScoped<TransitImportJobs>();
         services.AddScoped<TransitImportRecovery>();
         services.AddHostedService<TransitImportRecoverySchedule>();

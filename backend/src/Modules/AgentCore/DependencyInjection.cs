@@ -79,6 +79,9 @@ public static class DependencyInjection
         services.AddScoped<IAgentTool, GetSupportedAreasTool>();
         services.AddScoped<IAgentTool, FlagInvalidPlaceTool>();
         services.AddScoped<IAgentTool, GetDirectionsTool>();
+        services.AddScoped<IAgentTool, AgentCore.Application.Tools.Transit.SearchTransitStopsTool>();
+        services.AddScoped<IAgentTool, AgentCore.Application.Tools.Transit.GetTransitRoutesTool>();
+        services.AddScoped<IAgentTool, AgentCore.Application.Tools.Transit.FindTransitJourneyTool>();
 
         services.AddScoped<IAgentToolRegistry, AgentToolRegistry>();
 

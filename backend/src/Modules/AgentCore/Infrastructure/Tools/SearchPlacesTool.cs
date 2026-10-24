@@ -40,6 +40,7 @@ public sealed class SearchPlacesTool
     public override string Description =>
         "Search and rank places near a location. " +
         "Use when the user asks to find places, restaurants, cafes, recommendations, or anything nearby. " +
+        "Do NOT use this tool when the user is asking how to travel by bus/metro between locations (use find_transit_journey instead). " +
         "IMPORTANT: If the user mentions a specific landmark, district, or address (e.g. 'gần Chợ Bến Thành', 'gần Bệnh viện Từ Dũ', 'ở Quận 1'), " +
         "first call geocode_place to get its coordinates, then pass those coordinates as ReferenceLatitude and ReferenceLongitude to this tool, " +
         "and use a concise query (e.g. 'nhà hàng nhật' or 'quán cafe').";

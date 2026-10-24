@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   experimental: { proxyClientMaxBodySize: "27mb" },
   async rewrites() {
     return [
+      { source: "/api/agent/:path*", destination: `${apiBase}/api/agent/:path*` },
       {
         source: "/api/admin/transit/:path*",
         destination: `${apiBase}/api/admin/transit/:path*`,

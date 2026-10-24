@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Place, MeetingPlace } from "@/types/place";
 import type { OriginItem } from "@/components/meeting/GroupMeetingFinder";
 import {
+  Bus,
   Calendar,
   Car,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { TransitRouteDetails } from "../ai/AiChatWidget";
 
 interface Props {
   place: Place;
@@ -31,6 +33,7 @@ interface Props {
   navigationRoute?: {
     distanceKm: number;
     durationMinutes: number;
+    transitDetails?: TransitRouteDetails;
   } | null;
   loadingDirections?: boolean;
   selectedRouteOriginId?: string | null;
@@ -54,10 +57,10 @@ export default function PlaceCard({
 }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Khi chọn một địa điểm mới, tự động mở rộng chi tiết
+  // Khi chọn một địa điểm mới hoặc khi bấm xem đường đi của một người, tự động mở rộng chi tiết
   useEffect(() => {
     setIsCollapsed(false);
-  }, [place.id]);
+  }, [place.id, selectedRouteOriginId]);
 
   const selectedOrigin = groupOrigins?.find((o) => o.id === selectedRouteOriginId);
   const selectedOriginName = selectedOrigin?.name;
@@ -300,25 +303,52 @@ export default function PlaceCard({
             </div>
           )}
 
-          {/* Real-world Navigation Stats when active */}
+          {/* Real-world Navigation Stats when active (Car or Public Transit) */}
           {navigationRoute && (
-            <div className="mt-2.5 p-2 px-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs animate-in fade-in">
-              <div className="flex items-center gap-1.5 font-semibold text-blue-600 truncate min-w-0">
-                <Navigation2 className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">
-                  {selectedOriginName ? `Từ ${selectedOriginName}: ` : ""}
-                  Khoảng cách {navigationRoute.distanceKm.toFixed(1)} km (~
-                  {Math.round(navigationRoute.durationMinutes)} phút)
-                </span>
+            <div className="mt-2.5 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-xs animate-in fade-in">
+              <div className="flex items-center justify-between font-semibold text-blue-600">
+                <div className="flex items-center gap-1.5 truncate">
+                  {navigationRoute.transitDetails ? (
+                    <Bus className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                  ) : (
+                    <Navigation2 className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+                  )}
+                  <span className="truncate">
+                    {navigationRoute.transitDetails ? (
+                      <>
+                        {selectedOriginName ? `${selectedOriginName}: ` : ""}
+                        Tuyến xe buýt {navigationRoute.transitDetails.routeNumber} ({navigationRoute.transitDetails.stopCount} chặng)
+                      </>
+                    ) : (
+                      <>
+                        {selectedOriginName ? `Từ ${selectedOriginName}: ` : ""}
+                        Khoảng cách {navigationRoute.distanceKm.toFixed(1)} km (~
+                        {Math.round(navigationRoute.durationMinutes)} phút)
+                      </>
+                    )}
+                  </span>
+                </div>
+                {onClearDirections && (
+                  <button
+                    type="button"
+                    onClick={onClearDirections}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline shrink-0 ml-2 cursor-pointer"
+                  >
+                    Đóng đường đi
+                  </button>
+                )}
               </div>
-              {onClearDirections && (
-                <button
-                  type="button"
-                  onClick={onClearDirections}
-                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline shrink-0 ml-2 cursor-pointer"
-                >
-                  Đóng đường đi
-                </button>
+              {navigationRoute.transitDetails && (
+                <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t border-blue-500/20">
+                  <div className="flex items-center gap-1 truncate max-w-[70%]">
+                    <span className="font-medium text-foreground truncate">{navigationRoute.transitDetails.boardingStop.name}</span>
+                    <span className="text-blue-500 font-bold">→</span>
+                    <span className="font-medium text-foreground truncate">{navigationRoute.transitDetails.alightingStop.name}</span>
+                  </div>
+                  <span className="font-bold text-blue-600 shrink-0">
+                    {navigationRoute.distanceKm.toFixed(1)} km (~{Math.round(navigationRoute.durationMinutes)}p)
+                  </span>
+                </div>
               )}
             </div>
           )}

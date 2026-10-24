@@ -32,7 +32,9 @@ public sealed class ExecuteAgentHandler
             result.Steps,
             result.PendingActions,
             result.AttachedPlaces,
-            result.AttachedRoute
+            result.AttachedRoute,
+            result.TransitResults,
+            result.MeetingResults
         );
     }
 }

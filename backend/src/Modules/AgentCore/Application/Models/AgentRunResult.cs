@@ -8,5 +8,7 @@ public sealed record AgentRunResult(
     IReadOnlyList<AgentActivityStep> Steps,
     IReadOnlyList<PendingAgentAction> PendingActions,
     IReadOnlyList<AttachedPlace> AttachedPlaces,
-    AttachedRoute? AttachedRoute = null
+    AttachedRoute? AttachedRoute = null,
+    IReadOnlyList<Transit.Application.Network.Queries.TransitQueryResult>? TransitResults = null,
+    AgentMeetingResults? MeetingResults = null
 );

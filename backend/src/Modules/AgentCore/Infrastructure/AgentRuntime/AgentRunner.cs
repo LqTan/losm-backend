@@ -269,6 +269,7 @@ public sealed class AgentRunner : IAgentRunner
             }
         }
 
+        messages.Insert(0, new AgentModelMessage(AgentModelRole.System, PromptFile.Load("transit-system.txt")));
         var tools = _toolRegistry.GetAll();
 
         var toolExecutions = new List<AgentToolExecution>();
@@ -277,6 +278,8 @@ public sealed class AgentRunner : IAgentRunner
         var attachedPlaces = new List<AttachedPlace>();
         var attachedPlaceIds = new HashSet<Guid>();
         AttachedRoute? attachedRoute = null;
+        var transitResults = new List<Transit.Application.Network.Queries.TransitQueryResult>();
+        AgentMeetingResults? meetingResults = null;
 
         for (var step = 0; step < maxSteps; step++)
         {
@@ -316,7 +319,10 @@ public sealed class AgentRunner : IAgentRunner
                     errorAnswer,
                     activity,
                     [],
-                    attachedPlaces
+                    attachedPlaces,
+                    attachedRoute,
+                    transitResults,
+                    meetingResults
                 );
             }
 
@@ -333,11 +339,23 @@ public sealed class AgentRunner : IAgentRunner
                     );
                 }
 
-                var validatedAnswer = await _responseValidator.ValidateAsync(
-                    answer,
-                    toolExecutions,
-                    cancellationToken
-                );
+                var validatedAnswer = answer;
+                try
+                {
+                    validatedAnswer = await _responseValidator.ValidateAsync(
+                        answer,
+                        toolExecutions,
+                        cancellationToken
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Response validation failed for SessionId: {SessionId}. Falling back to unvalidated answer.",
+                        session.Id
+                    );
+                }
 
                 session.AddMessage(AgentMessageRole.Assistant, validatedAnswer);
 
@@ -362,7 +380,9 @@ public sealed class AgentRunner : IAgentRunner
                     activity,
                     pending,
                     attachedPlaces,
-                    attachedRoute
+                    attachedRoute,
+                    transitResults,
+                    meetingResults
                 );
             }
 
@@ -387,6 +407,33 @@ public sealed class AgentRunner : IAgentRunner
                     {
                         attachedPlaceIds.Add(place.PlaceId);
                         attachedPlaces.Add(place);
+                    }
+
+                    if (tool.Name is "search_transit_stops" or "get_transit_routes" or "find_transit_journey")
+                    {
+                        try
+                        {
+                            var transit = JsonSerializer.Deserialize<Transit.Application.Network.Queries.TransitQueryResult>(
+                                execution.Result, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                            if (transit is not null) transitResults.Add(transit);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse TransitQueryResult from {ToolName} result.", tool.Name);
+                        }
+                    }
+
+                    if (tool.Name == "search_meeting_places")
+                    {
+                        try
+                        {
+                            meetingResults = JsonSerializer.Deserialize<AgentMeetingResults>(
+                                execution.Result, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse AgentMeetingResults from search_meeting_places result.");
+                        }
                     }
 
                     if (tool.Name == "get_directions")
@@ -432,7 +479,7 @@ public sealed class AgentRunner : IAgentRunner
             maxSteps
         );
 
-        var fallbackAnswer = attachedPlaces.Count > 0
+        var fallbackAnswer = transitResults.Count > 0 ? transitResults[^1].Message : attachedPlaces.Count > 0
             ? await ManagedTemplates.RenderAsync(_prompts, "message.agent.results", cancellationToken, ("placeNames", $"{string.Join(", ", attachedPlaces.Take(3).Select(p => p.Name))}"))
             : await ManagedTemplates.RenderAsync(_prompts, "message.agent.empty", cancellationToken);
 
@@ -452,7 +499,9 @@ public sealed class AgentRunner : IAgentRunner
             activity,
             pendingActions,
             attachedPlaces,
-            attachedRoute
+            attachedRoute,
+            transitResults,
+            meetingResults
         );
     }
 
