@@ -1,0 +1,8 @@
+feature_removed,n_features,ndcg5,delta_ndcg5,drop_percent,feature_description
+(không bỏ gì),10,0.8869,0.0,0.0,Mô hình đầy đủ 10 đặc trưng
+category_match,9,0.8777,-0.0092,-1.04,Độ khớp nhóm danh mục AI
+bm25_norm,9,0.8644,-0.0225,-2.54,Điểm liên quan nội dung BM25
+thời gian (avg/max/spread),7,0.8688,-0.0181,-2.04,"Nhóm thời gian lái xe OSRM (avg, max, spread)"
+khoảng cách (km),8,0.882,-0.0049,-0.55,"Nhóm cự ly OSRM (avg, max)"
+rank trong query,8,0.8386,-0.0483,-5.45,"Thứ hạng chuẩn hóa thời gian trong query (avg_rank, spread_rank)"
+participant_count,9,0.8782,-0.0087,-0.98,Số lượng thành viên cuộc hẹn (2..5 người)

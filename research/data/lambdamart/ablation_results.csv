@@ -1,0 +1,8 @@
+﻿bỏ,n_features,ndcg@5,matched_ndcg@5
+(không bỏ gì),10,0.8869,0.8869
+category_match,9,0.8777,0.8798
+bm25_norm,9,0.8644,0.8656
+thời gian (avg/max/spread),7,0.8688,0.8693
+khoảng cách (km),8,0.882,0.883
+rank trong query,8,0.8386,0.8396
+participant_count,9,0.8782,0.8783

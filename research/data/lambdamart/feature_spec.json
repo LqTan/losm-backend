@@ -1,0 +1,260 @@
+{
+  "created_utc": "2026-10-14T14:54:40.873277Z",
+  "model_file": "ranker.onnx",
+  "input": {
+    "name": "input",
+    "dtype": "float32",
+    "shape": [
+      null,
+      10
+    ]
+  },
+  "output": "score_per_candidate (cao hơn = tốt hơn; chỉ so sánh trong cùng một query)",
+  "feature_order": [
+    "bm25_norm",
+    "category_match",
+    "duration_avg_min",
+    "duration_max_min",
+    "duration_spread_min",
+    "distance_avg_km",
+    "distance_max_km",
+    "duration_avg_rank_norm",
+    "duration_spread_rank_norm",
+    "participant_count"
+  ],
+  "candidate_count": {
+    "training_observed": [
+      20
+    ],
+    "variable_count_supported": true
+  },
+  "feature_definitions": {
+    "bm25_norm": "bm25_score / max bm25_score trên toàn bộ corpus POI đủ điều kiện của query trước khi chọn 20 ứng viên; max=0 thì tất cả=0. Dùng bm25_norm có sẵn, không chuẩn hoá lại trên Top-20.",
+    "category_match": "1 nếu category_raw thuộc matching_categories(target_category, specific_preference), ngược lại 0",
+    "duration_avg_min": "trung bình thời gian lái xe (phút) của mọi người đến POI (OSRM Table, profile driving)",
+    "duration_max_min": "lớn nhất trong các thời gian",
+    "duration_spread_min": "lớn nhất - nhỏ nhất của các thời gian",
+    "distance_avg_km": "trung bình quãng đường OSRM (km)",
+    "distance_max_km": "lớn nhất quãng đường OSRM (km)",
+    "duration_avg_rank_norm": "(rank(duration_avg_min, tăng dần, method=min)-1)/(n-1); n=1 -> 0",
+    "duration_spread_rank_norm": "(rank(duration_spread_min, tăng dần, method=min)-1)/(n-1); n=1 -> 0",
+    "participant_count": "số người (2..5)"
+  },
+  "category_map": {
+    "cafe": [
+      "cafe",
+      "coffee_shop",
+      "tea_house",
+      "tea_room"
+    ],
+    "viet": [
+      "vietnamese_restaurant"
+    ],
+    "japanese": [
+      "japanese_restaurant",
+      "sushi_restaurant",
+      "ramen_restaurant"
+    ],
+    "korean": [
+      "korean_restaurant"
+    ],
+    "thai": [
+      "thai_restaurant"
+    ],
+    "seafood": [
+      "seafood_restaurant"
+    ],
+    "western": [
+      "italian_restaurant",
+      "french_restaurant",
+      "european_restaurant",
+      "pizza_restaurant"
+    ],
+    "vegetarian": [
+      "vegetarian_restaurant",
+      "vegan_restaurant"
+    ],
+    "chinese": [
+      "chinese_restaurant",
+      "dim_sum_restaurant"
+    ],
+    "bbq_hotpot": [
+      "barbecue_restaurant",
+      "hotpot_restaurant"
+    ],
+    "bookstore": [
+      "bookstore",
+      "book_store",
+      "book_shop",
+      "comic_books_store"
+    ],
+    "library": [
+      "library",
+      "public_library"
+    ],
+    "park": [
+      "park",
+      "urban_park",
+      "public_park",
+      "botanical_garden"
+    ]
+  },
+  "specific_preference_overrides": {
+    "ramen": "ramen_restaurant",
+    "sushi": "sushi_restaurant",
+    "dim sum": "dim_sum_restaurant",
+    "pizza": "pizza_restaurant",
+    "món ý": "italian_restaurant",
+    "món pháp": "french_restaurant"
+  },
+  "ordering": {
+    "top_k": 5,
+    "score_decimals": 6,
+    "sort_keys": [
+      "score desc",
+      "duration_avg_min asc",
+      "duration_spread_min asc",
+      "bm25_norm desc",
+      "poi_id asc"
+    ]
+  },
+  "baseline": {
+    "weights": {
+      "bm25": 0.5,
+      "convenience": 0.3,
+      "fairness": 0.2
+    },
+    "scales_default": [
+      15.0,
+      10.0
+    ],
+    "scales_tuned_on_dev": [
+      3.0,
+      3.0
+    ]
+  },
+  "chosen_config": {
+    "feature_set": "A_full",
+    "num_leaves": 7,
+    "min_child": 20,
+    "trees": 100
+  },
+  "lightgbm_version": "4.6.0",
+  "training": {
+    "dev_queries": 85,
+    "label_policy": "all valid relevance 0..3; ignore label_status and annotator_id",
+    "query_ids_by_split": {
+      "train": [
+        "Q001",
+        "Q003",
+        "Q004",
+        "Q006",
+        "Q007",
+        "Q008",
+        "Q009",
+        "Q010",
+        "Q011",
+        "Q012",
+        "Q014",
+        "Q015",
+        "Q017",
+        "Q018",
+        "Q019",
+        "Q020",
+        "Q022",
+        "Q024",
+        "Q025",
+        "Q026",
+        "Q028",
+        "Q030",
+        "Q032",
+        "Q035",
+        "Q036",
+        "Q037",
+        "Q038",
+        "Q039",
+        "Q041",
+        "Q043",
+        "Q045",
+        "Q046",
+        "Q047",
+        "Q049",
+        "Q050",
+        "Q052",
+        "Q053",
+        "Q054",
+        "Q055",
+        "Q056",
+        "Q058",
+        "Q059",
+        "Q060",
+        "Q061",
+        "Q062",
+        "Q063",
+        "Q064",
+        "Q065",
+        "Q066",
+        "Q067",
+        "Q069",
+        "Q071",
+        "Q072",
+        "Q073",
+        "Q074",
+        "Q077",
+        "Q078",
+        "Q079",
+        "Q082",
+        "Q083",
+        "Q084",
+        "Q087",
+        "Q089",
+        "Q090",
+        "Q092",
+        "Q093",
+        "Q094",
+        "Q095",
+        "Q098",
+        "Q099"
+      ],
+      "val": [
+        "Q002",
+        "Q013",
+        "Q023",
+        "Q031",
+        "Q033",
+        "Q040",
+        "Q042",
+        "Q048",
+        "Q070",
+        "Q075",
+        "Q085",
+        "Q086",
+        "Q088",
+        "Q091",
+        "Q097"
+      ],
+      "test": [
+        "Q005",
+        "Q016",
+        "Q021",
+        "Q027",
+        "Q029",
+        "Q034",
+        "Q044",
+        "Q051",
+        "Q057",
+        "Q068",
+        "Q076",
+        "Q080",
+        "Q081",
+        "Q096",
+        "Q100"
+      ]
+    }
+  },
+  "notes": [
+    "Kết quả đánh giá so với nhãn đầu vào; không phân loại nguồn nhãn.",
+    "OSRM public, profile driving, không có giao thông thời gian thực.",
+    "Backend tính feature trên toàn bộ pool đưa vào ranker, cùng chính sách sinh ứng viên lúc train. Hỗ trợ số ứng viên thay đổi; không bắt buộc 20."
+  ]
+}

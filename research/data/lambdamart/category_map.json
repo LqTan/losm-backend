@@ -1,0 +1,69 @@
+{
+  "category_map": {
+    "cafe": [
+      "cafe",
+      "coffee_shop",
+      "tea_house",
+      "tea_room"
+    ],
+    "viet": [
+      "vietnamese_restaurant"
+    ],
+    "japanese": [
+      "japanese_restaurant",
+      "sushi_restaurant",
+      "ramen_restaurant"
+    ],
+    "korean": [
+      "korean_restaurant"
+    ],
+    "thai": [
+      "thai_restaurant"
+    ],
+    "seafood": [
+      "seafood_restaurant"
+    ],
+    "western": [
+      "italian_restaurant",
+      "french_restaurant",
+      "european_restaurant",
+      "pizza_restaurant"
+    ],
+    "vegetarian": [
+      "vegetarian_restaurant",
+      "vegan_restaurant"
+    ],
+    "chinese": [
+      "chinese_restaurant",
+      "dim_sum_restaurant"
+    ],
+    "bbq_hotpot": [
+      "barbecue_restaurant",
+      "hotpot_restaurant"
+    ],
+    "bookstore": [
+      "bookstore",
+      "book_store",
+      "book_shop",
+      "comic_books_store"
+    ],
+    "library": [
+      "library",
+      "public_library"
+    ],
+    "park": [
+      "park",
+      "urban_park",
+      "public_park",
+      "botanical_garden"
+    ]
+  },
+  "overrides": {
+    "ramen": "ramen_restaurant",
+    "sushi": "sushi_restaurant",
+    "dim sum": "dim_sum_restaurant",
+    "pizza": "pizza_restaurant",
+    "món ý": "italian_restaurant",
+    "món pháp": "french_restaurant"
+  }
+}

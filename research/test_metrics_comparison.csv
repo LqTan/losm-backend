@@ -1,0 +1,8 @@
+method,ndcg@5,ndcg@10,p@5,ap
+ngẫu nhiên,0.471,0.547,0.574,0.626
+chỉ BM25,0.551,0.671,0.707,0.745
+baseline 15/10,0.710,0.765,0.787,0.799
+baseline đã chỉnh thang,0.715,0.776,0.800,0.800
+CRADIS-DN4 (BM25),0.775,0.819,0.827,0.800
+CRADIS-DN4 (+ CategoryMatch),0.817,0.864,0.813,0.815
+mô hình LambdaMART,0.858,0.903,0.853,0.861

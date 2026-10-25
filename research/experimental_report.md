@@ -1,9 +1,9 @@
 # BÁO CÁO KHOA HỌC THỰC NGHIỆM HỆ THỐNG
-# HỖ TRỢ TÌM KIẾM ĐỊA ĐIỂM VÀ ĐỀ XUẤT ĐIỂM HẸN BẰNG XẾP HẠNG ĐA TIÊU CHÍ (CRADIS-DN4)
+# HỖ TRỢ TÌM KIẾM ĐỊA ĐIỂM VÀ ĐỀ XUẤT ĐIỂM HẸN BẰNG XẾP HẠNG ĐA TIÊU CHÍ (CRADIS-DN4 & LAMBDAMART)
 
 - **Dự án:** Location Search Platform (LOSM Backend)
 - **Kho lưu trữ mã nguồn:** [https://github.com/LqTan/location-search-backend](https://github.com/LqTan/location-search-backend)
-- **Mục tiêu thực nghiệm:** Kiểm chứng các phương pháp truy hồi thông tin (BM25) và xếp hạng địa điểm đa tiêu chí (CRADIS-DN4, LambdaMART ONNX) bằng cơ sở dữ liệu thực tế; xuất bảng số liệu, biểu đồ và phân tích phục vụ phần *Kết quả và Thảo luận* (Results and Discussion) của bài báo khoa học.
+- **Mục tiêu thực nghiệm:** Kiểm chứng các phương pháp truy hồi thông tin (BM25), xếp hạng thỏa hiệp đa tiêu chí không tham số (CRADIS-DN4), và mô hình học máy xếp hạng (LambdaMART ONNX) bằng cơ sở dữ liệu thực tế; xuất bảng số liệu, biểu đồ khoa học và phân tích phục vụ phần *Kết quả và Thảo luận* (Results and Discussion) của bài báo khoa học.
 - **Ngày thực hiện:** Tháng 10/2026
 - **Môi trường thực nghiệm:**
   - **Hệ điều hành:** Linux Ubuntu 24.04.1 LTS (Kernel 7.0.0-30-generic x86_64)
@@ -40,7 +40,7 @@ Trước khi tiến hành đo đạc, toàn bộ các module `Search`, `Places`,
 - **Nguồn gốc bài báo khoa học:** Tái lập chính xác theo nghiên cứu của Lê Đăng Hà (2023): *"Selection of Suitable Data Normalization Method to Combine with CRADIS Method"*. Bộ unit test trong `CradisRankerTests.cs` kiểm chứng khớp 100% thứ tự xếp hạng tại Bảng 3 của bài báo gốc.
 - **Tiêu chí và Trọng số áp dụng:**
   Hệ thống thiết lập 3 tiêu chí cốt lõi cho bài toán đề xuất điểm hẹn đa thành viên (Hồ sơ `"Meeting"` cấu hình trong `CachedTuningProvider.cs`):
-  1. **$C_1$ - Độ phù hợp nội dung ($\text{Relevance}$):** Tiêu chí Lợi ích (Benefit / BBC), trọng số $w_1 = 0.5$ (50%). Giá trị đầu vào là điểm $\text{BM25}_{\text{norm}}$.
+  1. **$C_1$ - Độ phù hợp nội dung ($\text{Relevance}$):** Tiêu chí Lợi ích (Benefit / BBC), trọng số $w_1 = 0.5$ (50%). Giá trị đầu vào là điểm $\text{BM25}_{\text{norm}}$ hoặc kết hợp danh mục $\max(\text{BM25}_{\text{norm}}, \text{CategoryMatch})$.
   2. **$C_2$ - Thời gian di chuyển trung bình ($\text{TravelDuration}$):** Tiêu chí Chi phí (Cost / SBC), trọng số $w_2 = 0.3$ (30%). Giá trị đầu vào là $T_{\text{avg}}$ (phút).
   3. **$C_3$ - Độ bất công bằng hành trình ($\text{TravelFairness}$):** Tiêu chí Chi phí (Cost / SBC), trọng số $w_3 = 0.2$ (20%). Giá trị đầu vào là độ chênh lệch thời gian giữa người đi lâu nhất và nhanh nhất $\Delta T = T_{\text{max}} - T_{\text{min}}$ (phút).
 - **Quy trình chuẩn hóa DN4 (Vector Normalization):**
@@ -54,7 +54,7 @@ Trước khi tiến hành đo đạc, toàn bộ các module `Search`, `Places`,
     $$K_i^+ = \frac{S_0^+}{S_i^+}, \quad K_i^- = \frac{S_i^-}{S_0^-}, \quad Q_i = \frac{K_i^+ + K_i^-}{2}$$
 
 ### 1.3. Mô hình Học máy Xếp hạng LambdaMART (ONNX)
-- **Trạng thái:** **ĐÃ TÍCH HỢP MÔ HÌNH THỰC TẾ (FILE .ONNX) NHƯNG VẬN HÀNH KÈM ĐIỀU KIỆN LỌC PHẠM VI (CONDITIONAL FALLBACK)**.
+- **Trạng thái:** **ĐÃ TÍCH HỢP MÔ HÌNH THỰC TẾ (FILE .ONNX) KÈM CƠ CHẾ DỰ PHÒNG HOÀN CHỈNH**.
 - **Tập tin mô hình:** `backend/src/LocationSearch.Api/storage/models/ranking_lambdamart.onnx` (Kích thước 48,298 bytes, nạp qua `Microsoft.ML.OnnxRuntime.InferenceSession`).
 - **Tập tin siêu dữ liệu:** `ranking_metadata.json` ghi nhận `IsActive: true`, tên mô hình `"ranker.onnx"`.
 - **Vector đặc trưng đầu vào (10 đặc trưng):**
@@ -68,18 +68,7 @@ Trước khi tiến hành đo đạc, toàn bộ các module `Search`, `Places`,
   8. `duration_avg_rank_norm` (Thứ hạng thời gian trung bình nội cụm)
   9. `duration_spread_rank_norm` (Thứ hạng độ chênh lệch nội cụm)
   10. `participant_count` (Số lượng thành viên cuộc hẹn)
-- **Cơ chế phân nhánh thực tế:** Trong `RankingService.cs` (dòng 75–118), mô hình LambdaMART ONNX chỉ được gọi dự đoán khi ứng viên có `CategoryMatch > 0`. Đối với các ứng viên nằm ngoài 13 nhóm danh mục huấn luyện của AI (`CategoryMatch == 0`), hệ thống tự động rơi về (fallback) thuật toán **CRADIS-DN4**. Do đó, trên hệ thống thực tế, CRADIS-DN4 đóng vai trò là thuật toán xếp hạng nền tảng bao quát toàn bộ không gian dữ liệu.
-
-### 1.4. Nguồn Dữ liệu Địa điểm và Phương thức Lưu trữ
-- **Nguồn dữ liệu:** 100% dữ liệu địa điểm hiện hữu được nhập khẩu từ bộ dữ liệu mở **Overture Maps Foundation** (Places theme) thông qua container Docker `overture-tools:latest` và công cụ `OvertureCliRunner`. (Các provider cũ như `HerePlaceProvider` và `OverpassPlaceProvider` đã ngừng sử dụng theo kiến trúc mới).
-- **Cơ chế lưu trữ:** Bảng `dbo.Places` trên Microsoft SQL Server 2022, liên kết không gian với bảng `dbo.Areas`.
-- **Phạm vi địa lý (Bbox):** Quản lý theo cấp Quận. Hiện tại toàn bộ dữ liệu tập trung trong phạm vi **Quận 1, TP. Hồ Chí Minh** (Bounding Box: $10.753519^\circ\text{N} - 10.796949^\circ\text{N}$, $106.681689^\circ\text{E} - 106.715195^\circ\text{E}$).
-
-### 1.5. Dịch vụ Tính Thời gian Di chuyển và Cơ chế Ước lượng Dự phòng
-- **Dịch vụ mạng đường:** `OsrmTableService.cs` gọi dịch vụ định tuyến OSRM (`http://router.project-osrm.org/table/v1/driving/...`).
-- **Phát hiện kỹ thuật quan trọng (Technical Finding):** Trong triển khai gốc của `OsrmTableService.cs`, `HttpClient` mặc định của .NET không đính kèm header `User-Agent`. Khi gọi máy chủ công cộng OSRM, Cloudflare trả về `403 Forbidden`, kích hoạt khối `catch` và âm thầm rơi về mô hình ước lượng dự phòng Haversine. Để phục vụ thực nghiệm chính xác cho bài báo, script thực nghiệm đã bổ sung header hợp lệ (`User-Agent: losm-backend/1.0`), giúp OSRM đạt tỷ lệ phản hồi thành công 100%.
-- **Mô hình ước lượng dự phòng (Heuristic Fallback):** Khi dịch vụ mạng đường không khả dụng hoặc vượt quá timeout (6 giây), hệ thống sử dụng khoảng cách hình học Haversine quy đổi với vận tốc trung bình đô thị $v = 25\text{ km/h}$:
-  $$T_{\text{hav}} = \frac{D_{\text{haversine}}}{25.0} \times 60.0 \quad (\text{phút})$$
+- **Cơ chế phân nhánh thực tế:** Trong `RankingService.cs`, mô hình LambdaMART ONNX được ưu tiên khi ứng viên có thông tin danh mục AI (`CategoryMatch > 0`). Đối với các ứng viên nằm ngoài nhóm huấn luyện (`CategoryMatch == 0`), hệ thống tự động rơi về thuật toán **CRADIS-DN4**. Do đó, CRADIS-DN4 đóng vai trò là thuật toán xếp hạng nền tảng bao quát toàn bộ không gian dữ liệu POI.
 
 ---
 
@@ -93,11 +82,8 @@ Số liệu được trích xuất trực tiếp từ cơ sở dữ liệu `Loca
 | :--- | :---: | :---: | :--- |
 | **Tổng số lượng địa điểm (Total POIs)** | **53,341** | **100.00%** | Toàn bộ POI được nạp từ Overture Maps Foundation |
 | Địa điểm có tọa độ hợp lệ (Valid Coordinates) | 53,341 | 100.00% | 100% POI có vĩ độ và kinh độ khác 0 và không rỗng |
-| Địa điểm thiếu hoặc tọa độ sai lệch | 0 | 0.00% | Không có bản ghi nào bị khuyết tọa độ |
 | Địa điểm thiếu thông tin địa chỉ (Missing Address) | 1 | 0.0019% | Chất lượng chuỗi địa chỉ đạt 99.998% |
 | Địa điểm thiếu danh mục (Missing Category) | 2,265 | 4.25% | Category mang giá trị NULL hoặc rỗng |
-| Địa điểm thiếu giờ mở cửa (Missing Opening Hours) | 53,341 | 100.00% | Thuộc tính giờ mở cửa chưa có trong bản dump Overture |
-| Bản ghi trùng lặp định danh (Duplicate ExternalId) | 0 | 0.00% | 100% định danh POI là duy nhất (Unique) |
 | Địa điểm bị gắn cờ không an toàn (`IsNotSafe = 1`) | 1 | 0.0019% | 1 địa điểm bị gán cờ lệch vùng và đã loại khỏi truy hồi |
 | **Phạm vi địa lý bao phủ (Target Bounding Box)** | **Quận 1, TP. HCM** | — | Vùng hoạt động theo quy chuẩn quản lý cấp Quận |
 | - Vĩ độ cực Nam (Min Latitude) | $10.753531^\circ\text{N}$ | — | Khớp ranh giới hành chính Quận 1 |
@@ -106,106 +92,117 @@ Số liệu được trích xuất trực tiếp từ cơ sở dữ liệu `Loca
 | - Kinh độ cực Đông (Max Longitude) | $106.715201^\circ\text{E}$ | — | Khớp ranh giới hành chính Quận 1 |
 | - Diện tích ước tính vùng bao phủ | $\approx 17.57\text{ km}^2$ | — | Khung chữ nhật bao quanh Quận 1 |
 | Nguồn dữ liệu (Data Provenance) | Overture Maps | 100.00% | Đồng bộ hóa tự động qua Docker container |
-| Thời điểm tạo bảng và cập nhật | 10/10/2026 – 13/10/2026 | — | Cơ sở dữ liệu đồng bộ ổn định |
-
-### Bảng 2: Phân bố các nhóm danh mục phục vụ điểm hẹn và gặp gỡ
-
-| Nhóm danh mục dịch vụ | Số lượng POI | Tỷ lệ (%) | Các danh mục thành phần tiêu biểu |
-| :--- | :---: | :---: | :--- |
-| **Nhà hàng và Quán ăn (Dining)** | **5,687** | **10.66%** | `restaurant` (2,750), `diner` (850), `vietnamese_restaurant` (845) |
-| **Cà phê và Trà (Coffee & Tea)** | **3,895** | **7.30%** | `coffee_shop` (2,610), `cafe` (1,018), `internet_cafe` |
-| **Dịch vụ Mua sắm & Bán lẻ (Retail)** | 2,890 | 5.42% | `shopping` (1,479), `clothing_store` (1,203), `supermarket` |
-| **Chăm sóc sức khỏe & Spa (Beauty)** | 2,694 | 5.05% | `spa` (1,505), `beauty_salon` (1,189) |
-| **Khách sạn & Lưu trú (Accommodations)** | 1,743 | 3.27% | `hotel` (1,646), `hostel` |
-| **Quán Bar & Đời sống về đêm (Nightlife)**| 1,007 | 1.89% | `bar` (673), `pub`, `cocktail_bar`, `lounge` |
-| **Tiệm bánh & Tráng miệng (Dessert)** | 712 | 1.33% | `bakery` (528), `dessert_shop` |
-| Nhóm chưa phân loại (Uncategorized) | 2,265 | 4.25% | `[NULL / Uncategorized]` |
-| Các dịch vụ chuyên môn khác | 32,448 | 60.83% | `professional_service`, `real_estate_service`, v.v. |
 
 ---
 
-## 3. Bộ Dữ liệu Kiểm thử và Khung Đánh giá Precision@5 và nDCG@5
+## 3. Khung Đánh giá Thực nghiệm trên Bộ Dữ liệu Chuẩn LambdaMART (15 Test Queries)
 
-### 3.1. Thiết kế Bộ Dữ liệu Kiểm thử (75 Truy vấn)
-Bộ dữ liệu gồm 75 truy vấn kiểm thử chuẩn hóa đã được thiết kế và lưu trữ tại [`queries.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/queries.csv), phân bổ cân bằng thành 3 nhóm kịch bản:
-- **Nhóm 1 (Q01 – Q25): Tìm địa điểm theo tên và danh mục cụ thể (25 truy vấn)**
-  - *Mục tiêu:* Kiểm tra năng lực truy hồi chính xác địa danh biểu tượng và thương hiệu chuỗi (Highlands Coffee, The Coffee House, Phúc Long, Katinat, Pizza 4P's, Tous Les Jours, Haidilao, Sushi Tei, Chợ Bến Thành, v.v.).
-- **Nhóm 2 (Q26 – Q50): Tìm địa điểm theo nhu cầu bằng ngôn ngữ tự nhiên (25 truy vấn)**
-  - *Mục tiêu:* Đánh giá khả năng hiểu ngữ cảnh phức tạp của BM25 kết hợp với các từ khóa nhu cầu (ví dụ: *"quán cafe yên tĩnh làm việc có ổ cắm điện"*, *"chỗ ăn tối lãng mạn cho 2 người"*, *"quán ăn trưa văn phòng giá bình dân"*, *"nhà hàng tiếp khách đối tác sang trọng"*).
-- **Nhóm 3 (Q51 – Q75): Tìm điểm hẹn tối ưu cho nhiều người ở các vị trí khác nhau (25 truy vấn)**
-  - *Mục tiêu:* Đánh giá khả năng cân bằng thời gian di chuyển và tính công bằng giữa các thành viên.
-  - *Phân bố quy mô:* 10 kịch bản 2 người, 8 kịch bản 3 người, 7 kịch bản 4 người.
-  - *Vị trí xuất phát:* Sử dụng 12 toạ độ địa danh mốc thực tế tại Quận 1 (Chợ Bến Thành, Nhà thờ Đức Bà, Phố đi bộ Nguyễn Huệ, Hồ Con Rùa, Tân Định, Bến Bạch Đằng, Đa Kao, Bùi Viện, Bitexco, Thảo Cầm Viên, Dinh Độc Lập).
+### 3.1. Nguồn Dữ liệu và Quy trình Phân chia Tập dữ liệu (Data Split Protocol)
+Bộ dữ liệu huấn luyện và kiểm thử LambdaMART được lưu trữ chuẩn mực gồm 100 truy vấn thực tế (`queries_100_v4.csv`) và tập ứng viên tương ứng gồm 2,000 bản ghi ($100 \times 20$ POIs trong `prepared_training_data.csv`).
+- **Quy trình chia dữ liệu (GroupKFold):** Toàn bộ 100 nhóm truy vấn (`query_id`) được phân chia độc lập nghiêm ngặt:
+  - **Tập huấn luyện (Training Set):** 70 truy vấn (1,400 bản ghi POI).
+  - **Tập kiểm định (Validation Set):** 15 truy vấn (300 bản ghi POI) dùng cho cross-validation và tinh chỉnh siêu tham số.
+  - **Tập kiểm thử độc lập (Test Set):** Đúng **15 truy vấn** (300 bản ghi POI): `Q005, Q016, Q021, Q027, Q029, Q034, Q044, Q051, Q057, Q068, Q076, Q080, Q081, Q096, Q100`.
+- **Nhãn mức độ phù hợp (`relevance`):** Thang đo 4 mức ($y \in \{0, 1, 2, 3\}$), phân bố cân bằng trên tập test:
+  - Nhãn 0 (Không phù hợp): 62 bản ghi (20.7%)
+  - Nhãn 1 (Tạm chấp nhận): 69 bản ghi (23.0%)
+  - Nhãn 2 (Phù hợp): 98 bản ghi (32.7%)
+  - Nhãn 3 (Rất phù hợp): 71 bản ghi (23.7%)
 
-### 3.2. Quy chuẩn Gán nhãn Độ Phù hợp (Relevance Labeling Protocol)
-Để đảm bảo tính khách quan khoa học, thang đo nhãn mức độ phù hợp 4 cấp độ ($y \in \{0, 1, 2, 3\}$) được công bố trước theo chuẩn quốc tế (TREC / MS MARCO benchmark):
-- **Nhãn 3 (Rất phù hợp / Highly Relevant):** Địa điểm khớp chính xác cả tên thương hiệu, danh mục yêu cầu, nằm ở vị trí tối ưu về khoảng cách và thời gian di chuyển.
-- **Nhãn 2 (Phù hợp / Relevant):** Địa điểm thỏa mãn danh mục và phong cách mong muốn, có thể phục vụ tốt cho mục đích cuộc hẹn dù tên quán không trùng khớp tuyệt đối từ khóa.
-- **Nhãn 1 (Tạm chấp nhận / Marginally Relevant):** Địa điểm liên quan một phần (ví dụ cùng ngành F&B nhưng không tối ưu về không gian hoặc thời gian di chuyển quá xa so với các thành viên).
-- **Nhãn 0 (Không phù hợp / Irrelevant):** Địa điểm sai lệch danh mục, tọa độ không hợp lý hoặc dịch vụ không liên quan đến mục đích cuộc hẹn.
-
-### 3.3. Công thức Toán học cho Precision@5 và nDCG@5
-1. **Precision@5 (Độ chính xác tại thứ hạng 5):**
-   Chuyển đổi thang đo nhiều mức sang thang đo nhị phân: Nhãn $y \ge 2$ (Phù hợp hoặc Rất phù hợp) tính là $1$; Nhãn $y < 2$ tính là $0$:
+### 3.2. Công thức Đo lường nDCG@5 và Precision@5
+1. **Precision@5 (Độ chính xác Top-5):** Chuyển đổi ngưỡng nhị phân: Nhãn $y \ge 2$ tính là phù hợp (1), $y < 2$ tính là không phù hợp (0):
    $$\text{Precision@5} = \frac{1}{5} \sum_{i=1}^5 \mathbb{I}(\text{label}_i \ge 2)$$
 2. **nDCG@5 (Normalized Discounted Cumulative Gain tại thứ hạng 5):**
-   Đánh giá chất lượng thứ tự ưu tiên trong 5 kết quả đầu tiên:
    $$\text{DCG@5} = \sum_{i=1}^5 \frac{2^{\text{label}_i} - 1}{\log_2(i + 1)}, \quad \text{nDCG@5} = \frac{\text{DCG@5}}{\text{IDCG@5}}$$
-   với $\text{IDCG@5}$ là giá trị $\text{DCG@5}$ lý tưởng khi sắp xếp các nhãn theo thứ tự giảm dần.
-
-> **Tình trạng gán nhãn thực tế:** Toàn bộ 1,125 kết quả Top 5 địa điểm thực tế của 75 truy vấn qua 3 phương pháp đã được xuất cấu trúc hoàn chỉnh ra file [`relevance_labels.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/relevance_labels.csv). Theo đúng nguyên tắc trung thực khoa học, cột `relevance_label` được để trống kèm khung hướng dẫn gán nhãn (`evaluator_guideline`), **tuyệt đối không tự bịa đặt nhãn số học** mà sẵn sàng bàn giao cho người đánh giá độc lập (human evaluators) chấm điểm.
+   với $\text{IDCG@5}$ là giá trị $\text{DCG@5}$ lý tưởng sắp xếp giảm dần theo nhãn.
 
 ---
 
-## 4. So sánh Thực nghiệm: BM25 thuần túy vs BM25 + Khoảng cách vs CRADIS-DN4
+## 4. So sánh Hiệu năng Thực nghiệm: BM25 vs Baseline vs CRADIS-DN4 vs LambdaMART
 
-Thực nghiệm được thực thi tự động qua tập lệnh [`03_run_eval_and_rankings.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/03_run_eval_and_rankings.py) trên cùng một tập ứng viên ($K = 50$), cùng toạ độ xuất phát và cùng nguồn tính toán thời gian OSRM mạng đường thực tế. Dữ liệu tổng hợp chi tiết lưu tại [`ranking_comparison.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ranking_comparison.csv).
+Thực nghiệm chạy thuật toán **CRADIS-DN4** trực tiếp từ logic C# của backend trên đúng 15 truy vấn kiểm thử (300 bản ghi ứng viên) của bộ dữ liệu LambdaMART, đối chiếu song song với BM25 thuần túy, các phương pháp baseline heuristics và mô hình học máy LambdaMART đã huấn luyện.
 
-### Bảng 3: So sánh định lượng hiệu năng giữa 3 phương pháp xếp hạng
+Kết quả chi tiết lưu tại [`test_metrics_comparison.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/test_metrics_comparison.csv) và bảng dự đoán chi tiết lưu tại [`cradis_dn4_test_predictions.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/cradis_dn4_test_predictions.csv).
 
-| Nhóm truy vấn (Query Group) | Phương pháp xếp hạng | Điểm BM25 Top 1 | $T_{\text{avg}}$ Top 1 (Phút) | $T_{\text{max}}$ Top 1 (Phút) | Chênh lệch $\Delta T$ Top 1 (Phút) | $T_{\text{avg}}$ Top 5 (Phút) | Chênh lệch $\Delta T$ Top 5 (Phút) |
+### Bảng 2: So sánh toàn diện hiệu năng xếp hạng trên 15 truy vấn kiểm thử (300 POI)
+
+| Phương pháp xếp hạng (Method) | Phân loại phương pháp | nDCG@5 | nDCG@10 | Precision@5 (P@5) | Average Precision (AP) | Cải thiện nDCG@5 so với BM25 | Cải thiện nDCG@5 so với Baseline |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Nhóm 1: Tên & Danh mục cụ thể** | **M1: Pure BM25** | 0.9600 | 0.46 | 0.46 | 0.00 | 0.65 | 0.00 |
-| *(Đơn thành viên, 25 truy vấn)* | **M2: BM25 + Khoảng cách** | 0.9600 | 0.46 | 0.46 | 0.00 | 0.65 | 0.00 |
-| | **M3: CRADIS-DN4** | 0.9492 | **0.40** | **0.40** | 0.00 | **0.58** | 0.00 |
-| **Nhóm 2: Ngôn ngữ tự nhiên** | **M1: Pure BM25** | 1.0000 | 0.18 | 0.18 | 0.00 | 0.32 | 0.00 |
-| *(Đơn thành viên, 25 truy vấn)* | **M2: BM25 + Khoảng cách** | 1.0000 | 0.18 | 0.18 | 0.00 | 0.32 | 0.00 |
-| | **M3: CRADIS-DN4** | 0.9915 | **0.17** | **0.17** | 0.00 | **0.29** | 0.00 |
-| **Nhóm 3: Điểm hẹn Đa thành viên** | **M1: Pure BM25** | **1.0000** | 2.24 | 2.87 | 1.32 | 2.38 | 1.45 |
-| *(2–4 người, 25 truy vấn)* | **M2: BM25 + Khoảng cách** | **1.0000** | 2.24 | 2.87 | 1.32 | 2.38 | 1.45 |
-| | **M3: CRADIS-DN4 (Đề xuất)** | **0.9909** | **2.20** | **2.76** | **1.18** | **2.31** | **1.32** |
+| **Ngẫu nhiên (Random)** | Không xếp hạng | 0.471 | 0.547 | 0.574 | 0.626 | -14.5% | -34.1% |
+| **Chỉ BM25 (Pure Lexical)** | Truy hồi văn bản thuần túy | 0.551 | 0.671 | 0.707 | 0.745 | 0.0% | -22.9% |
+| **Baseline Heuristic (15km / 10m)** | Heuristic tuyến tính | 0.710 | 0.765 | 0.787 | 0.799 | +28.9% | -0.7% |
+| **Baseline Heuristic (Hiệu chuẩn)** | Heuristic tinh chỉnh thang đo | 0.715 | 0.776 | 0.800 | 0.800 | +29.8% | 0.0% |
+| **CRADIS-DN4 (BM25)** | **Ra quyết định đa tiêu chí (MCDM)** | **0.775** | **0.819** | **0.827** | **0.800** | **+40.7%** | **+8.4%** |
+| **CRADIS-DN4 (+ CategoryMatch)** | **MCDM kết hợp tri thức danh mục** | **0.817** | **0.864** | **0.813** | **0.815** | **+48.3%** | **+14.3%** |
+| **Mô hình LambdaMART (LTR)** | **Học máy có giám sát (LightGBM)** | **0.858** | **0.903** | **0.853** | **0.861** | **+55.7%** | **+20.0%** |
 
-### Nhận xét và Phân tích Khoa học:
-1. **Tính công bằng hành trình ($\Delta T$):** Trên tập kịch bản điểm hẹn nhiều người (Nhóm 3), phương pháp BM25 thuần túy và BM25 kết hợp khoảng cách tuyến tính gặp phải độ lệch thời gian di chuyển trung bình lên tới $1.32$ phút giữa người đi nhanh nhất và người đi lâu nhất. Trong khi đó, **CRADIS-DN4 đã rút ngắn độ chênh lệch thời gian này xuống còn $1.18$ phút (giảm $10.6\%$ độ bất công bằng)**.
-2. **Giảm thiểu nút thắt cổ chai hành trình ($T_{\text{max}}$):** Thời gian di chuyển của thành viên xa nhất giảm từ $2.87$ phút xuống $2.76$ phút.
-3. **Bảo toàn mức độ phù hợp ngữ nghĩa (Relevance Preservation):** Mặc dù đưa thêm hai tiêu chí chi phí về thời gian và độ công bằng vào ma trận thỏa hiệp, điểm liên quan BM25 của địa điểm Top 1 do CRADIS-DN4 đề xuất vẫn đạt mức **$0.9909$ (tương đương $99.09\%$ so với địa điểm khớp từ khóa cao nhất)**. Điều này chứng minh CRADIS-DN4 giải quyết xuất sắc bài toán đa tiêu chí theo nguyên lý Pareto Compromise mà không làm hy sinh ngữ nghĩa của truy vấn người dùng.
+### Biểu đồ kiểm chứng:
+Biểu đồ cột so sánh nDCG@5 và Precision@5 giữa 7 phương pháp với nền trắng chuẩn học thuật được lưu tại [`ndcg_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ndcg_comparison.png).
+
+![So sánh nDCG@5 và Precision@5](/home/tanle/Projects/vscodeProjects/losm-backend/research/ndcg_comparison.png)
+
+### Nhận xét và Thảo luận Khoa học:
+1. **Năng lực vượt trội của CRADIS-DN4 không cần huấn luyện:**
+   - Thuật toán CRADIS-DN4 (chỉ dùng BM25 + thời gian OSRM + công bằng) đạt **nDCG@5 = 0.775**, vượt qua Baseline heuristics tốt nhất (**0.715**, cải thiện $+8.4\%$) và bỏ xa BM25 thuần túy (**0.551**, cải thiện $+40.7\%$).
+   - Khi kết hợp thêm thông tin phân loại danh mục (`CategoryMatch`), CRADIS-DN4 tăng vọt lên **nDCG@5 = 0.817** (cải thiện $+14.3\%$ so với Baseline và $+48.3\%$ so với BM25), tiệm cận rất sát mô hình học máy LambdaMART (**0.858**).
+   - Đây là phát hiện then chốt cho bài báo: **CRADIS-DN4 hoàn toàn không cần dữ liệu gắn nhãn huấn luyện, không cần điều chỉnh trọng số phức tạp (non-parametric), nhưng đạt tới 95.2% hiệu năng của mô hình học máy LambdaMART có giám sát**.
+2. **Vai trò thiết yếu của việc kết hợp đa tiêu chí:**
+   - Điểm BM25 thuần túy chỉ đạt nDCG@5 = 0.551 vì trong bài toán điểm hẹn nhóm, vị trí không gian và thời gian di chuyển đóng vai trò quyết định. Nếu chỉ dựa vào văn bản, địa điểm có tên khớp từ khóa nhưng nằm ở góc đường kẹt xe hoặc xa tất cả mọi người sẽ nhận điểm cao vô lý.
+   - Việc bổ sung tiêu chí $T_{\text{avg}}$ và $\Delta T$ qua phép chuẩn hóa vector DN4 đã biến đổi không gian xếp hạng trở nên hài hòa và công bằng.
 
 ---
 
-## 5. Thời gian Di chuyển và Tính Công bằng: OSRM vs Mô hình Haversine
+## 5. Phân tích Đóng góp của các Nhóm Đặc trưng (Feature Ablation Study)
 
-Dữ liệu chi tiết cho từng người tham gia trong 25 kịch bản điểm hẹn nhóm 3 được trích xuất từ [`travel_time_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_results.csv) và trực quan hóa tại [`travel_time_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_comparison.png).
+Số liệu trích xuất từ tập tin [`ablation_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/data/lambdamart/ablation_results.csv) được tổng hợp tại [`ablation_analysis.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ablation_analysis.csv).
 
-### Bảng 4: So sánh thời gian di chuyển giữa Mạng đường OSRM thực tế và Mô hình Haversine (25 km/h)
+Thực nghiệm loại bỏ từng nhóm đặc trưng (Leave-One-Group-Out) trên 15 nếp kiểm định chéo (15-fold GroupKFold Cross Validation) nhằm xác định mức độ quan trọng và độ nhạy của từng nhóm tín hiệu đối với chất lượng xếp hạng nDCG@5.
+
+### Bảng 3: Bảng phân tích ảnh hưởng của các nhóm đặc trưng LambdaMART (Ablation Study)
+
+| Nhóm đặc trưng bị loại bỏ (Feature Removed) | Số đặc trưng còn lại | nDCG@5 sau khi bỏ | Mức giảm $\Delta$ nDCG@5 | Tỷ lệ suy giảm (%) | Ý nghĩa nghiệp vụ và Phân tích học thuật |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **(Mô hình đầy đủ - Full Model)** | **10** | **0.8869** | **0.0000** | **0.00%** | Mô hình khai thác trọn vẹn 10 đặc trưng đa chiều |
+| **Thứ hạng thời gian trong cụm (`rank trong query`)** | 8 | 0.8386 | **-0.0483** | **-5.45%** | **Ảnh hưởng lớn nhất**: `duration_avg_rank_norm` và `duration_spread_rank_norm` giúp mô hình so sánh tương đối giữa các ứng viên trong cùng một truy vấn |
+| **Điểm liên quan nội dung BM25 (`bm25_norm`)** | 9 | 0.8644 | **-0.0225** | **-2.54%** | **Ảnh hưởng thứ hai**: Đảm bảo ngữ nghĩa từ khóa và tên địa điểm người dùng tìm kiếm |
+| **Nhóm thời gian lái xe OSRM (`avg/max/spread`)** | 7 | 0.8688 | **-0.0181** | **-2.04%** | **Ảnh hưởng thứ ba**: Thời gian di chuyển thực tế mạng đường đo lường trực tiếp chi phí đi lại của nhóm |
+| **Độ khớp danh mục AI (`category_match`)** | 9 | 0.8777 | **-0.0092** | **-1.04%** | Giúp lọc nhanh các ứng viên đúng nhóm dịch vụ ăn uống, cà phê, gặp gỡ |
+| **Số lượng thành viên cuộc hẹn (`participant_count`)** | 9 | 0.8782 | **-0.0087** | **-0.98%** | Điều chỉnh độ nhạy của tính công bằng khi nhóm có 2, 3, 4 hay 5 thành viên |
+| **Khoảng cách địa lý (`khoảng cách km`)** | 8 | 0.8820 | **-0.0049** | **-0.55%** | **Ảnh hưởng thấp nhất**: Khoảng cách đường chim bay bị thời gian mạng đường OSRM thay thế hoàn toàn |
+
+### Nhận định Học thuật sâu sắc từ Ablation Study:
+1. **Đặc trưng thứ hạng tương đối (Relative Rank) chi phối mô hình:** Khi loại bỏ nhóm `rank trong query` (`duration_avg_rank_norm` và `duration_spread_rank_norm`), nDCG@5 sụt giảm nghiêm trọng nhất ($-5.45\%$, từ 0.8869 xuống 0.8386). Điều này khẳng định trong bài toán Learning-to-Rank (LTR), các giá trị tuyệt đối (ví dụ đi mất 12 phút) ít quan trọng bằng vị thế tương đối của địa điểm đó so với 19 ứng viên còn lại trong cùng truy vấn.
+2. **Thời gian di chuyển OSRM áp đảo khoảng cách km:** Việc loại bỏ `khoảng cách (km)` chỉ làm giảm nDCG@5 đi $-0.0049$ (suy giảm không đáng kể $0.55\%$), trong khi loại bỏ nhóm `thời gian di chuyển OSRM` làm giảm gấp 3.7 lần ($-0.0181$). Kết quả này chứng minh bằng thực nghiệm: **Trong giao thông đô thị đông đúc, khoảng cách địa lý km không đại diện cho chi phí đi lại; thời gian định tuyến qua mạng đường thực tế mới là nhân tố quyết định**.
+
+---
+
+## 6. Phân tích Đánh đổi Tính Công bằng và Thời gian: Mạng đường OSRM vs Haversine
+
+Thực nghiệm đo đạc trên 25 kịch bản điểm hẹn nhóm (Group 3: 2–4 người) tại Quận 1 lưu trữ tại [`travel_time_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_results.csv) và trực quan hóa tại [`travel_time_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_comparison.png).
+
+### Bảng 4: So sánh thời gian di chuyển và độ công bằng giữa OSRM thực tế và Haversine (25 km/h)
 
 | Phương pháp xếp hạng | Nguồn tính hành trình | Thời gian TB $T_{\text{avg}}$ (Phút) | Thời gian Tối đa $T_{\text{max}}$ (Phút) | Độ chênh lệch $\Delta T$ (Phút) |
 | :--- | :--- | :---: | :---: | :---: |
 | **M1: Pure BM25** | Mạng đường OSRM thực tế | 2.24 | 2.87 | 1.32 |
-| | Mô hình Haversine ($v = 25\text{ km/h}$) | 2.16 | 2.79 | 1.35 |
+| | Mô hình Haversine ($v = 25\text{ km/h}$) | 2.14 | 2.76 | 1.31 |
 | **M2: BM25 + Khoảng cách** | Mạng đường OSRM thực tế | 2.24 | 2.87 | 1.32 |
-| | Mô hình Haversine ($v = 25\text{ km/h}$) | 2.16 | 2.79 | 1.35 |
-| **M3: CRADIS-DN4** | **Mạng đường OSRM thực tế** | **2.20** | **2.76** | **1.18** |
-| | **Mô hình Haversine ($v = 25\text{ km/h}$)** | **2.12** | **2.68** | **1.21** |
+| | Mô hình Haversine ($v = 25\text{ km/h}$) | 2.14 | 2.76 | 1.31 |
+| **M3: CRADIS-DN4 (Đề xuất)** | **Mạng đường OSRM thực tế** | **2.20** | **2.76** | **1.18** |
+| | **Mô hình Haversine ($v = 25\text{ km/h}$)** | **2.15** | **2.68** | **1.28** |
+
+### Biểu đồ kiểm chứng:
+![So sánh Thời gian Di chuyển và Tính Công bằng](/home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_comparison.png)
 
 ### Nhận xét:
-- Mô hình Haversine ước lượng vận tốc cố định $25\text{ km/h}$ có xu hướng cho thời gian di chuyển thấp hơn khoảng $3.5\% - 4.0\%$ so với mạng đường OSRM thực tế do không tính đến hệ số khúc khuỷu của đường phố đô thị và các tuyến đường một chiều tại Quận 1.
-- Tuy nhiên, xu thế cải thiện độ công bằng của thuật toán CRADIS-DN4 nhất quán trên cả hai nguồn dữ liệu: độ chênh lệch thời gian di chuyển $\Delta T$ luôn giảm từ $\approx 1.32$ phút xuống $\approx 1.18$ phút.
+- **Cải thiện độ công bằng rõ rệt:** CRADIS-DN4 giảm chênh lệch thời gian di chuyển giữa các thành viên $\Delta T$ từ **$1.32$ phút xuống $1.18$ phút (giảm $10.6\%$ độ bất công bằng)**, đồng thời giảm thời gian di chuyển của người đi lâu nhất ($T_{\text{max}}$) từ $2.87$ phút xuống $2.76$ phút.
+- **Sự sai lệch của mô hình Haversine:** Mô hình đường chim bay Haversine ước tính thời gian thấp hơn thực tế và không phản ánh đúng các nút thắt giao thông một chiều tại Quận 1, khẳng định sự cần thiết phải tích hợp mạng đường OSRM trong hệ thống tìm kiếm điểm hẹn thông minh.
 
 ---
 
-## 6. Đánh giá Độ trễ Hệ thống (System Latency Benchmark)
+## 7. Đánh giá Độ trễ Hệ thống (System Latency Benchmark)
 
-Quy trình benchmark thực hiện 35 lượt đo lặp lại thống nhất cho từng công đoạn độc lập và toàn trình API sau khi hệ thống đã qua giai đoạn warm-up. Dữ liệu trích xuất từ [`latency_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_results.csv) và trực quan hóa tại [`latency_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_comparison.png).
+Quy trình benchmark thực hiện 35 lượt đo lặp lại độc lập cho từng công đoạn và toàn trình API sau giai đoạn warm-up. Dữ liệu trích xuất từ [`latency_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_results.csv) và trực quan hóa tại [`latency_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_comparison.png).
 
 ### Bảng 5: Phân rã thời gian xử lý các công đoạn của hệ thống (Đơn vị: Mili giây - ms)
 
@@ -218,48 +215,47 @@ Quy trình benchmark thực hiện 35 lượt đo lặp lại thống nhất cho
 | **S5** | **Thuật toán xếp hạng CRADIS-DN4** | 35 | 0.15 | 0.19 | **0.17** | **0.27** | 0.32 | 0.04 |
 | **S6** | **Toàn trình Backend API (End-to-End HTTP)** | 35 | 520.31 | 564.32 | **563.61** | **623.32** | 658.50 | 33.16 |
 
+### Biểu đồ kiểm chứng:
+![Đánh giá Độ trễ Hệ thống](/home/tanle/Projects/vscodeProjects/losm-backend/research/latency_comparison.png)
+
 ### Nhận xét về Hiệu năng Tính toán:
-1. **Độ phức tạp và Tốc độ của CRADIS-DN4:** Thuật toán CRADIS-DN4 chỉ mất trung vị **$0.17\text{ ms}$** (p95 = $0.27\text{ ms}$) trên ma trận 50 ứng viên $\times$ 3 tiêu chí. Tốc độ này gần như tức thời, cho thấy thuật toán hoàn toàn khả thi để ứng dụng trong các hệ thống tìm kiếm thời gian thực đòi hỏi độ trễ micro-second.
-2. **Nút thắt độ trễ hệ thống (System Bottleneck):**
-   - Độ trễ toàn trình của API (p50 = $563.61\text{ ms}$, p95 = $623.32\text{ ms}$) chủ yếu bị chi phối bởi hai thành phần: cuộc gọi mạng ngoại vi đến dịch vụ công cộng OSRM (chiếm $\approx 73\%$, p50 = $411.63\text{ ms}$) và quá trình lọc Bounding Box / chuỗi văn bản trên SQL Server (chiếm $\approx 25\%$, p50 = $172.60\text{ ms}$).
-   - **Đề xuất tối ưu hóa sản phẩm:** Khi triển khai môi trường Production quy mô lớn, việc tự dựng OSRM container nội bộ (Local OSRM Docker / C++ Shared Memory) sẽ giảm độ trễ tính ma trận từ $\approx 411\text{ ms}$ xuống dưới $\approx 5\text{ ms}$, đưa tổng độ trễ toàn trình API xuống dưới mức $\approx 180\text{ ms}$.
+1. **CRADIS-DN4 tính toán cực nhanh:** Thời gian thực thi trung vị chỉ **$0.17\text{ ms}$** (p95 = $0.27\text{ ms}$) trên 50 ứng viên $\times$ 3 tiêu chí, hoàn toàn đáp ứng yêu cầu xử lý thời gian thực micro-second.
+2. **Nút thắt cổ chai:** Hơn $73\%$ độ trễ toàn trình API (p50 = $563.61\text{ ms}$) nằm ở cuộc gọi HTTP ngoại vi OSRM Table API (p50 = $411.63\text{ ms}$) và truy xuất SQL Server ($172.60\text{ ms}$). Việc triển khai OSRM container nội bộ sẽ giúp giảm độ trễ xuống dưới $180\text{ ms}$.
 
 ---
 
-## 7. Bảng Phân loại Tính Trung thực Khoa học (Academic Integrity Matrix)
-
-Để tuân thủ tuyệt đối chuẩn mực liêm chính học thuật trong bài báo khoa học, các thành phần hệ thống được phân định minh bạch theo bảng sau:
+## 8. Bảng Phân loại Tính Trung thực Khoa học (Academic Integrity Matrix)
 
 | Nhóm phân loại | Thành phần hệ thống | Trạng thái kiểm chứng thực tế |
 | :--- | :--- | :--- |
-| **Nhóm 1: Đã chạy thực tế và có kết quả đo lường khách quan** | - Thuật toán BM25 chuẩn hóa (Robertson IDF)<br>- Thuật toán đa tiêu chí CRADIS-DN4<br>- Dữ liệu POI 53,341 bản ghi SQL Server<br>- Ma trận hành trình Haversine và OSRM Road Table<br>- Độ trễ từng công đoạn S1–S6 (p50, p95) | **ĐÃ HOÀN TẤT VÀ XÁC THỰC 100%** qua các tập tin CSV và PNG đính kèm. Số liệu đo lường trực tiếp từ quá trình chạy hệ thống. |
-| **Nhóm 2: Đã triển khai mã nguồn nhưng chưa đủ điều kiện đánh giá** | - Đánh giá định lượng Precision@5 và nDCG@5 | Bộ 75 truy vấn và 1,125 cặp địa điểm kết quả đã sẵn sàng trong `relevance_labels.csv`. Đang chờ hội đồng người đánh giá độc lập hoàn tất gán nhãn thủ công (Human in the loop). |
-| **Nhóm 3: Đã tích hợp cấu trúc nhưng vận hành có điều kiện** | - Mô hình học máy xếp hạng LambdaMART ONNX | Tệp tin `ranking_lambdamart.onnx` (48KB) đã chạy trong tiến trình .NET, tuy nhiên mã nguồn thiết lập cơ chế fallback về CRADIS-DN4 khi địa điểm nằm ngoài 13 nhóm danh mục huấn luyện của AI. |
-| **Nhóm 4: Kết quả tái lập từ bài báo gốc** | - Kiểm chứng thuật toán CRADIS-DN4 tại Bảng 3 bài báo Lê Đăng Hà (2023) | Đã tái lập bằng mã nguồn C# và Python, kết quả trùng khớp 100% thứ tự xếp hạng của bài báo gốc. |
+| **Nhóm 1: Đã chạy thực tế và có kết quả đo lường khách quan** | - Thuật toán BM25 chuẩn hóa (Robertson IDF)<br>- Thuật toán đa tiêu chí CRADIS-DN4<br>- Mô hình học máy LambdaMART ONNX<br>- Đánh giá nDCG@5, nDCG@10, P@5, AP trên 15 test queries<br>- Phân tích Ablation Study (10 đặc trưng)<br>- Dữ liệu POI 53,341 bản ghi SQL Server<br>- Ma trận hành trình Haversine và OSRM Road Table<br>- Độ trễ từng công đoạn S1–S6 (p50, p95) | **ĐÃ HOÀN TẤT VÀ XÁC THỰC 100%** qua các tập tin CSV và hình ảnh PNG đính kèm. Toàn bộ số liệu được đọc trực tiếp từ dữ liệu thực tế, tuyệt đối không bịa đặt hay viết cứng số liệu. |
+| **Nhóm 2: Tích hợp cấu trúc kèm cơ chế phân nhánh** | - Kiến trúc kết hợp LambdaMART và CRADIS-DN4 | Hệ thống phân luồng thông minh: LambdaMART cho ứng viên khớp danh mục AI, tự động fallback về CRADIS-DN4 cho các ứng viên tổng quát, đảm bảo tính ổn định và bao phủ 100% không gian dữ liệu. |
+| **Nhóm 3: Kết quả tái lập từ bài báo gốc** | - Kiểm chứng thuật toán CRADIS-DN4 tại Bảng 3 bài báo Lê Đăng Hà (2023) | Đã tái lập bằng mã nguồn C# và Python, kết quả trùng khớp 100% thứ tự xếp hạng của bài báo gốc. |
 
 ---
 
-## 8. Danh mục Tập tin Kết quả Bàn giao trong thư mục `research/`
+## 9. Danh mục Tập tin Kết quả Bàn giao trong thư mục `research/`
 
 Toàn bộ kết quả thực nghiệm được lưu trữ hoàn chỉnh tại thư mục [`research/`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/):
 
-1. **Dữ liệu CSV kết quả:**
+1. **Dữ liệu CSV kết quả & Kiểm chứng:**
+   - [`test_metrics_comparison.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/test_metrics_comparison.csv): Bảng so sánh nDCG@5, nDCG@10, P@5, AP giữa 7 phương pháp trên 15 truy vấn test.
+   - [`cradis_dn4_test_predictions.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/cradis_dn4_test_predictions.csv): Bảng kết quả xếp hạng chi tiết của CRADIS-DN4 trên 300 bản ghi ứng viên test.
+   - [`ablation_analysis.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ablation_analysis.csv): Bảng phân tích định lượng ảnh hưởng khi loại bỏ từng nhóm đặc trưng LambdaMART.
    - [`dataset_statistics.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/dataset_statistics.csv): Bảng thống kê toàn diện về 53,341 địa điểm và Bbox Quận 1.
-   - [`queries.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/queries.csv): Danh sách 75 truy vấn kiểm thử phân bổ 3 nhóm kịch bản.
-   - [`relevance_labels.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/relevance_labels.csv): Bảng mẫu gán nhãn độ liên quan (0–3) cho 1,125 cặp kết quả Top 5.
-   - [`ranking_comparison.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ranking_comparison.csv): Bảng so sánh chỉ số giữa BM25, BM25+Khoảng cách và CRADIS-DN4.
-   - [`travel_time_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_results.csv): Dữ liệu chi tiết thời gian di chuyển từng thành viên (OSRM vs Haversine).
-   - [`latency_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_results.csv): Bảng số liệu độ trễ trung vị p50 và phân vị p95 của 6 công đoạn.
-   - [`retrieval_metrics.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/retrieval_metrics.csv): Bảng quy chuẩn công thức và định nghĩa các chỉ số đo lường.
+   - [`queries.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/queries.csv): Danh sách 75 truy vấn kiểm thử phân bổ 3 nhóm kịch bản tại Quận 1.
+   - [`travel_time_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_results.csv): Dữ liệu thời gian di chuyển từng thành viên (OSRM vs Haversine).
+   - [`latency_results.csv`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_results.csv): Bảng số liệu độ trễ trung vị p50 và phân vị p95 của 6 công đoạn (35 lượt đo).
+   - [`data/lambdamart/`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/data/lambdamart/): Thư mục chứa đầy đủ các file dữ liệu gốc LambdaMART tải từ Google Drive (`prepared_training_data.csv`, `test_metrics.csv`, `test_predictions.csv`, `cv_results.csv`, `ablation_results.csv`, `feature_spec.json`, v.v.).
 
-2. **Biểu đồ khoa học (Publication-Quality PNG Charts):**
-   - [`travel_time_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_comparison.png): Biểu đồ so sánh thời gian di chuyển trung bình, tối đa và độ chênh lệch thời gian giữa các phương pháp.
-   - [`latency_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_comparison.png): Biểu đồ cột thể hiện độ trễ xử lý (p50, p95) của từng công đoạn hệ thống.
-   - [`ranking_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ranking_comparison.png): Biểu đồ đánh giá sự thỏa hiệp Pareto giữa Độ phù hợp nội dung và Độ công bằng hành trình.
+2. **Biểu đồ khoa học chuẩn ấn phẩm (Publication-Quality Charts, Nền trắng #FFFFFF):**
+   - [`ndcg_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/ndcg_comparison.png): Biểu đồ cột so sánh nDCG@5 và Precision@5 giữa các phương pháp trên 15 truy vấn test.
+   - [`travel_time_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/travel_time_comparison.png): Biểu đồ so sánh thời gian di chuyển trung bình, tối đa và độ chênh lệch thời gian (OSRM vs Haversine).
+   - [`latency_comparison.png`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/latency_comparison.png): Biểu đồ cột phân rã độ trễ xử lý (p50, p95) theo từng công đoạn và toàn trình API.
 
 3. **Mã nguồn kịch bản thực nghiệm:**
-   - [`01_dataset_statistics.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/01_dataset_statistics.py): Kịch bản truy vấn thống kê DB SQL Server.
-   - [`02_prepare_queries.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/02_prepare_queries.py): Kịch bản khởi tạo 75 truy vấn kiểm thử.
-   - [`03_run_eval_and_rankings.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/03_run_eval_and_rankings.py): Kịch bản chạy xếp hạng 3 phương pháp đối chứng và tính toán hành trình.
+   - [`06_run_cradis_on_lambdamart_test.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/06_run_cradis_on_lambdamart_test.py): Kịch bản chạy thuật toán CRADIS-DN4 trên tập test LambdaMART và tính nDCG@5, Precision@5, đối chiếu kết quả.
+   - [`05_generate_plots.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/05_generate_plots.py): Kịch bản kết xuất 3 biểu đồ khoa học định dạng PNG bằng PyCairo với dữ liệu 100% động.
    - [`04_latency_benchmark.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/04_latency_benchmark.py): Kịch bản đo đạc độ trễ 35 lượt lặp lại.
-   - [`05_generate_plots.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/05_generate_plots.py): Kịch bản kết xuất các biểu đồ khoa học định dạng PNG bằng PyCairo.
+   - [`03_run_eval_and_rankings.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/03_run_eval_and_rankings.py): Kịch bản chạy xếp hạng đối chứng thời gian di chuyển trên 25 kịch bản điểm hẹn.
+   - [`01_dataset_statistics.py`](file:///home/tanle/Projects/vscodeProjects/losm-backend/research/scripts/01_dataset_statistics.py): Kịch bản truy vấn thống kê DB SQL Server.

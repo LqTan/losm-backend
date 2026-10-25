@@ -1,0 +1,301 @@
+query_id,poi_id,name,category_raw,category_match,relevance,bm25_norm,duration_avg_min,duration_spread_min,score_cradis_bm25,score_cradis_catmatch,rank_cradis_catmatch
+Q005,overture:b82385bd-168b-4b31-b407-65f61200a825,Milano Coffee,cafe,1,3,0.774,5.78,0.24,0.778498,1.0,1
+Q005,overture:3050879c-d2d0-47c2-a2b3-4b146415b053,HÃY VUI LÊN Trà & Cà Phê,coffee_shop,1,3,0.7091,5.88,0.24,0.684035,0.73352,2
+Q005,overture:391f1760-4be6-458b-b59c-20183ee60be6,P&M KoHi,cafe,1,1,0.5717,5.93,0.24,0.567175,0.685873,3
+Q005,overture:ef062dec-08f7-4792-b4db-2e3cb57e0663,Jazzjuice,coffee_shop,1,3,0.7139,6.14,0.5,0.655562,0.55527,4
+Q005,overture:722481ac-05e4-4ca9-a970-cf753f32f6da,239 Cafe,coffee_shop,1,3,0.9583,6.48,1.04,1.0,0.502175,5
+Q005,overture:3759116f-f6d5-4459-b117-ef03545cf25e,An Cafe,coffee_shop,1,3,0.9583,5.69,2.14,0.976903,0.498404,6
+Q005,overture:e7f8c064-7372-4098-af4e-c94e12611a71,T&H cafe,coffee_shop,1,3,0.9583,6.23,1.85,0.90828,0.486604,7
+Q005,overture:589b2077-8b17-4439-a1e8-844790cb8c48,C/Max Cafe,coffee_shop,1,2,0.8891,7.09,4.93,0.549074,0.399121,8
+Q005,overture:2fb80742-ee58-4edf-95ce-b5c46401f39c,Café Sunwah,coffee_shop,1,3,0.9583,6.48,6.06,0.580489,0.391997,9
+Q005,overture:99b2be33-3936-482a-8866-5234933ecf47,Royal Cafe,coffee_shop,1,3,0.9583,6.37,6.62,0.564439,0.384236,10
+Q005,overture:2925acf2-39cf-4043-b3b9-84b505b30efd,"Cafe Bệt, Hàn Thuyên Cafe",coffee_shop,1,2,1.0,6.12,8.08,0.549474,0.363169,11
+Q005,overture:2beb386a-1bac-48a4-87cf-88e50d1eb109,Starbucks,coffee_shop,1,1,0.6972,8.58,5.94,0.376452,0.346544,12
+Q005,overture:8f12d100-27ed-4c7a-8592-ec9b159480c3,Cafe Bờ Kè,coffee_shop,1,2,0.9583,8.6,5.95,0.494752,0.345792,13
+Q005,overture:b6182d45-892d-466b-8fbf-51f563aa0a89,Snug Coffee Shop,cafe,1,2,0.9665,6.62,8.69,0.491173,0.341008,14
+Q005,overture:ec259643-f1b8-411e-bdb0-a9fb3b808eb7,AQ Cafe,coffee_shop,1,2,0.9341,8.22,6.97,0.46696,0.336052,15
+Q005,overture:285355ce-747a-42d0-912b-d85539a7692b,EX COFFEE Nguyễn Phi Khanh,cafe,1,1,0.6787,7.26,10.17,0.312076,0.30047,16
+Q005,overture:da101eaf-4c91-453c-b692-84327806ba86,Greenland Coffee,coffee_shop,1,1,0.7318,8.4,8.97,0.32761,0.296573,17
+Q005,overture:ccee1c70-d8f3-4689-bb32-437058b5f4ca,Lâm Café,restaurant,0,1,0.2305,6.09,0.32,0.386838,0.294425,18
+Q005,overture:985d4f14-2425-499f-8fea-f560f2980d3c,Highlands Coffee,coffee_shop,1,1,0.748,8.84,10.17,0.296248,0.265479,19
+Q005,overture:b988fd3b-221c-4c85-a64b-9d5401696084,Tiệm cơm Nhà,vietnamese_restaurant,0,0,0.0044,6.0,0.24,0.302161,0.237369,20
+Q016,overture:e6694b4e-b238-4cad-b5ba-921836fd123e,Whatever Tea & Coffee,coffee_shop,1,3,0.6015,3.38,0.76,0.509948,1.0,1
+Q016,overture:7c42b9ed-be69-460c-9c27-72af08b0a1b6,Chuyện Cà Phê,coffee_shop,1,3,0.6821,3.42,0.76,0.555318,0.928611,2
+Q016,overture:c85dfc67-9f4e-42dd-a328-bc68936fdc22,Cafe Ngoc Suong Ben Thuyen,cafe,1,2,0.7597,3.43,0.76,0.614098,0.915783,3
+Q016,overture:d6723398-c3b0-4f1c-835d-fce00cfc77b9,Xưa Coffee,cafe,1,3,0.9718,3.88,0.58,1.0,0.714227,4
+Q016,overture:a9072264-3853-462e-9d30-ed7d2462894b,Feel Coffee,cafe,1,3,0.9718,3.91,0.73,0.921446,0.664099,5
+Q016,overture:e7e30038-b668-4bb6-9121-86afa7052d1e,Hello Coffee,cafe,1,3,0.9718,3.7,1.06,0.891859,0.646403,6
+Q016,overture:e039bf40-8f98-407a-abcf-baf719ec08fe,May coffee,coffee_shop,1,3,0.5767,4.29,0.64,0.457884,0.605678,7
+Q016,overture:059384be-9bf6-44ed-9b64-a9025c78bd66,MinHome Coffee,cafe,1,3,0.9718,4.59,1.83,0.61783,0.491846,8
+Q016,overture:28bf9875-bebf-4bcc-acdd-c79df2ce76f6,Anh Coffee Roastery,cafe,1,2,0.9718,3.26,5.32,0.502857,0.413901,9
+Q016,overture:b6182d45-892d-466b-8fbf-51f563aa0a89,Snug Coffee Shop,cafe,1,2,0.9718,3.3,5.33,0.50058,0.412174,10
+Q016,overture:3f549992-b4e3-4de5-b0b9-9cdabc12f65f,Nhà Sách Cá Chép,coffee_shop,1,2,0.5927,4.23,4.94,0.321576,0.389122,11
+Q016,overture:1723dfc5-8543-4f23-b5d3-fc785eb16fc1,Hometown Coffee,cafe,1,2,1.0,4.17,5.19,0.477227,0.383353,12
+Q016,overture:66fb0eae-1cf8-49f3-9cb4-a2ac929afe69,Sipply Specialty Coffee,coffee_shop,1,2,0.6149,4.82,4.82,0.312438,0.3711,13
+Q016,overture:45d30a70-e818-43a2-8a2e-c3e349a004a9,Coffee HPGiaLai,cafe,1,2,0.9718,5.78,4.05,0.436036,0.360192,14
+Q016,overture:0a68b304-592f-496b-a7bc-b49ba3133ed8,The Coffee Bean And Tea Leaf Nguyễn Huệ,coffee_shop,1,2,0.5651,5.31,4.96,0.274705,0.349042,15
+Q016,overture:b5caddb9-94e9-4260-aa61-63b8acc12ef7,Mơ Đi Hội,coffee_shop,1,2,0.5574,5.96,4.88,0.252846,0.328548,16
+Q016,overture:7f165bd7-a4c6-405e-826b-63261189ac95,Vespa coffee,coffee_shop,1,1,0.6149,6.91,4.57,0.249283,0.304868,17
+Q016,overture:7e585d75-9908-4533-b4ef-2852330e815e,Ốc Ốc cafe,cafe,1,1,0.7765,7.23,4.94,0.281911,0.283112,18
+Q016,overture:e8cf151d-c361-41ca-a8ea-a06d28631ac9,Vú Heo Nướng 704,restaurant,0,0,0.0,3.52,0.56,0.272758,0.264044,19
+Q016,overture:eb3b1ca0-9e96-4f0b-a3d2-1162a09e575a,Lẩu Gà Lá É Phú Yên Hội Ngộ,chinese_restaurant,0,0,0.0,3.6,0.56,0.270084,0.261359,20
+Q021,overture:a679d270-764f-44fe-b99a-cf41692f3b94,Bồ Cà Phê,cafe,1,3,0.9787,2.43,0.22,1.0,1.0,1
+Q021,overture:c8b9aa0b-2905-4da9-a1c0-1a4d603a8011,Mộc Cầm Cafe,coffee_shop,1,3,0.6629,2.9,0.07,0.472774,0.764441,2
+Q021,overture:2d2c22ce-9821-4145-9512-59cb176b1248,Rảnh cafe,coffee_shop,1,3,0.6826,3.27,0.28,0.454546,0.582607,3
+Q021,overture:2ec544c8-6fa9-4944-9e01-af7732c1ac1e,Starbucks Coffee - Pearl Plaza,coffee_shop,1,3,0.3393,3.28,0.28,0.343088,0.581843,4
+Q021,overture:51dae6ec-03d4-447f-aedb-b32de497eff2,Nguyên Chất Coffee,coffee_shop,1,3,0.33,3.15,0.42,0.337309,0.5696,5
+Q021,overture:c926e00e-1f1d-421f-95c0-cbf9154109a8,Saveur Café Tân Định,coffee_shop,1,3,0.6443,4.91,1.56,0.329661,0.400903,6
+Q021,overture:1b1b8d80-9abc-48ea-a5da-aec2a9a720ef,Savoure Cafe,cafe,1,2,0.9922,4.96,1.77,0.426014,0.388364,7
+Q021,overture:93562f23-3d93-4205-bced-571e201b409c,Thức Coffee - OPEN 24/7,coffee_shop,1,2,0.33,5.89,1.53,0.218506,0.372873,8
+Q021,overture:5f402b25-5732-433d-99fc-cfde1fbf45b9,Quiqui- our space,coffee_shop,1,2,0.3212,5.85,1.56,0.215842,0.372531,9
+Q021,overture:af6776e8-dabc-4d0a-aa3a-b8f0cf6e1234,Cà Phê Chất,cafe,1,2,0.9787,6.18,1.53,0.39722,0.36442,10
+Q021,overture:0575753d-f558-4e13-b5f5-4ccdf55d76e6,BB Coffee,cafe,1,2,0.8556,4.45,2.67,0.352535,0.35729,11
+Q021,overture:33201290-a80c-4e1a-9185-a09e446c3126,GÓC Cà Phê,cafe,1,2,0.9787,4.31,2.81,0.387296,0.354434,12
+Q021,overture:133f49e3-8fbc-4a09-8e4b-926ae9369795,Cộng Cà Phê,cafe,1,2,1.0,5.88,2.35,0.372148,0.332411,13
+Q021,overture:ef436cb7-2df2-4818-b501-0812436bf2d8,Cafe Hào,cafe,1,2,0.9682,4.65,3.12,0.359494,0.329304,14
+Q021,overture:60a9c610-2115-421c-af2f-d843f3527920,An Miên,cafe,1,2,0.8556,6.86,1.93,0.322895,0.325552,15
+Q021,overture:832aa463-59ab-4ed6-8e1e-232d154a8723,Cafe Ca Bien,cafe,1,1,0.9745,7.15,2.02,0.345452,0.312808,16
+Q021,overture:ffa59ac1-e11a-46f0-8af9-ed614e91080e,Cà Phê Phin,cafe,1,1,0.9787,6.82,2.28,0.343464,0.309474,17
+Q021,overture:e44f3bbd-44df-466d-9cc8-3204c2b46f5e,RedDoor,coffee_shop,1,2,0.3705,4.59,3.67,0.170577,0.304603,18
+Q021,overture:15a35b94-b85b-4289-885f-c9e7f32e12a0,Vũ Béo,restaurant,0,0,0.0,2.94,0.59,0.242079,0.259732,19
+Q021,overture:40d6953c-5b41-4ebc-865b-892a55dd4c1c,Thuy Hien Food,chicken_restaurant,0,0,0.0,3.17,0.99,0.219241,0.234805,20
+Q027,overture:832aa463-59ab-4ed6-8e1e-232d154a8723,Cafe Ca Bien,cafe,1,3,0.9745,5.87,1.64,1.0,1.0,1
+Q027,overture:af6776e8-dabc-4d0a-aa3a-b8f0cf6e1234,Cà Phê Chất,cafe,1,3,0.9787,5.66,2.09,0.990991,0.965252,2
+Q027,overture:a12220a8-908c-453e-9b23-96beb258f345,Cafe 867 Vĩnh Khánh,cafe,1,3,0.8837,5.69,2.88,0.683873,0.818735,3
+Q027,overture:dd7ad810-c814-4c9e-8acd-229b828f3eeb,Milkee Drinks,cafe,1,3,0.8338,5.38,3.49,0.622956,0.801944,4
+Q027,overture:9ea6d8a5-3e2a-4d10-8a7a-fea8d9b5f61f,Trung Nguyên E-Coffee (12 Tôn Đản),cafe,1,3,0.6524,5.75,3.01,0.489927,0.791512,5
+Q027,overture:c5474e88-7860-4cc9-a5aa-bb2934dd8364,HyBa Tea and Coffee,coffee_shop,1,1,0.33,5.83,3.0,0.333525,0.778495,6
+Q027,overture:33201290-a80c-4e1a-9185-a09e446c3126,GÓC Cà Phê,cafe,1,1,0.9787,4.59,6.42,0.69948,0.656681,7
+Q027,overture:6c5d196f-031e-4a41-80ef-1e921ab2701b,Cadas Cafe,coffee_shop,1,1,0.61,5.91,8.95,0.336898,0.478865,8
+Q027,overture:a679d270-764f-44fe-b99a-cf41692f3b94,Bồ Cà Phê,cafe,1,1,0.9787,5.84,9.24,0.514276,0.473734,9
+Q027,overture:2beb386a-1bac-48a4-87cf-88e50d1eb109,Starbucks,coffee_shop,1,2,0.3491,6.59,8.1,0.228935,0.473466,10
+Q027,overture:1f47646f-2b1f-41c3-b3cf-9797726193d3,Quán 91,coffee_shop,1,1,0.33,6.02,8.98,0.221387,0.473072,11
+Q027,overture:7b5954b1-2926-4fe4-8765-a044fd9dd9de,Cà Phê Ông Bầu,cafe,1,2,0.9787,7.84,6.76,0.498484,0.457771,12
+Q027,overture:1b1b8d80-9abc-48ea-a5da-aec2a9a720ef,Savoure Cafe,cafe,1,2,0.9922,6.75,8.48,0.505026,0.456264,13
+Q027,overture:133f49e3-8fbc-4a09-8e4b-926ae9369795,Cộng Cà Phê,cafe,1,2,1.0,7.38,8.49,0.48437,0.431359,14
+Q027,overture:6db1f8b1-fb86-4dd0-97e8-d804e6b6b7dd,UNI Coffee,coffee_shop,1,1,0.3594,7.75,9.32,0.182075,0.397796,15
+Q027,overture:ffa59ac1-e11a-46f0-8af9-ed614e91080e,Cà Phê Phin,cafe,1,2,0.9787,8.36,8.48,0.437649,0.395376,16
+Q027,overture:409bef5e-834c-4782-b530-2682cc2cadbf,Doha Coffee,coffee_shop,1,2,0.3491,8.36,8.48,0.176333,0.395215,17
+Q027,overture:02526a4a-e8c4-447d-8fd7-795ff685690b,Sol Retreat Cafe,cafe,1,1,0.8837,8.37,8.48,0.391842,0.394842,18
+Q027,overture:feec8e11-ef22-40f5-8796-841cb99f3dfa,Chả Chiba,vietnamese_restaurant,0,0,0.0,5.97,2.63,0.205455,0.224113,19
+Q027,overture:33a2eee7-891b-4f8f-abff-95757956aa10,Bạch Tuộc Nướng,restaurant,0,0,0.0,5.98,3.0,0.198893,0.216642,20
+Q029,overture:3759116f-f6d5-4459-b117-ef03545cf25e,An Cafe,coffee_shop,1,3,0.9583,5.5,2.52,1.0,1.0,1
+Q029,overture:37b7e3a3-eb62-41a0-9c5d-cb803a180de7,Tiệm cà phê Hưng Trí,coffee_shop,1,3,0.7802,6.64,1.18,0.639233,0.97651,2
+Q029,overture:722481ac-05e4-4ca9-a970-cf753f32f6da,239 Cafe,coffee_shop,1,3,0.9583,5.85,2.29,0.951779,0.92975,3
+Q029,overture:81ee7005-d87d-4e27-9520-25d14dcdff91,Trà Chanh Con Cá Tôn Đản,coffee_shop,1,1,0.7147,6.76,1.18,0.577715,0.926556,4
+Q029,overture:374cddb8-9f45-48a1-a00c-271eaf937985,CocoCha Tea&More,coffee_shop,1,1,0.7139,6.78,1.18,0.57647,0.921771,5
+Q029,overture:e7f8c064-7372-4098-af4e-c94e12611a71,T&H cafe,coffee_shop,1,3,0.9583,5.93,2.46,0.900967,0.862401,6
+Q029,overture:0e6291ca-4f4c-4a8c-a9ef-ff19cfd6dd4b,Luke’s Shop,coffee_shop,1,2,0.6651,7.46,1.34,0.510577,0.737538,7
+Q029,overture:b039c3b1-32d3-4ca2-8c67-c4c6513b4def,Zoom Cafe,coffee_shop,1,3,0.9583,5.72,5.34,0.649936,0.594669,8
+Q029,overture:a5a7d9bc-878c-4584-9ce7-77c79e57dcdf,Dáng Xưa Cafe,coffee_shop,1,3,0.794,6.48,4.49,0.523004,0.59009,9
+Q029,overture:17591fa7-2068-41b1-9fe1-8e21dda69a1e,Sinh Cafe,coffee_shop,1,3,0.9583,6.36,5.34,0.609666,0.557003,10
+Q029,overture:2925acf2-39cf-4043-b3b9-84b505b30efd,"Cafe Bệt, Hàn Thuyên Cafe",coffee_shop,1,1,1.0,5.84,8.65,0.535089,0.46461,11
+Q029,overture:8f12d100-27ed-4c7a-8592-ec9b159480c3,Cafe Bờ Kè,coffee_shop,1,2,0.9583,9.28,4.61,0.50449,0.458738,12
+Q029,overture:f688daa4-8864-458f-a08b-ccc1299ab92a,M+ Coffee,coffee_shop,1,2,0.7015,7.16,7.33,0.382266,0.455502,13
+Q029,overture:2c06d780-967c-4428-bf08-af7636290127,Kem Ngon KPcream Landmark 81,coffee_shop,1,1,0.6661,8.44,6.11,0.360189,0.445612,14
+Q029,overture:b6182d45-892d-466b-8fbf-51f563aa0a89,Snug Coffee Shop,cafe,1,1,0.9665,6.24,9.45,0.477008,0.428656,15
+Q029,overture:8ed828b7-a0f2-41fa-b3d3-2d3c812a4282,Quán Cafe 15,cafe,1,2,0.5819,7.45,8.94,0.294472,0.403534,16
+Q029,overture:104f3140-9b49-455f-ad9f-624eecc26df3,Cmail Coffee Lý Chính Thắng,cafe,1,1,0.6958,7.14,10.1,0.320802,0.384448,17
+Q029,overture:b6373c8e-dccd-4a45-8c3c-36e5474a1c49,cafe nhớ nhé,cafe,1,1,0.5576,8.21,8.94,0.266705,0.380438,18
+Q029,overture:cdddb3ee-276e-4deb-a5b6-4bd4f94a1b8f,Bún Đậu A Chảnh,restaurant,0,0,0.0035,6.5,1.18,0.263557,0.269593,19
+Q029,overture:e1f876b3-05df-48c9-8626-79246d8fb8a8,Dê Tươi 303,seafood_restaurant,0,0,0.0034,6.53,1.18,0.262788,0.268781,20
+Q034,overture:a7971296-2ae6-4430-9f87-5587f84b984d,Katinat Bùi Thị Xuân,coffee_shop,1,3,0.5574,4.67,0.09,0.610667,1.0,1
+Q034,overture:111442a6-8bec-40e7-a638-16273ac9c6a1,Quán Cà Phê Ở Quận 1 Chứ Đâu,coffee_shop,1,3,0.62,4.64,0.17,0.652827,0.90412,2
+Q034,overture:589b2077-8b17-4439-a1e8-844790cb8c48,C/Max Cafe,coffee_shop,1,3,0.8196,4.64,0.26,0.891294,0.808436,3
+Q034,overture:cf0338e4-fdb0-4bdc-893d-dc934661cd86,Lukin Coffee,cafe,1,3,0.9718,4.71,1.22,1.0,0.554538,4
+Q034,overture:cca1119b-5075-44c3-83e7-4234e523dbce,"Coffee Trung Nguyên,Q1",cafe,1,3,0.9718,4.64,1.32,0.985615,0.550404,5
+Q034,overture:e13a0cba-d71e-4066-a940-666cf899862f,Sight Coffee,cafe,1,2,0.9718,4.98,1.19,0.936938,0.536186,6
+Q034,overture:d1d2f14a-11c8-494d-9786-c5cacbdb5774,Cheese Coffee,cafe,1,3,0.9718,4.97,1.32,0.906444,0.52704,7
+Q034,overture:586be674-ec02-4742-8d9e-0dda18a0fdc0,Coffee Ground,cafe,1,3,0.9718,4.68,1.65,0.88853,0.521555,8
+Q034,overture:45d30a70-e818-43a2-8a2e-c3e349a004a9,Coffee HPGiaLai,cafe,1,2,0.9718,5.19,1.38,0.853641,0.510582,9
+Q034,overture:580c443c-aedc-4105-abbe-9b6a05f673e0,Lamode Cafe,coffee_shop,1,2,0.8636,5.33,1.36,0.697547,0.504164,10
+Q034,overture:de5a96fb-b0e8-466f-8c99-27b316689fe5,3T Coffee,cafe,1,3,0.9718,4.83,2.31,0.755181,0.476681,11
+Q034,overture:2f35bfb9-ac16-4e90-a6d2-7191ac5e6541,Đạm Cafe & Kitchen,coffee_shop,1,2,0.841,4.86,3.12,0.57093,0.43916,12
+Q034,overture:1723dfc5-8543-4f23-b5d3-fc785eb16fc1,Hometown Coffee,cafe,1,2,1.0,4.37,4.66,0.595486,0.396167,13
+Q034,overture:c6994a85-16e6-4287-8397-d3b4627ccf53,Lúa Mạch - café et bière,coffee_shop,1,1,0.7799,5.49,4.62,0.432078,0.362926,14
+Q034,overture:2cf2a370-9baa-48f0-88e2-09738ab2e019,Ghiền đủ thứ 24/7,coffee_shop,1,1,0.4768,6.36,4.05,0.30901,0.356679,15
+Q034,overture:6a12ae9a-70ac-4457-9f81-6f19691010d4,1991 Rooftop Coffee and More,cafe,1,1,0.8521,5.27,5.02,0.453523,0.355769,16
+Q034,overture:8c9cc3ae-cf15-463b-9174-b8e0bece8dc7,La Cà Coffee,coffee_shop,1,1,0.626,6.54,4.36,0.344567,0.340655,17
+Q034,overture:790dcc0d-bf7b-4573-9252-fc09aed773f0,Góc HÀ NỘI,restaurant,0,0,0.0,4.68,0.1,0.347205,0.274772,18
+Q034,overture:8f167481-bbef-4010-8d4c-12425b1250c5,Hú Wu Lời Dim Sum Stree,dim_sum_restaurant,0,0,0.0,4.68,0.21,0.343016,0.271345,19
+Q034,overture:baeeedd2-d766-4ccd-b717-6c760fdf2192,Nhà Hàng Cafe An,cafe,1,1,0.7437,6.71,6.82,0.286262,0.25476,20
+Q044,overture:3759116f-f6d5-4459-b117-ef03545cf25e,An Cafe,coffee_shop,1,3,0.9583,2.88,0.88,1.0,1.0,1
+Q044,overture:e7f8c064-7372-4098-af4e-c94e12611a71,T&H cafe,coffee_shop,1,3,0.9583,2.81,1.89,0.744828,0.672939,2
+Q044,overture:b039c3b1-32d3-4ca2-8c67-c4c6513b4def,Zoom Cafe,coffee_shop,1,3,0.9583,2.83,2.93,0.624042,0.5621,3
+Q044,overture:af857734-ac22-428f-bf33-dc88f5f47062,Mach Coffee,coffee_shop,1,3,0.6873,2.41,3.49,0.4617,0.561328,4
+Q044,overture:c95a7c2a-45c4-4e27-a677-438ddf6518c6,Meo Meo,coffee_shop,1,3,0.6972,2.65,3.28,0.461808,0.553878,5
+Q044,overture:10f2acbc-f69f-41fb-8134-ea42b031c2d2,1 Chiều,coffee_shop,1,3,0.6972,2.65,3.28,0.461808,0.553878,6
+Q044,overture:a0afdc9a-801a-4f6f-bbc1-b7257f0cb37a,Milano Coffee,coffee_shop,1,3,0.748,2.95,3.49,0.460665,0.517802,7
+Q044,overture:17591fa7-2068-41b1-9fe1-8e21dda69a1e,Sinh Cafe,coffee_shop,1,2,0.9583,3.47,2.93,0.566106,0.511398,8
+Q044,overture:2fb80742-ee58-4edf-95ce-b5c46401f39c,Café Sunwah,coffee_shop,1,3,0.9583,3.31,3.43,0.549363,0.496667,9
+Q044,overture:99b2be33-3936-482a-8866-5234933ecf47,Royal Cafe,coffee_shop,1,2,0.9583,3.19,3.99,0.528234,0.477932,10
+Q044,overture:0b423130-a47b-4436-8810-7b87f46d169e,Guta Cafe,cafe,1,2,0.6332,3.92,3.93,0.35742,0.440716,11
+Q044,overture:2925acf2-39cf-4043-b3b9-84b505b30efd,"Cafe Bệt, Hàn Thuyên Cafe",coffee_shop,1,1,1.0,3.42,5.12,0.483361,0.419847,12
+Q044,overture:9a6b266a-e861-4768-9ecb-309ece29b336,Baci Coffee - Hương vị Ý,coffee_shop,1,2,0.6873,5.0,3.58,0.343732,0.402063,13
+Q044,overture:26067df3-20bb-4f4c-8459-90cfcbe18bf4,C1 Cafe 1983,cafe,1,2,0.6191,6.78,1.54,0.31314,0.393411,14
+Q044,overture:c93cfd0f-bd0e-480b-b30f-56839be8fc40,Kệ Kafe Đi,coffee_shop,1,2,0.7139,5.29,3.54,0.342682,0.390536,15
+Q044,overture:b6182d45-892d-466b-8fbf-51f563aa0a89,Snug Coffee Shop,cafe,1,1,0.9665,4.26,5.06,0.428945,0.383461,16
+Q044,overture:bc58714b-f3c9-4dd8-a5ec-39d3c115e436,E-Coffee Điện Biên Phủ,cafe,1,2,0.6787,6.22,3.06,0.309119,0.366321,17
+Q044,overture:937fec64-ed98-4c51-98ed-7c1866058ef1,HUS coffee and brunch,coffee_shop,1,1,0.6737,6.37,3.92,0.276107,0.33164,18
+Q044,overture:56fc587a-1a60-446d-be82-4a44caa9d5f7,White Palace Võ Văn Kiệt,restaurant,0,0,0.0032,2.54,3.49,0.217361,0.219111,19
+Q044,overture:d122401f-599a-4e74-a535-185c0f7a8a38,89 Seafood,restaurant,0,0,0.0037,2.84,3.28,0.212393,0.213862,20
+Q051,overture:56536644-e98a-4722-8ddb-4847e4e47d2f,Pho Anh,vietnamese_restaurant,1,1,0.4163,4.53,1.3,0.547969,1.0,1
+Q051,overture:8c0b51de-a416-4dbc-991e-6ca4764e8602,Quán Lúa,vietnamese_restaurant,1,3,0.4163,3.33,3.16,0.536043,0.923725,2
+Q051,overture:87010e4a-e614-4cf5-8543-5bab1634302a,Món ngon Sài Gòn,vietnamese_restaurant,1,3,0.7862,4.63,1.82,0.849729,0.86055,3
+Q051,overture:902feb90-9923-4eba-aebf-94cdcdce7578,Chấm Juice - Nước ép xanh,vietnamese_restaurant,1,3,0.3816,3.51,3.5,0.494197,0.8237,4
+Q051,overture:8ccb488e-430b-411f-b46f-cc86706493a1,Món Huế Mỹ Sơn,vietnamese_restaurant,1,3,0.7862,4.82,1.98,0.818435,0.801355,5
+Q051,overture:d1aad2cb-01ad-431a-9c0d-0d76273d52fb,Cafe Central Pasteur,vietnamese_restaurant,1,2,0.3982,3.47,3.81,0.494899,0.788459,6
+Q051,overture:77e04122-cea6-4d9c-873b-4ccd7b280a30,nhà anh,vietnamese_restaurant,1,2,0.453,3.62,3.81,0.52124,0.76532,7
+Q051,overture:5ac590f3-efac-4b40-bee4-ad9a65297795,Nhà hàng món Việt,restaurant,0,3,0.8801,4.26,2.99,0.932499,0.645412,8
+Q051,overture:696033f3-10d3-4104-a731-15477d6c547b,MANA Station - Tiệm Ăn Món Việt,vietnamese_restaurant,1,1,1.0,2.99,6.07,1.0,0.638335,9
+Q051,overture:76fc997e-66f5-4930-9d2e-545dd2f6a9db,VietStreet - Món ăn đường phố Việt Nam,vietnamese_restaurant,1,1,0.9768,3.33,5.69,0.94801,0.635041,10
+Q051,overture:4cb13c88-e59d-4716-827d-41448f0eabf5,Nhà Hàng Món Huế,vietnamese_restaurant,1,2,0.8832,5.8,3.99,0.712606,0.550371,11
+Q051,overture:94e19943-f14c-4979-8e4f-65f4b5f3d4c5,Pho Dung,vietnamese_restaurant,1,1,0.3982,5.6,4.33,0.389625,0.546334,12
+Q051,overture:0a22b209-7652-4c21-b4c4-f12fe4ca4e71,Quán Bụi Bistro,vietnamese_restaurant,1,1,0.3897,6.52,4.18,0.354665,0.499081,13
+Q051,overture:dbce8492-71d4-4269-a5d0-46249a165ad6,Cheers Quán- Món Huế,vietnamese_restaurant,1,2,0.7676,5.06,6.35,0.556907,0.48708,14
+Q051,overture:8a466320-f121-4fc2-ac0a-cf0b517dd0b8,Quán Ăn Ca 3,vietnamese_restaurant,1,2,0.3739,7.03,3.82,0.33845,0.486766,15
+Q051,overture:a4d0a966-4c9c-4509-982f-8c6c08cbc133,Quan Dui Map,vietnamese_restaurant,1,2,0.3897,5.34,6.35,0.336262,0.472762,16
+Q051,overture:d74c5e7f-eb90-446b-8d28-1d129155f447,Tẩu Quán 2,vietnamese_restaurant,1,1,0.3897,5.72,6.35,0.32243,0.453741,17
+Q051,overture:019b2f15-3ae8-47a3-a01c-afa9ebfe562a,Hệ Thống Món Việt,restaurant,0,2,0.7998,7.67,2.12,0.615931,0.434019,18
+Q051,overture:85275ee3-3f20-4f1d-b153-a4d7e91e2d83,Cuu Non Hy Lap 2,restaurant,0,0,0.1466,3.46,3.16,0.379171,0.334598,19
+Q051,overture:68f7623e-b4ce-48b1-91a3-b7d94056b9e3,Space 19,coffee_shop,0,0,0.0,3.43,3.17,0.308331,0.284943,20
+Q057,overture:a17b35c6-cfaa-4b89-8eed-a24730c27a8e,Thư viện chùa Bửu Đà,library,1,2,0.9018,4.76,0.56,0.990998,1.0,1
+Q057,overture:23ad9d21-3587-4e52-812c-707a7d3d062e,Thư viện ĐHSP TP.HCM,library,1,0,0.9583,4.23,1.58,1.0,0.866316,2
+Q057,overture:d281f365-317f-43d6-92bb-fc27673a7f75,The American Center,library,1,2,0.848,2.92,2.83,0.813236,0.859082,3
+Q057,overture:ab17082a-3ea9-48f4-b751-9f38087eca55,Thư viện số Nguyễn An Ninh - Chuyên đề Nam Bộ,library,1,2,0.8844,2.89,3.02,0.839848,0.829327,4
+Q057,overture:1b05642e-5bb8-41a9-89d5-0cd78713de9a,Thư viện cộng đồng VSE,library,1,2,0.9583,4.09,2.31,0.890132,0.767716,5
+Q057,overture:22ea6025-2991-424c-a690-404e5f34d74e,Thu Vien Quoc Gia,library,1,2,0.9787,3.92,3.31,0.80378,0.672584,6
+Q057,overture:5aada4ab-0d88-4ab1-a72d-84cae781411f,Phòng đọc Thanh thiếu nhi TP.HCM,library,1,2,0.7671,3.56,3.71,0.610272,0.666317,7
+Q057,overture:0b0af129-b044-4ac7-aca5-040cd868f946,Nét Vẽ Xanh,library,1,0,0.848,3.61,3.71,0.665952,0.661658,8
+Q057,overture:8f7bda9e-bf7a-4fbe-98b0-7c297ac03692,Thư viện QUATEST 3,library,1,1,0.9787,4.44,3.67,0.715237,0.601915,9
+Q057,overture:e390108f-7e20-47a1-b578-792f35f00c22,Giraffe Library - Thư Viện Hươu Cao Cổ,library,1,1,0.954,4.34,3.86,0.685379,0.5951,10
+Q057,overture:12b2d1f0-9ca9-42f8-8557-a7db018ac249,Thư Viện Hutech,library,1,1,1.0,4.81,4.25,0.657596,0.541906,11
+Q057,overture:20a456e0-1a21-4d2c-94b5-fe560389f4a4,Trung tâm Thông tin - Thư viện NTTU,library,1,1,0.9199,5.63,3.56,0.595547,0.537646,12
+Q057,overture:e4596db4-27f2-4141-90ca-2115a407d09e,Công viên Thủ Thiêm,park,0,0,0.472,4.32,3.56,0.417919,0.357837,13
+Q057,overture:4e3cfdae-d0d6-4a5e-87bb-fefabfdbbc5b,Công Viên Cột Cờ Thủ Ngữ,park,0,0,0.4637,4.33,3.56,0.41382,0.354409,14
+Q057,overture:c0b07937-203f-4131-a3fd-a22357ff8721,"Công viên bờ sông Saigon,Thủ thiêm, TP Thủ Đức",park,0,0,0.5216,6.91,2.86,0.364815,0.308427,15
+Q057,overture:aabd4357-2ee5-4392-9233-4774d7f39d71,Công Viên Nắp Hầm Thủ Thiêm,park,0,0,0.4637,7.46,2.52,0.332753,0.280829,16
+Q057,overture:3233e74f-b520-47d8-b2b4-8ae234cb77d4,OPlus Coffee,coffee_shop,0,0,0.0,2.99,2.41,0.314262,0.276807,17
+Q057,overture:de046b6b-3118-4c58-bc87-1ead8981ec04,Bếp Việt Hàn - Gà Rán Hàn Quốc,restaurant,0,0,0.0,3.01,2.41,0.313526,0.276124,18
+Q057,overture:1e68a615-19cb-4c00-9151-42f0a7d4e81f,Saigon Riverfront Park,park,0,0,0.4294,7.94,2.52,0.300141,0.251793,19
+Q057,overture:84337f99-13e9-436e-91e7-ace52ab4aefd,Highlands Coffee,coffee_shop,0,0,0.4072,7.73,2.52,0.298913,0.251271,20
+Q068,overture:2d8b27e7-93f9-4601-a1b5-82ab29fafe34,Mr. Mi,ramen_restaurant,1,0,0.9402,2.53,0.17,1.0,1.0,1
+Q068,overture:02f5f9a5-2492-42ad-af45-b152e63321b7,Kohaku Udon & Ramen Vincom Đồng Khởi,ramen_restaurant,1,3,0.8878,2.15,0.7,0.812155,0.861664,2
+Q068,overture:ac3d75c1-317d-476d-9d74-4e4222e28540,Hủ Tiếu Mì Cật,ramen_restaurant,1,0,0.8825,2.83,0.65,0.711561,0.725633,3
+Q068,overture:202bbe69-d5f3-4a02-bf81-a8bb34311b04,Bún Bò Thành Nội,ramen_restaurant,1,0,0.8648,1.83,1.48,0.679088,0.70157,4
+Q068,overture:bc2a07c4-cb39-498b-8ab0-08003065bb62,Ramen Ramen,restaurant,0,2,0.9611,1.47,1.85,0.740654,0.651202,5
+Q068,overture:e9c69f33-cb11-4261-b00e-06ce30011af1,ラーメン暖暮 ホーチミン店,ramen_restaurant,1,2,0.8315,2.99,1.28,0.57837,0.600167,6
+Q068,overture:7e174163-e63f-4175-95dd-8f5d2e52e369,Yukichi Ramen,ramen_restaurant,1,2,1.0,3.01,1.28,0.679025,0.59757,7
+Q068,overture:2fb543ee-28de-4286-97a8-4bf22a878c31,Cheese Pasta,ramen_restaurant,1,0,0.8825,1.5,2.44,0.595559,0.588988,8
+Q068,overture:17326800-2e7d-479d-8965-9ed91eb1f409,Kyushu Udon Hitoyoshi 九州うどん 一吉,ramen_restaurant,1,0,0.8007,2.91,1.49,0.548242,0.581732,9
+Q068,overture:ba3578f3-92d8-4e2c-90ca-ee84c2070383,Pho 242,ramen_restaurant,1,0,0.9009,4.47,0.66,0.567423,0.549378,10
+Q068,overture:70b8089e-ed01-48b7-81b1-5621820e36b9,Quán Mì xào dòn Nghèo,ramen_restaurant,1,0,0.8315,3.23,1.57,0.533325,0.547651,11
+Q068,overture:4d01d742-638c-43a2-a574-a3aedfc0115a,Ngô Kỳ Mì Gia,ramen_restaurant,1,0,0.7861,4.57,0.65,0.509577,0.542739,12
+Q068,overture:cf1cabd7-258b-4b07-9bf7-6462e42b7271,Mì A Quý,ramen_restaurant,1,0,0.8648,3.31,1.57,0.54276,0.541516,13
+Q068,overture:bbb04c62-e2ab-4441-b203-e96521c00289,Tài 61 Hủ Tiếu Khô Sa Tế Mì Sủi Cảo,ramen_restaurant,1,0,0.7585,3.61,1.57,0.47994,0.52072,14
+Q068,overture:0c5c1666-29ee-462c-b1b4-612a2ced18b1,Taipu Udon,ramen_restaurant,1,0,0.9009,4.43,1.57,0.487966,0.469632,15
+Q068,overture:c786655c-19dd-4c1e-a135-0de18aa4f615,Phở Ta,ramen_restaurant,1,0,0.9009,1.73,3.52,0.486383,0.468061,16
+Q068,overture:e7e2fa22-ff39-4186-b084-bcc06c897bd3,Mì Cay Xíu,ramen_restaurant,1,0,0.8478,5.89,1.56,0.392273,0.392276,17
+Q068,overture:5bf5d1dc-71e1-42f4-83c2-a8b32d7e77f5,Bun Ca Yen Nha Trang,ramen_restaurant,1,0,0.8315,5.38,2.47,0.352801,0.357366,18
+Q068,overture:029c0644-5a29-4444-8a8d-7499bcd3479d,Đặc sản Quê mình,vietnamese_restaurant,0,0,0.0501,2.16,0.92,0.357851,0.34713,19
+Q068,overture:3d4a31d1-1a9b-46d5-b413-1deb42760c47,XLIII Specialty Coffee,coffee_shop,0,0,0.0,2.07,0.92,0.346826,0.338039,20
+Q076,overture:6ad5e639-b95a-4367-90e6-0ea96ee62e7d,Nhà May Mỹ Anh,bookstore,1,0,0.8556,4.46,4.63,0.805979,1.0,1
+Q076,overture:c9137e9f-c901-48bf-a86f-a2a4a94f7fff,Nhà Sách Thiếu Hoa,bookstore,1,1,0.9782,4.4,6.31,1.0,0.51044,2
+Q076,overture:ea96b8b2-1f10-49e2-88df-88be58448390,Nhà sách - NXB Tổng hợp 3 - 88 Ký Con,bookstore,1,1,0.8998,4.72,6.69,0.677414,0.482212,3
+Q076,overture:80995da0-2a56-4ec0-9358-891a45f754b2,Tiệm sách cũ Cornie,bookstore,1,2,0.9623,5.19,6.48,0.724678,0.466958,4
+Q076,overture:05faa0c4-e6d3-48e0-b943-e23fbd5d03d4,Hieu Sach 337,bookstore,1,2,0.9842,5.86,6.16,0.690723,0.448159,5
+Q076,overture:e0b59be0-c3f4-4eff-9699-fa1d83484544,Nhà Sách Xuân Thu,bookstore,1,1,1.0,4.54,8.92,0.699771,0.444183,6
+Q076,overture:04c17229-b448-4baa-acf5-0f919572b454,Tổng Lãnh Sự Quán Nhật Bản,bookstore,1,0,0.7981,5.1,8.61,0.48996,0.430616,7
+Q076,overture:c4afd344-22ce-4cd1-8246-0dc4e0993653,Sách Tam Lợi,bookstore,1,2,0.9842,7.36,5.47,0.582075,0.409477,8
+Q076,overture:4fba9323-4739-4bd1-9ae1-313b2452288b,Nhà sách Phong Lan,bookstore,1,1,0.9782,5.52,9.29,0.567288,0.40503,9
+Q076,overture:8c3a1f3f-7ce3-4124-a989-dceea6d0ecb2,Nhà sách luật,bookstore,1,1,1.0,5.95,9.67,0.542926,0.385266,10
+Q076,overture:ef8b168d-0217-4f64-8d92-1b4e330c32f2,FAHASA,bookstore,1,1,0.8859,6.31,9.15,0.466141,0.382431,11
+Q076,overture:e493feda-ba89-4d6b-9743-42dcbe2d4c4e,Công ty Văn hóa Hương Trang,bookstore,1,2,0.7606,7.19,7.57,0.398754,0.380386,12
+Q076,overture:404a1b27-ce3b-43b9-bd40-e819bcd9aebf,Cửa Hàng sách Nhà Xuất Bản Trẻ - 157 Lý Chính Thắng,bookstore,1,1,0.8331,6.67,9.14,0.421639,0.371068,13
+Q076,overture:b5c98d88-d8a3-48cf-a852-6e3abe769c8a,Sách Khai Tâm,bookstore,1,1,0.9842,6.64,9.28,0.503621,0.369849,14
+Q076,overture:4119cd26-906d-4830-935e-b964eb9f302b,Nhà Sách Phương Nam Vincom,bookstore,1,1,0.9374,7.0,9.15,0.461093,0.360605,15
+Q076,overture:8d5c5ae5-65ca-472f-a10c-c2f4b05501af,Nhà Sách Phú Nhuận (Fahasa),bookstore,1,2,0.9374,7.15,9.15,0.454222,0.356107,16
+Q076,overture:8338e844-6c16-4a98-b151-507591253682,Sách cũ Phú Nhuận,bookstore,1,1,0.9414,8.24,9.15,0.407986,0.322662,17
+Q076,overture:84afb7c6-2174-45f4-b577-9b81e9ce45bd,Tiệm Sách Cũ,bookstore,1,1,0.9842,8.3,9.15,0.426439,0.320673,18
+Q076,overture:ce52aa17-bea2-4f11-ab45-79af8c508fa1,Quán ăn A Hiền,restaurant,0,0,0.0396,4.48,4.85,0.241681,0.191488,19
+Q076,overture:8c1feb9d-fcbe-401d-a2e7-ad1052fbdce8,Ốc Đào 2,seafood_restaurant,0,0,0.0385,4.52,4.85,0.239775,0.189865,20
+Q080,overture:c1315eb7-f501-4fa2-ba5f-39576f53cd0c,Công viên Hàn Thuyên,park,1,3,0.9608,3.05,1.54,1.0,1.0,1
+Q080,overture:dce2ef3f-f606-4d45-9f9c-92a1c1f8293c,Metro Bến Thành Suối Tiên,park,1,0,0.7182,2.56,2.06,0.659348,0.966184,2
+Q080,overture:3c16a5cf-cd8e-47f9-b042-c8af001f191b,Công Viên Lê Văn Tám,park,1,2,0.8957,4.12,0.83,0.817541,0.913531,3
+Q080,overture:f15e9684-6685-49c1-bbfd-36c908c130df,Tiptiptap's Playgrounds,park,1,0,0.4808,2.38,2.55,0.496709,0.866436,4
+Q080,overture:841f2de6-3dc4-48a3-a01c-f66898bcc260,Công viên Bến Thành,park,1,3,0.9772,2.51,2.46,0.90563,0.85721,5
+Q080,overture:eeaad37e-66a1-4343-85fc-3d6919106129,Công Viên Lam Sơn,park,1,3,0.9555,3.11,2.18,0.817608,0.801804,6
+Q080,overture:a97e9a63-7acc-4132-b89f-67b84d2cc34d,Cong Vien van Hoa Park,park,1,2,0.9672,2.58,2.88,0.793523,0.759976,7
+Q080,overture:d704b579-72ec-4c75-b26a-7abc0fd217e0,Công Viên 23-9,park,1,3,0.9167,3.33,2.42,0.709956,0.727158,8
+Q080,overture:b102b29a-9afc-4a6c-924a-7230e775bf52,Cong Vien Cay Xanh,park,1,2,0.9555,4.25,1.63,0.743654,0.722318,9
+Q080,overture:d502387d-29fe-4372-a06e-66667ed36fd0,"Phạm Ngũ Lão, Việt Nam",park,1,0,0.7366,3.49,2.42,0.568473,0.705692,10
+Q080,overture:7105ad90-d363-4461-849e-1a896e5fbf46,Công viên chill,park,1,2,1.0,3.02,2.88,0.769443,0.700311,11
+Q080,overture:cae82d0e-86df-4891-802c-14706e571f2d,Hồng Phát Garden,park,1,0,0.6251,5.82,1.56,0.438269,0.577155,12
+Q080,overture:a7aea0c3-5ba9-492d-83be-5b3c4a43bd90,Công Viên Xanh,park,1,2,0.9555,5.99,1.61,0.584881,0.56024,13
+Q080,overture:2ff2e3bb-2113-42ae-b8d6-0213117ecae7,Công viên Bạch Đằng,park,1,2,0.9147,3.82,3.71,0.550275,0.548167,14
+Q080,overture:109e25ea-744e-4699-abdb-f419c8ce8c54,Công Viên Sakura Park - Phú Mỹ Hưng - Quận 7,park,1,2,0.8982,6.44,1.85,0.509326,0.513281,15
+Q080,overture:9226ec1e-682e-43a3-9e1f-66efe85b9ea9,Công Viên Cát,park,1,2,0.9555,6.18,2.09,0.537637,0.513058,16
+Q080,overture:9dfe4ffa-fb37-4b98-9e80-861041fa1eb3,Giày Xuất Dư HCMC,park,1,0,0.6683,6.16,3.35,0.347942,0.435526,17
+Q080,overture:83088463-875f-4bf7-bf48-14ada42a5162,Công viên Âu Lạc,park,1,1,0.9555,4.84,4.97,0.435399,0.410956,18
+Q080,overture:9ed6be03-40c2-41de-b42f-faad7ffc9dd5,Nhà hàng Du Ký,seafood_restaurant,0,0,0.0,2.59,1.74,0.338039,0.342307,19
+Q080,overture:e35ebecf-8227-4932-8d54-c662d4a5c167,Tỉ Muội Quán - 103 Phạm Ngũ Lão Q.1,seafood_restaurant,0,0,0.0,2.59,1.78,0.335983,0.340159,20
+Q081,overture:3fe21aa5-3e31-476d-9d6f-254d1d1a23bd,Nathalie's Thai Cuisine Quận 7,thai_restaurant,1,3,0.885,3.83,3.6,0.931199,1.0,1
+Q081,overture:36020195-959e-46c8-af60-25bc7cf8dc13,Ô Tô Thái,thai_restaurant,1,3,0.9149,4.13,3.39,0.975699,0.945446,2
+Q081,overture:5236bbb2-9277-4d49-aabe-0cfaaa460724,CHADA THÁI Quận 1 - 170 Bis Trần Hưng Đạo,thai_restaurant,1,3,0.7408,4.18,3.51,0.681221,0.891875,3
+Q081,overture:28ad218a-60da-4cce-a546-cb88e2d227a8,Thái Tuk Tuk,thai_restaurant,1,2,1.0,4.18,4.29,1.0,0.743995,4
+Q081,overture:d699ab2a-f2ef-40e5-b99d-2466f01b2aed,Ăn Cơm Uống Nước Garden,thai_restaurant,1,3,0.7874,4.53,3.9,0.664324,0.739636,5
+Q081,overture:5e0c0d78-b103-4042-8ca5-3cb550316a3d,Chill Thái - Thai Food,thai_restaurant,1,3,1.0,4.69,3.86,0.959924,0.719688,6
+Q081,overture:02d86be5-a500-499b-8c7a-eb1d2b1c1e27,Tiệm bánh Panna Cotta - Út Trinh,thai_restaurant,1,2,0.7421,4.9,3.63,0.613558,0.716436,7
+Q081,overture:10afbd0b-51ca-47d4-b136-6679fa9085e4,Hủ Tiếu Thái Lan Pi Thai,thai_restaurant,1,2,0.9581,6.06,2.25,0.864049,0.71606,8
+Q081,overture:f0a45a73-320e-491d-b260-12fa9e2f93b9,Hủ Tiếu Thái Lan Pi Thai,thai_restaurant,1,2,0.9716,5.05,3.69,0.855007,0.689523,9
+Q081,overture:aea91e02-0041-400e-a825-96011dbc8550,Thai Box - Taste of Thai,thai_restaurant,1,2,0.9716,4.65,4.29,0.837633,0.676482,10
+Q081,overture:5ffd1ddf-9938-45d8-aa85-abfceffec87b,RAK Thai,thai_restaurant,1,2,0.964,4.27,5.51,0.740504,0.610656,11
+Q081,overture:863c3bd7-a592-4eb6-a897-1d83f7639d93,Som Tum Thai,thai_restaurant,1,2,0.9307,5.1,5.4,0.637098,0.552943,12
+Q081,overture:c0c9f47c-5d96-4ac0-bc72-e5d8d97f892d,Chatuchak,thai_restaurant,1,2,0.8574,7.32,2.89,0.570989,0.54345,13
+Q081,overture:9b5eca56-7155-46c2-8f68-05d5d5b5daff,Saigon Thai Shark's Fin Restaurant,thai_restaurant,1,1,0.8948,4.53,6.4,0.589105,0.535067,14
+Q081,overture:cb3fd2bf-cf9b-4717-bc6b-e7e6598e3a76,Chili Thai,thai_restaurant,1,1,0.964,4.53,6.62,0.628831,0.523033,15
+Q081,overture:769922de-3fa0-4e39-8663-92f57bd2b051,Pi Thai Hủ Tiếu Thái Lan,thai_restaurant,1,2,0.9581,8.19,2.3,0.619398,0.519274,16
+Q081,overture:fa677687-47c0-46c4-aa8e-0d60448c3996,Chili & Lime,thai_restaurant,1,2,0.7421,7.19,4.68,0.428105,0.463859,17
+Q081,overture:f4d9ab67-e22c-414d-aaf8-4e6293c67151,ThaiExpress Thiso Mall Sala,thai_restaurant,1,1,0.7566,7.59,5.68,0.377169,0.403325,18
+Q081,overture:3b2889a8-0066-4556-a50c-b6913ed5d52e,"Phở Vị - 181 Nguyễn Cư Trinh, Q.1",vietnamese_restaurant,0,0,0.1182,4.25,2.94,0.331021,0.292004,19
+Q081,overture:faa793e5-b5c1-4bc6-ad69-63fc596d8b9c,Cơm Tấm Bà Mợ,theme_restaurant,0,0,0.1323,4.46,2.96,0.327606,0.288235,20
+Q096,overture:a3848a04-2871-451f-ad1d-d6644f7ad063,XIAOYU,chinese_restaurant,1,2,0.5852,2.64,3.61,0.515107,1.0,1
+Q096,overture:8b4c628e-da88-4d23-8e25-4e200a7bef87,Đắc Nhân Ký,chinese_restaurant,1,2,0.5462,2.71,3.6,0.489904,0.954393,2
+Q096,overture:31b5c51c-0099-493e-8e3a-2cffef6cc2b0,Mèo Mập Quán - Xiên nướng Đông Bắc - 胖猫烧烤,chinese_restaurant,1,2,0.4917,2.6,3.84,0.459882,0.931249,3
+Q096,overture:38030cd3-3549-4ef4-8ba4-257f6b2e7ecd,Trung Tín - Makeup,chinese_restaurant,1,0,0.7489,2.79,3.9,0.605823,0.814252,4
+Q096,overture:319503b3-fdf2-4f1d-8801-f4ba029c8d28,Lẩu_Bò Nầm Nướng “Tuấn Hoa”,chinese_restaurant,1,2,0.7462,3.62,2.73,0.594408,0.774226,5
+Q096,overture:e9dfcae1-a69c-44b5-888a-cabade304cdd,Nhà hàng Trung Hoa SHANG GARDEN DYNASTY,chinese_restaurant,1,2,0.9872,2.97,3.88,1.0,0.759731,6
+Q096,overture:5531f219-acc3-4f95-9034-eecbd817d5eb,Lẩu Bò Sài Gòn,chinese_restaurant,1,0,0.5121,2.57,4.69,0.44635,0.735305,7
+Q096,overture:1fd14717-e23c-4ed2-9dfe-5690b08a8c41,Baozi Restaurant,chinese_restaurant,1,1,0.8134,3.48,4.61,0.571344,0.59626,8
+Q096,overture:1efbeb33-3ff8-4bcf-9f5f-196034b6b1eb,Nhà Hàng Việt Hoa Lầu,chinese_restaurant,1,1,0.7791,3.33,5.17,0.535524,0.576114,9
+Q096,overture:c8621f45-43c6-433e-a835-feb06e775d1b,Quán ăn Trung Hoa 中国餐馆,chinese_restaurant,1,2,1.0,3.66,4.7,0.737558,0.572472,10
+Q096,overture:cc2e86b0-cc22-462e-a622-bad0b46589a3,Đại Xứ Quán Trung Quốc,chinese_restaurant,1,2,0.8705,3.92,4.61,0.582229,0.554285,11
+Q096,overture:7d1c303e-d835-49ac-bcca-b6774470cc03,"Lẩu Cá, Kẹo Ba Huyện",chinese_restaurant,1,1,0.5121,4.27,4.42,0.378835,0.53463,12
+Q096,overture:1ff818b8-794d-4c41-81f1-a21dc827ac39,Lifu Malatang,chinese_restaurant,1,1,0.5343,3.87,6.18,0.360546,0.487451,13
+Q096,overture:c00ec758-fe6d-42ef-abfd-72dc2c3e05ea,Lẩu Bò 55,chinese_restaurant,1,1,0.8197,5.12,4.26,0.489038,0.48233,14
+Q096,overture:b6ed6d89-502b-4cd6-88ad-5d1106e65770,Lẩu Bò Nhà Gỗ Sài Gòn,chinese_restaurant,1,0,0.5176,4.18,6.22,0.340515,0.467145,15
+Q096,overture:48b66d41-4cad-4e66-b7a8-e1ef38377446,Quán A7,chinese_restaurant,1,1,0.5343,5.19,4.77,0.342249,0.459787,16
+Q096,overture:ac76c13f-c97c-48bd-af65-7948b35e4dd8,Wok N' Roll,chinese_restaurant,1,2,0.5121,6.34,2.88,0.33332,0.45974,17
+Q096,overture:f86cb3d4-18f3-4838-ae58-f028489f8422,Hotpot Story,chinese_restaurant,1,0,0.5343,7.55,4.61,0.256897,0.346761,18
+Q096,overture:4c5bd598-d7f7-4d17-aad4-98e7cbf2be81,Chivago Chicken,korean_restaurant,0,0,0.1417,2.56,4.44,0.296775,0.304202,19
+Q096,overture:9746f677-a61e-48b2-bc4d-cb576cc6ee08,SIPFÉ coffee & sweets,coffee_shop,0,0,0.0,2.65,3.54,0.260213,0.281105,20
+Q100,overture:00b3a190-4e62-4c86-b256-089e84ca9c73,Quán chay Sala,vegetarian_restaurant,1,3,0.6716,3.1,2.04,0.694533,1.0,1
+Q100,overture:55dcf498-954b-4cbb-9f73-515b1980c678,Araham - Thuần chay quán,vegetarian_restaurant,1,3,0.6417,3.14,2.04,0.661362,0.977034,2
+Q100,overture:36075ba7-158a-4dc8-816d-8bf3bce1379b,Filthy Vegan,vegetarian_restaurant,1,3,0.8398,3.6,2.27,0.823701,0.736847,3
+Q100,overture:56395f4f-768b-4338-a5ff-678455b73557,Rau Sạch Việt Tâm - Veganic,vegetarian_restaurant,1,3,0.4252,4.29,1.9,0.433727,0.660571,4
+Q100,overture:30aacc18-3ef2-426e-8bbb-33114f0cbcef,Veggie saigon,vegan_restaurant,1,3,0.6425,3.49,3.06,0.568325,0.648808,5
+Q100,overture:3c164604-865a-4f5f-9f3d-c17119992183,Nhà Hàng Chay Vegan Bà Xã,vegetarian_restaurant,1,1,1.0,2.48,4.75,1.0,0.616308,6
+Q100,overture:062e34f9-52e7-45f2-bd91-1ab55c5aa606,Phúc Quang Chay,vegetarian_restaurant,1,3,0.6877,3.77,3.16,0.575471,0.603622,7
+Q100,overture:470d66e7-a751-4591-8a9f-38fdaf5bf328,Rôu Vegetarian & Coffee,vegan_restaurant,1,3,0.8474,4.27,2.63,0.71002,0.592703,8
+Q100,overture:f0ecbb7e-3fbc-48e4-95ea-a4127d4e66f1,Happy Veggie - Vegan Food - Quán ăn Thuần Chay Q4,vegetarian_restaurant,1,2,0.8333,4.66,2.53,0.662925,0.561017,9
+Q100,overture:d66014f1-1185-4b9e-86f4-aa18b2008f32,Nha Hang Chay Vegan Ba Xa,vegetarian_restaurant,1,1,1.0,3.15,5.11,0.810806,0.525573,10
+Q100,overture:938e2bfd-cfc6-4dda-81af-deee23314c97,Nhà hàng chay Mộc Nhiên Nam Kỳ Khởi Nghĩa,vegetarian_restaurant,1,2,0.6025,4.31,4.46,0.42372,0.476994,11
+Q100,overture:812fc81e-25d1-497c-9a3e-73ea24f50f7b,Buffet CHAY HẠNH PHÚC,vegetarian_restaurant,1,2,0.6417,5.2,3.32,0.443689,0.47418,12
+Q100,overture:14e8769b-056b-4467-88d7-ce121f6174be,Quán Chay Nhà Tôi Vegan,vegetarian_restaurant,1,1,0.9868,3.86,5.41,0.68009,0.459795,13
+Q100,overture:9d0723de-4b8b-4832-8240-f780e2e89edb,Fingerprint Chay,vegan_restaurant,1,2,0.8547,4.95,4.46,0.540146,0.436729,14
+Q100,overture:760813ae-ed73-4ff0-859e-80759e69577b,Nhà Hàng Chay Vegan Bà Xã,vegetarian_restaurant,1,2,0.9548,5.17,4.46,0.598302,0.423942,15
+Q100,overture:2e5cddda-d7d9-4624-a2b2-b1a81a3dcd9e,Quán chay Phạm Hồng Phước,vegetarian_restaurant,1,1,0.6563,5.15,5.26,0.37419,0.391562,16
+Q100,overture:da889f53-e1b6-4b66-a2fb-4afef80feb76,RÊU Green Kitchen,vegetarian_restaurant,1,1,0.4521,6.16,4.85,0.238707,0.354689,17
+Q100,overture:f72c8922-a5ad-47c3-905e-d4906f55fd46,Nhà Hàng Chay Mani,vegetarian_restaurant,1,1,0.7134,6.53,5.26,0.331702,0.320563,18
+Q100,overture:9ec0a4f9-03f1-4f92-8713-c8b21b11763d,Nhà Hàng Tiệc Cưới Rạng Đông,restaurant,0,0,0.1677,3.68,3.4,0.273898,0.222332,19
+Q100,overture:c0160264-857c-434b-a7e7-cf016beb85e1,Rạng Đông Shop,restaurant,0,0,0.156,3.66,3.4,0.269219,0.219145,20
