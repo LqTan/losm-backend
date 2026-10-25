@@ -226,13 +226,10 @@ public sealed class SearchMeetingPlacesHandler
             }
         }
 
-        var results = new List<SearchMeetingPlaceResult>(K);
-
+        var rankInputs = new List<MeetingCandidateRankInput>(K);
         for (var j = 0; j < K; j++)
         {
             var m = candidateMetrics[j];
-            var place = m.Candidate;
-
             var onnxInput = new RankingFeaturesDto(
                 Bm25Norm: (float)m.Relevance,
                 CategoryMatch: m.CategoryMatch,
@@ -246,22 +243,40 @@ public sealed class SearchMeetingPlacesHandler
                 ParticipantCount: (float)query.Origins.Count
             );
 
-            var breakdown = await _rankingService.CalculateBreakdownAsync(
-                m.Relevance,
-                m.Distances.Min(),
-                radiusKm,
+            rankInputs.Add(new MeetingCandidateRankInput(
+                m.Candidate,
                 m.Distances,
-                profile,
-                cancellationToken,
+                m.Durations,
+                m.DistanceAvg,
+                m.DistanceMax,
+                m.DurationAvg,
+                m.DurationMax,
+                m.DurationSpread,
+                m.Relevance,
+                m.CategoryMatch,
+                m.IsRoad,
                 onnxInput
-            );
+            ));
+        }
 
-            double? avgDuration = m.Durations is { Count: > 0 }
-                ? Math.Round(m.Durations.Average(), 1)
+        var rankedCandidates = await _rankingService.RankMeetingCandidatesAsync(
+            rankInputs,
+            radiusKm,
+            profile,
+            cancellationToken
+        );
+
+        var results = new List<SearchMeetingPlaceResult>(K);
+        foreach (var ranked in rankedCandidates)
+        {
+            var place = ranked.Candidate;
+
+            double? avgDuration = ranked.DurationsMinutes is { Count: > 0 }
+                ? Math.Round(ranked.DurationsMinutes.Average(), 1)
                 : null;
 
-            double? spreadDuration = m.Durations is { Count: > 0 }
-                ? Math.Round(m.Durations.Max() - m.Durations.Min(), 1)
+            double? spreadDuration = ranked.DurationsMinutes is { Count: > 0 }
+                ? Math.Round(ranked.DurationsMinutes.Max() - ranked.DurationsMinutes.Min(), 1)
                 : null;
 
             results.Add(new SearchMeetingPlaceResult(
@@ -272,23 +287,23 @@ public sealed class SearchMeetingPlacesHandler
                 place.Longitude,
                 place.Category,
                 place.OpeningHours,
-                m.Distances,
-                Math.Round(m.DistanceAvg, 2),
-                Math.Round(m.DistanceMax, 2),
-                Math.Round(m.DistanceMax - m.Distances.Min(), 2),
-                m.Relevance,
-                breakdown.DistanceScore,
-                breakdown.FairnessScore,
-                breakdown.FinalScore,
-                m.Durations,
+                ranked.DistancesKm,
+                Math.Round(ranked.DistanceAvgKm, 2),
+                Math.Round(ranked.DistanceMaxKm, 2),
+                Math.Round(ranked.DistanceMaxKm - ranked.DistancesKm.Min(), 2),
+                ranked.RelevanceScore,
+                ranked.DistanceScore,
+                ranked.FairnessScore,
+                ranked.FinalScore,
+                ranked.DurationsMinutes,
                 avgDuration,
                 spreadDuration,
-                m.IsRoad,
-                breakdown.IsOnnxScored
+                ranked.IsRoad,
+                ranked.IsOnnxScored
             ));
         }
 
-        // Colab tie-breaking sort keys:
+        // Tie-breaking sort keys:
         // 1. score desc
         // 2. duration_avg_min asc
         // 3. duration_spread_min asc
@@ -303,7 +318,7 @@ public sealed class SearchMeetingPlacesHandler
             .Take(topK)
             .ToList();
 
-        var rankingMethod = top.Any(x => x.IsOnnxScored) ? "onnx" : "system";
+        var rankingMethod = top.Any(x => x.IsOnnxScored) ? "onnx" : "cradis-dn4";
 
         return new SearchMeetingPlacesResult(
             top,

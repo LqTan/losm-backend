@@ -377,7 +377,7 @@ export default function PlaceCard({
                   <Navigation2 className="h-3.5 w-3.5" />
                 )}
                 <span>
-                  {navigationRoute ? "Đóng đường đi" : "Chỉ đường (từ GPS)"}
+                  {navigationRoute ? "Đóng đường đi" : "Xem đường đi"}
                 </span>
               </Button>
             )}
@@ -389,7 +389,7 @@ export default function PlaceCard({
                 className="flex-1 gap-1.5 text-xs h-9 font-medium cursor-pointer bg-black text-white hover:bg-neutral-800 active:scale-[0.98] transition-all shadow-sm"
               >
                 <Calendar className="h-3.5 w-3.5" />
-                Hẹn bạn bè tại đây
+                Đặt điểm hẹn
               </Button>
             )}
 

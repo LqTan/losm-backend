@@ -16,6 +16,7 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/Modules/">
     <Project Path="tests/Modules/AgentCore.Tests/AgentCore.Tests.csproj" />
+    <Project Path="tests/Modules/Search.Tests/Search.Tests.csproj" />
     <Project Path="tests/Modules/Transit.Tests/Transit.Tests.csproj" />
   </Folder>
 </Solution>

@@ -14,6 +14,7 @@ public static class DependencyInjection
         IConfiguration? configuration = null
     )
     {
+        services.AddSingleton<ICradisRanker, CradisRanker>();
         services.AddSingleton<IOnnxRankingModelService, OnnxRankingModelService>();
         services.AddSingleton<ICategoryMappingProvider, CategoryMappingProvider>();
         services.AddScoped<IPlaceSearchService, PlaceSearchService>();

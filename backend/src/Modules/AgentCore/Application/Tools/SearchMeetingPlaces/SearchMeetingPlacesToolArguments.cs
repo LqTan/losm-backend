@@ -11,5 +11,7 @@ public sealed record SearchMeetingPlacesToolArguments(
     string Query,
     IReadOnlyList<SearchMeetingPlaceOriginArgument> Origins,
     double? RadiusKm = null,
-    int? TopK = null
+    int? TopK = null,
+    string? TargetCategory = null,
+    string? SpecificPreference = null
 );

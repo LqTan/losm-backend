@@ -1,7 +1,8 @@
 "use client";
 
-import { Bus, Compass, TrainFront } from "lucide-react";
+import { Bus, Calendar, Compass, Cpu, Sparkles, TrainFront } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { formatRouteNumber, formatServiceTime } from "@/lib/transit";
 import type {
   TransitChatJourney,
@@ -19,6 +20,13 @@ type Props = {
     origin?: TransitChatLocation | null,
     destination?: TransitChatLocation | null
   ) => void;
+  onScheduleMeeting?: (place: {
+    id: string;
+    name: string;
+    address?: string;
+    latitude: number;
+    longitude: number;
+  }) => void;
 };
 
 function RouteInfo({ route }: { route: TransitChatRoute }) {
@@ -47,7 +55,12 @@ function RouteInfo({ route }: { route: TransitChatRoute }) {
   );
 }
 
-export default function TransitResults({ results, onSelectStop, onSelectJourney }: Props) {
+export default function TransitResults({
+  results,
+  onSelectStop,
+  onSelectJourney,
+  onScheduleMeeting,
+}: Props) {
   // 1. Gom tất cả các hành trình lộ trình (journeys) từ mọi kết quả
   const allJourneyItems = results.flatMap((r) =>
     r.journeys.map((j) => ({ journey: j, origin: r.origin, destination: r.destination }))
@@ -86,6 +99,22 @@ export default function TransitResults({ results, onSelectStop, onSelectJourney 
             key={`journey-${journey.route.patternId}-${journey.boardingStop.id}-${journey.alightingStop.id}-${idx}`}
             className="space-y-2 rounded-xl border border-blue-500/35 bg-blue-500/5 p-3 shadow-xs"
           >
+            <div className="flex items-center justify-between gap-1.5 flex-wrap pb-1 border-b border-blue-500/15">
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300/40 flex items-center gap-1 shadow-2xs"
+                title="Hành trình được tối ưu hoá bằng Thuật toán đa tiêu chí CRADIS-DN4 (2023)"
+              >
+                <Cpu className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                CRADIS-DN4 (2023)
+              </Badge>
+              {journey.score !== undefined && journey.score > 0 && (
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  Độ tối ưu: {(journey.score * 10).toFixed(1)}/10
+                </span>
+              )}
+            </div>
+
             <RouteInfo route={journey.route} />
             <div className="rounded-lg bg-background/60 p-2.5 space-y-2 border border-border/40 text-[11px]">
               {/* Điểm xuất phát của người dùng */}
@@ -141,20 +170,46 @@ export default function TransitResults({ results, onSelectStop, onSelectJourney 
               )}
             </div>
 
-            {/* Nút hành động đơn lẻ: dynamic chiếm 100% chiều ngang (w-full), căn giữa, đồng bộ icon */}
-            {onSelectJourney && (
-              <div className="pt-1.5 border-t border-blue-500/20">
+            {/* Nút hành động: Xem đường đi & Đặt điểm hẹn */}
+            <div className="pt-2 border-t border-blue-500/20 flex items-center gap-1.5">
+              {onSelectJourney && (
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => onSelectJourney(journey, origin, destination)}
-                  className="w-full h-7 text-[11px] font-medium gap-1.5 text-blue-600 hover:text-blue-700 border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/40 cursor-pointer justify-center rounded-lg shadow-2xs"
+                  className="flex-1 h-7 text-[11px] font-medium gap-1 text-blue-600 hover:text-blue-700 border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/40 cursor-pointer justify-center rounded-lg shadow-2xs"
                 >
                   <Compass className="h-3.5 w-3.5 text-primary" />
-                  Xem lộ trình trên bản đồ
+                  Xem đường đi
                 </Button>
-              </div>
-            )}
+              )}
+
+              {onScheduleMeeting && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const destName =
+                      destination?.name &&
+                      destination.name !== "Destination" &&
+                      destination.name !== "Origin" &&
+                      destination.name !== "Location"
+                        ? destination.name
+                        : journey.alightingStop.name;
+                    onScheduleMeeting({
+                      id: String(journey.alightingStop.id),
+                      name: destName,
+                      address: journey.alightingStop.address,
+                      latitude: destination?.latitude ?? journey.alightingStop.latitude,
+                      longitude: destination?.longitude ?? journey.alightingStop.longitude,
+                    });
+                  }}
+                  className="flex-1 h-7 text-[11px] font-medium gap-1 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 cursor-pointer justify-center rounded-lg shadow-2xs"
+                >
+                  <Calendar className="h-3 w-3" />
+                  Đặt điểm hẹn
+                </Button>
+              )}
+            </div>
           </div>
         ))}
 
@@ -174,16 +229,37 @@ export default function TransitResults({ results, onSelectStop, onSelectJourney 
               </p>
             )}
 
-            <div className="pt-1.5 border-t border-border/40">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onSelectStop && onSelectStop(stop)}
-                className="w-full h-7 text-[11px] font-medium gap-1.5 text-blue-600 hover:text-blue-700 border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/40 cursor-pointer justify-center rounded-lg shadow-2xs"
-              >
-                <Compass className="h-3.5 w-3.5 text-primary" />
-                Xem trạm trên bản đồ
-              </Button>
+            <div className="pt-2 border-t border-border/40 flex items-center gap-1.5">
+              {onSelectStop && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onSelectStop(stop)}
+                  className="flex-1 h-7 text-[11px] font-medium gap-1 text-blue-600 hover:text-blue-700 border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950/40 cursor-pointer justify-center rounded-lg shadow-2xs"
+                >
+                  <Compass className="h-3.5 w-3.5 text-primary" />
+                  Xem đường đi
+                </Button>
+              )}
+
+              {onScheduleMeeting && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    onScheduleMeeting({
+                      id: String(stop.id),
+                      name: stop.name,
+                      address: stop.address,
+                      latitude: stop.latitude,
+                      longitude: stop.longitude,
+                    });
+                  }}
+                  className="flex-1 h-7 text-[11px] font-medium gap-1 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 cursor-pointer justify-center rounded-lg shadow-2xs"
+                >
+                  <Calendar className="h-3 w-3" />
+                  Đặt điểm hẹn
+                </Button>
+              )}
             </div>
           </div>
         ))}

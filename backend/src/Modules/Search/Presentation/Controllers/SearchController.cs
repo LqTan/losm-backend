@@ -49,7 +49,9 @@ public sealed class SearchController : ControllerBase
                 request.Origins.Select(o => new SearchMeetingPlaceOrigin(
                     o.Name, o.Latitude, o.Longitude)).ToList(),
                 request.RadiusKm,
-                request.TopK),
+                request.TopK,
+                request.TargetCategory,
+                request.SpecificPreference),
             cancellationToken
         );
         return Ok(result);
@@ -66,5 +68,7 @@ public sealed record SearchMeetingPlacesRequest(
     string Query,
     IReadOnlyList<SearchMeetingPlaceRequest> Origins,
     double? RadiusKm = null,
-    int? TopK = null
+    int? TopK = null,
+    string? TargetCategory = null,
+    string? SpecificPreference = null
 );

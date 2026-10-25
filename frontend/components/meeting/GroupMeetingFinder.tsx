@@ -737,7 +737,7 @@ export function GroupMeetingContent({
                         }}
                         className="h-7 text-xs flex-1 rounded-lg"
                       >
-                        Xem trên bản đồ
+                        Xem đường đi
                       </Button>
                       <Button
                         type="button"
@@ -771,7 +771,7 @@ export function GroupMeetingContent({
                         className="h-7 text-xs flex-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
                       >
                         <Calendar className="h-3 w-3 mr-1" />
-                        Hẹn tại đây
+                        Đặt điểm hẹn
                       </Button>
                     </div>
                   </div>

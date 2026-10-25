@@ -40,6 +40,8 @@ public sealed class SearchMeetingPlacesTool
         "Search for places convenient for a multi-person meeting. " +
         "Accepts multiple origins; each origin may be a pair of latitude/longitude, " +
         "or a place name ('name') and optional address/street ('address') that will be geocoded automatically. " +
+        "Use a concise Query (e.g. 'quán cafe' or place name like 'Highlands'). " +
+        "For category searches, specify targetCategory ('cafe', 'viet', 'japanese', 'korean', 'thai', 'seafood', 'western', 'vegetarian', 'chinese', 'bbq_hotpot', 'bookstore', 'library', 'park'). " +
         "If a named origin cannot be geocoded, the tool returns a structured " +
         "'geocode_failed' error so you can ask the user to clarify. " +
         "Use this whenever the user mentions multiple participants " +
@@ -117,7 +119,9 @@ public sealed class SearchMeetingPlacesTool
                     o.Longitude))
                 .ToList(),
             arguments.RadiusKm,
-            arguments.TopK);
+            arguments.TopK,
+            arguments.TargetCategory,
+            arguments.SpecificPreference);
 
         var result = await _handler.HandleAsync(query, cancellationToken);
 
@@ -131,6 +135,7 @@ public sealed class SearchMeetingPlacesTool
             },
             searchRadiusKm = result.SearchRadiusKm,
             profile = result.Profile,
+            rankingMethod = result.RankingMethod,
             origins = resolvedOrigins.Select(o => new
             {
                 name = o.Name,
@@ -155,6 +160,7 @@ public sealed class SearchMeetingPlacesTool
                 averageDurationMinutes = r.AverageDurationMinutes,
                 spreadMinutes = r.SpreadMinutes,
                 isRoadRouting = r.IsRoadRouting,
+                isOnnxScored = r.IsOnnxScored,
                 relevanceScore = r.RelevanceScore,
                 distanceScore = r.DistanceScore,
                 fairnessScore = r.FairnessScore,

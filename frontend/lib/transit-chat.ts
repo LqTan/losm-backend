@@ -41,6 +41,8 @@ export type TransitChatJourney = {
   stopCount: number;
   accessDistanceMeters: number;
   egressDistanceMeters: number;
+  score?: number;
+  rankingMethod?: string;
 };
 
 export type TransitChatResult = {
@@ -53,5 +55,6 @@ export type TransitChatResult = {
   journeys: TransitChatJourney[];
   origin?: TransitChatLocation | null;
   destination?: TransitChatLocation | null;
+  rankingMethod?: string;
 };
 

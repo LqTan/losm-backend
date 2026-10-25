@@ -8,7 +8,11 @@ using Transit.Domain.Models;
 
 namespace Transit.Application.Network.Queries;
 
-public sealed class TransitQueryHandler(ITransitNetworkRepository repository, IAreaRepository areas, IGeocodingService geocoder)
+public sealed class TransitQueryHandler(
+    ITransitNetworkRepository repository,
+    IAreaRepository areas,
+    IGeocodingService geocoder,
+    ITransitRanker? ranker = null)
 {
     public async Task<TransitQueryResult> HandleAsync(TransitQuery query, CancellationToken ct = default)
     {
@@ -107,13 +111,14 @@ public sealed class TransitQueryHandler(ITransitNetworkRepository repository, IA
             var best = options.OrderBy(x => x.AccessDistanceMeters + x.EgressDistanceMeters).ThenBy(x => x.StopCount).FirstOrDefault();
             if (best is not null) candidates.Add(best);
         }
-        var journeys = candidates.OrderBy(x => x.AccessDistanceMeters + x.EgressDistanceMeters).ThenBy(x => x.StopCount).Take(limit).ToArray();
+        var activeRanker = ranker ?? new Transit.Infrastructure.Services.TransitCradisRanker();
+        var journeys = activeRanker.RankJourneys(candidates, limit).ToArray();
         var originLocation = origin is { } startPoint ? new TransitLocation(startPoint.Name, startPoint.Lat, startPoint.Lon) : null;
         var destinationLocation = destination is { } endPoint ? new TransitLocation(endPoint.Name, endPoint.Lat, endPoint.Lon) : null;
 
         return new(query.Kind, journeys.Length > 0 ? "ok" : "no_direct_journey",
             "Direct routes only, in the recorded direction and stop order, within active districts. No transfers, live arrivals, journey duration or verified walking route is available. Service windows do not guarantee operation at the requested time.", names, [], [], journeys,
-            Origin: originLocation, Destination: destinationLocation);
+            Origin: originLocation, Destination: destinationLocation, RankingMethod: "cradis-dn4");
     }
     private static string Normalize(string input) => string.Concat(input.ToLowerInvariant().Normalize(NormalizationForm.FormD)
         .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)).Replace('\u0111', 'd').Normalize(NormalizationForm.FormC);

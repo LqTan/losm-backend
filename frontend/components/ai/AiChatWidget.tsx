@@ -558,6 +558,7 @@ export default function AiChatWidget({
           query: string;
           centroid?: { latitude: number; longitude: number };
           searchRadiusKm?: number;
+          rankingMethod?: string;
           origins?: Array<{ name?: string; latitude: number; longitude: number; displayName?: string }>;
           results?: Array<{
             placeId: string;
@@ -579,6 +580,7 @@ export default function AiChatWidget({
             averageDurationMinutes?: number;
             spreadMinutes?: number;
             isRoadRouting?: boolean;
+            isOnnxScored?: boolean;
           }>;
         };
       }>(
@@ -628,6 +630,7 @@ export default function AiChatWidget({
           averageDurationMinutes: r.averageDurationMinutes,
           spreadMinutes: r.spreadMinutes,
           isRoadRouting: r.isRoadRouting ?? true,
+          isOnnxScored: r.isOnnxScored ?? false,
         })).sort((a, b) => (b.finalScore ?? 0) - (a.finalScore ?? 0));
 
         centroidCoord = res.meetingResults.centroid
@@ -786,6 +789,9 @@ export default function AiChatWidget({
         meetingPlaces: meetingItems.length > 0 ? meetingItems : undefined,
         origins: returnedOrigins.length > 0 ? returnedOrigins : undefined,
         centroid: centroidCoord,
+        rankingMethod:
+          res.meetingResults?.rankingMethod ||
+          (meetingItems.some((p) => p.isOnnxScored) ? "onnx" : "cradis-dn4"),
         timestamp: new Date().toLocaleTimeString("vi-VN", {
           hour: "2-digit",
           minute: "2-digit",
@@ -1188,6 +1194,11 @@ export default function AiChatWidget({
                                 ? (journey, origin, destination) => triggerJourneyRoute(journey, origin, destination)
                                 : undefined
                             }
+                            onScheduleMeeting={
+                              onScheduleMeeting
+                                ? (place) => onScheduleMeeting(place, [])
+                                : undefined
+                            }
                           />
                         );
                       })()}
@@ -1245,16 +1256,16 @@ export default function AiChatWidget({
                                   title="Điểm số được xếp hạng bằng Mô hình AI LambdaMART (ONNX)"
                                 >
                                   <Sparkles className="h-2.5 w-2.5 text-purple-600 dark:text-purple-400" />
-                                  Mô hình AI
+                                  Mô hình AI (LambdaMART)
                                 </Badge>
                               ) : (
                                 <Badge
                                   variant="outline"
                                   className="text-[9px] px-1.5 py-0 h-4.5 font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300/40 flex items-center gap-1 shadow-2xs"
-                                  title="Điểm số được xếp hạng bằng Thuật toán tối ưu của hệ thống (GSKQ)"
+                                  title="Điểm số được xếp hạng bằng Thuật toán đa tiêu chí CRADIS-DN4 (2023)"
                                 >
                                   <Cpu className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
-                                  GSKQ
+                                  CRADIS-DN4 (2023)
                                 </Badge>
                               )}
                             </div>
@@ -1419,7 +1430,7 @@ export default function AiChatWidget({
                                       }}
                                       className="h-6 text-[10px] px-2 gap-1 flex-1 cursor-pointer"
                                     >
-                                      <Compass className="h-3 w-3" /> Xem bản đồ
+                                      <Compass className="h-3 w-3" /> Xem đường đi
                                     </Button>
                                     <Button
                                       size="sm"
@@ -1449,9 +1460,9 @@ export default function AiChatWidget({
                                           invitees
                                         );
                                       }}
-                                      className="h-6 text-[10px] px-2 gap-1 bg-blue-600 hover:bg-blue-700 flex-1 cursor-pointer"
+                                      className="h-6 text-[10px] px-2 gap-1 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 flex-1 cursor-pointer"
                                     >
-                                      <Calendar className="h-3 w-3" /> Hẹn tại đây
+                                      <Calendar className="h-3 w-3" /> Đặt điểm hẹn
                                     </Button>
                                   </div>
                                 </div>

@@ -31,7 +31,8 @@ public sealed record AgentMeetingPlace(
     IReadOnlyList<double>? DurationMinutesByOrigin,
     double? AverageDurationMinutes,
     double? SpreadMinutes,
-    bool IsRoadRouting
+    bool IsRoadRouting,
+    bool IsOnnxScored = false
 );
 
 public sealed record AgentMeetingResults(
@@ -40,5 +41,6 @@ public sealed record AgentMeetingResults(
     double SearchRadiusKm,
     string? Profile,
     IReadOnlyList<AgentMeetingOrigin> Origins,
-    IReadOnlyList<AgentMeetingPlace> Results
+    IReadOnlyList<AgentMeetingPlace> Results,
+    string? RankingMethod = null
 );
