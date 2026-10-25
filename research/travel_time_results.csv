@@ -1,0 +1,76 @@
+query_id,query_text,method,routing_type,proposed_place_name,participant_count,duration_avg_min,duration_max_min,duration_spread_min,member1_duration_min,member2_duration_min,member3_duration_min,member4_duration_min,haversine_avg_min,haversine_spread_min
+Q51,cafe hẹn gặp trao đổi công việc giữa 2 người,M1_Pure_BM25,OSRM_Road,Công Ty Tâm Thịnh Tiến,2,2.15,2.7,1.1,2.7,1.6,,,2.32,0.24
+Q51,cafe hẹn gặp trao đổi công việc giữa 2 người,M2_BM25_Distance,OSRM_Road,Công Ty Tâm Thịnh Tiến,2,2.15,2.7,1.1,2.7,1.6,,,2.32,0.24
+Q51,cafe hẹn gặp trao đổi công việc giữa 2 người,M3_CRADIS_DN4,OSRM_Road,KAFA Café,2,2.1,2.2,0.2,2.2,2.0,,,2.34,0.27
+Q52,ăn trưa đối tác nhanh gọn thuận tiện cho 2 người,M1_Pure_BM25,OSRM_Road,Người Mẫu Nhí Việt Nam Toàn Cầu,2,1.9,2.3,0.8,2.3,1.5,,,1.47,0.08
+Q52,ăn trưa đối tác nhanh gọn thuận tiện cho 2 người,M2_BM25_Distance,OSRM_Road,Người Mẫu Nhí Việt Nam Toàn Cầu,2,1.9,2.3,0.8,2.3,1.5,,,1.47,0.08
+Q52,ăn trưa đối tác nhanh gọn thuận tiện cho 2 người,M3_CRADIS_DN4,OSRM_Road,Người Mẫu Nhí Việt Nam Toàn Cầu,2,1.9,2.3,0.8,2.3,1.5,,,1.47,0.08
+Q53,cafe sáng cuối tuần hàn huyên giữa 2 bạn thân,M1_Pure_BM25,OSRM_Road,Ngoc Sang,2,2.25,2.3,0.1,2.2,2.3,,,1.79,0.41
+Q53,cafe sáng cuối tuần hàn huyên giữa 2 bạn thân,M2_BM25_Distance,OSRM_Road,Ngoc Sang,2,2.25,2.3,0.1,2.2,2.3,,,1.79,0.41
+Q53,cafe sáng cuối tuần hàn huyên giữa 2 bạn thân,M3_CRADIS_DN4,OSRM_Road,Ngoc Sang,2,2.25,2.3,0.1,2.2,2.3,,,1.79,0.41
+Q54,quán trà sữa cho 2 người bạn gặp nhau buổi tối,M1_Pure_BM25,OSRM_Road,Khoa Hô Hấp - Phòng Cấp Cứu - BVNĐ 2,2,2.45,2.5,0.1,2.4,2.5,,,2.83,0.34
+Q54,quán trà sữa cho 2 người bạn gặp nhau buổi tối,M2_BM25_Distance,OSRM_Road,Khoa Hô Hấp - Phòng Cấp Cứu - BVNĐ 2,2,2.45,2.5,0.1,2.4,2.5,,,2.83,0.34
+Q54,quán trà sữa cho 2 người bạn gặp nhau buổi tối,M3_CRADIS_DN4,OSRM_Road,Khoa Hô Hấp - Phòng Cấp Cứu - BVNĐ 2,2,2.45,2.5,0.1,2.4,2.5,,,2.83,0.34
+Q55,ăn tối lãng mạn điểm giữa thuận tiện đi lại,M1_Pure_BM25,OSRM_Road,Haha Sushi,2,1.9,2.4,1.0,1.4,2.4,,,1.39,0.15
+Q55,ăn tối lãng mạn điểm giữa thuận tiện đi lại,M2_BM25_Distance,OSRM_Road,Haha Sushi,2,1.9,2.4,1.0,1.4,2.4,,,1.39,0.15
+Q55,ăn tối lãng mạn điểm giữa thuận tiện đi lại,M3_CRADIS_DN4,OSRM_Road,Haha Sushi,2,1.9,2.4,1.0,1.4,2.4,,,1.39,0.15
+Q56,quán cà phê yên tĩnh đọc sách gặp nhau cuối tuần,M1_Pure_BM25,OSRM_Road,Hát Với Nhau - Phòng Trà 16 Lê Quý Đôn,2,2.2,2.7,1.0,1.7,2.7,,,1.97,0.05
+Q56,quán cà phê yên tĩnh đọc sách gặp nhau cuối tuần,M2_BM25_Distance,OSRM_Road,Hát Với Nhau - Phòng Trà 16 Lê Quý Đôn,2,2.2,2.7,1.0,1.7,2.7,,,1.97,0.05
+Q56,quán cà phê yên tĩnh đọc sách gặp nhau cuối tuần,M3_CRADIS_DN4,OSRM_Road,YEN Sushi & Sake Pub,2,2.15,2.5,0.7,1.8,2.5,,,1.96,0.3
+Q57,quán pizza ăn tối nhẹ nhàng thuận tiện 2 bạn,M1_Pure_BM25,OSRM_Road,Bình An của bạn,2,2.05,2.6,1.1,1.5,2.6,,,2.21,0.2
+Q57,quán pizza ăn tối nhẹ nhàng thuận tiện 2 bạn,M2_BM25_Distance,OSRM_Road,Bình An của bạn,2,2.05,2.6,1.1,1.5,2.6,,,2.21,0.2
+Q57,quán pizza ăn tối nhẹ nhàng thuận tiện 2 bạn,M3_CRADIS_DN4,OSRM_Road,Bình An của bạn,2,2.05,2.6,1.1,1.5,2.6,,,2.21,0.2
+Q58,tiệm bánh ngọt trà chiều gần trung tâm,M1_Pure_BM25,OSRM_Road,Station 77 - Banh mi & cafe,2,2.5,2.6,0.2,2.6,2.4,,,2.35,0.57
+Q58,tiệm bánh ngọt trà chiều gần trung tâm,M2_BM25_Distance,OSRM_Road,Station 77 - Banh mi & cafe,2,2.5,2.6,0.2,2.6,2.4,,,2.35,0.57
+Q58,tiệm bánh ngọt trà chiều gần trung tâm,M3_CRADIS_DN4,OSRM_Road,Station 77 - Banh mi & cafe,2,2.5,2.6,0.2,2.6,2.4,,,2.35,0.57
+Q59,quán ăn chay cho 2 người đi làm ra về,M1_Pure_BM25,OSRM_Road,Gội Đầu Thư Giãn,2,2.9,3.1,0.4,2.7,3.1,,,2.07,0.18
+Q59,quán ăn chay cho 2 người đi làm ra về,M2_BM25_Distance,OSRM_Road,Gội Đầu Thư Giãn,2,2.9,3.1,0.4,2.7,3.1,,,2.07,0.18
+Q59,quán ăn chay cho 2 người đi làm ra về,M3_CRADIS_DN4,OSRM_Road,Gội Đầu Thư Giãn,2,2.9,3.1,0.4,2.7,3.1,,,2.07,0.18
+Q60,quán rooftop thư giãn cuối ngày ngắm cảnh,M1_Pure_BM25,OSRM_Road,Bánh canh vịt bột xắt Bến Tre,2,1.45,1.9,0.9,1.0,1.9,,,1.5,0.88
+Q60,quán rooftop thư giãn cuối ngày ngắm cảnh,M2_BM25_Distance,OSRM_Road,Bánh canh vịt bột xắt Bến Tre,2,1.45,1.9,0.9,1.0,1.9,,,1.5,0.88
+Q60,quán rooftop thư giãn cuối ngày ngắm cảnh,M3_CRADIS_DN4,OSRM_Road,Điện Hoa Quận Phú Nhuận Gọi Ngay 0966.989.275,2,1.25,1.5,0.5,1.5,1.0,,,1.56,0.07
+Q61,quán cafe họp nhóm 3 người làm dự án đồ án,M1_Pure_BM25,OSRM_Road,Mia,3,2.6,3.2,1.1,2.1,3.2,2.5,,2.51,2.25
+Q61,quán cafe họp nhóm 3 người làm dự án đồ án,M2_BM25_Distance,OSRM_Road,Mia,3,2.6,3.2,1.1,2.1,3.2,2.5,,2.51,2.25
+Q61,quán cafe họp nhóm 3 người làm dự án đồ án,M3_CRADIS_DN4,OSRM_Road,Cafe Coc 94 Nguyen Du,3,2.3,2.3,0.0,2.3,2.3,2.3,,2.51,2.25
+Q62,ăn trưa văn phòng cho 3 đồng nghiệp từ 3 công ty khác nhau,M1_Pure_BM25,OSRM_Road,Công Ty OPPO Mobile Việt Nam,3,2.13,2.8,1.6,2.8,1.2,2.4,,1.92,1.49
+Q62,ăn trưa văn phòng cho 3 đồng nghiệp từ 3 công ty khác nhau,M2_BM25_Distance,OSRM_Road,Công Ty OPPO Mobile Việt Nam,3,2.13,2.8,1.6,2.8,1.2,2.4,,1.92,1.49
+Q62,ăn trưa văn phòng cho 3 đồng nghiệp từ 3 công ty khác nhau,M3_CRADIS_DN4,OSRM_Road,Công Ty OPPO Mobile Việt Nam,3,2.13,2.8,1.6,2.8,1.2,2.4,,1.92,1.49
+Q63,quán lẩu tụ tập 3 bạn thân cuối tuần,M1_Pure_BM25,OSRM_Road,International S.O.S. Medical Clinic,3,2.0,4.1,3.8,4.1,0.3,1.6,,2.18,2.99
+Q63,quán lẩu tụ tập 3 bạn thân cuối tuần,M2_BM25_Distance,OSRM_Road,International S.O.S. Medical Clinic,3,2.0,4.1,3.8,4.1,0.3,1.6,,2.18,2.99
+Q63,quán lẩu tụ tập 3 bạn thân cuối tuần,M3_CRADIS_DN4,OSRM_Road,International S.O.S. Medical Clinic,3,2.0,4.1,3.8,4.1,0.3,1.6,,2.18,2.99
+Q64,cafe không gian rộng rãi bàn lớn cho 3 người trao đổi,M1_Pure_BM25,OSRM_Road,Mẹo Hay Cho Nàng,3,2.27,2.5,0.5,2.3,2.5,2.0,,2.1,2.53
+Q64,cafe không gian rộng rãi bàn lớn cho 3 người trao đổi,M2_BM25_Distance,OSRM_Road,Mẹo Hay Cho Nàng,3,2.27,2.5,0.5,2.3,2.5,2.0,,2.1,2.53
+Q64,cafe không gian rộng rãi bàn lớn cho 3 người trao đổi,M3_CRADIS_DN4,OSRM_Road,Mẹo Hay Cho Nàng,3,2.27,2.5,0.5,2.3,2.5,2.0,,2.1,2.53
+Q65,quán đồ nướng bbq tụ tập 3 người buổi tối,M1_Pure_BM25,OSRM_Road,Người Mẫu Nhí Việt Nam Toàn Cầu,3,2.87,3.4,1.3,3.4,3.1,2.1,,2.79,1.07
+Q65,quán đồ nướng bbq tụ tập 3 người buổi tối,M2_BM25_Distance,OSRM_Road,Người Mẫu Nhí Việt Nam Toàn Cầu,3,2.87,3.4,1.3,3.4,3.1,2.1,,2.79,1.07
+Q65,quán đồ nướng bbq tụ tập 3 người buổi tối,M3_CRADIS_DN4,OSRM_Road,Shop Hoa Phường Bến Nghé Quận 1 Tp.HCM,3,2.87,3.1,0.6,3.0,3.1,2.5,,2.79,0.95
+Q66,quán bia craft chill nhẹ sau giờ làm cho 3 người,M1_Pure_BM25,OSRM_Road,Phòng Đào tạo - Việc làm 37 Hàn Thuyên,3,1.47,2.6,2.2,1.4,2.6,0.4,,1.16,0.75
+Q66,quán bia craft chill nhẹ sau giờ làm cho 3 người,M2_BM25_Distance,OSRM_Road,Phòng Đào tạo - Việc làm 37 Hàn Thuyên,3,1.47,2.6,2.2,1.4,2.6,0.4,,1.16,0.75
+Q66,quán bia craft chill nhẹ sau giờ làm cho 3 người,M3_CRADIS_DN4,OSRM_Road,Phòng Đào tạo - Việc làm 37 Hàn Thuyên,3,1.47,2.6,2.2,1.4,2.6,0.4,,1.16,0.75
+Q67,tiệm trà sữa tụ tập nhóm bạn 3 người,M1_Pure_BM25,OSRM_Road,Thúy Beauty Academy-Dạy Nghề Từ Cơ Bản Tới Chuyên Sâu,3,2.1,3.4,2.7,3.4,2.2,0.7,,2.35,2.3
+Q67,tiệm trà sữa tụ tập nhóm bạn 3 người,M2_BM25_Distance,OSRM_Road,Thúy Beauty Academy-Dạy Nghề Từ Cơ Bản Tới Chuyên Sâu,3,2.1,3.4,2.7,3.4,2.2,0.7,,2.35,2.3
+Q67,tiệm trà sữa tụ tập nhóm bạn 3 người,M3_CRADIS_DN4,OSRM_Road,Thúy Beauty Academy-Dạy Nghề Từ Cơ Bản Tới Chuyên Sâu,3,2.1,3.4,2.7,3.4,2.2,0.7,,2.35,2.3
+Q68,quán sushi nhật bản ấm cúng cho 3 thành viên,M1_Pure_BM25,OSRM_Road,BT Dinh Thống Nhất BT Dinh Thong Nhat,3,2.3,2.5,0.4,2.1,2.5,2.3,,2.49,1.41
+Q68,quán sushi nhật bản ấm cúng cho 3 thành viên,M2_BM25_Distance,OSRM_Road,BT Dinh Thống Nhất BT Dinh Thong Nhat,3,2.3,2.5,0.4,2.1,2.5,2.3,,2.49,1.41
+Q68,quán sushi nhật bản ấm cúng cho 3 thành viên,M3_CRADIS_DN4,OSRM_Road,BT Dinh Thống Nhất BT Dinh Thong Nhat,3,2.3,2.5,0.4,2.1,2.5,2.3,,2.49,1.41
+Q69,quán cafe họp nhóm 4 người chuẩn bị thuyết trình,M1_Pure_BM25,OSRM_Road,Newday Cafe,4,2.12,2.6,1.8,2.5,0.8,2.6,2.6,2.03,3.0
+Q69,quán cafe họp nhóm 4 người chuẩn bị thuyết trình,M2_BM25_Distance,OSRM_Road,Newday Cafe,4,2.12,2.6,1.8,2.5,0.8,2.6,2.6,2.03,3.0
+Q69,quán cafe họp nhóm 4 người chuẩn bị thuyết trình,M3_CRADIS_DN4,OSRM_Road,Fair Heaven,4,1.85,2.3,1.7,2.2,0.6,2.3,2.3,2.03,2.96
+Q70,nhà hàng ăn tối gia đình 4 người không gian thoải mái,M1_Pure_BM25,OSRM_Road,Nha Hang Chay Vegan Ba Xa,4,2.65,3.6,1.9,1.8,3.6,3.5,1.7,2.42,2.13
+Q70,nhà hàng ăn tối gia đình 4 người không gian thoải mái,M2_BM25_Distance,OSRM_Road,Nha Hang Chay Vegan Ba Xa,4,2.65,3.6,1.9,1.8,3.6,3.5,1.7,2.42,2.13
+Q70,nhà hàng ăn tối gia đình 4 người không gian thoải mái,M3_CRADIS_DN4,OSRM_Road,Nha Hang Chay Vegan Ba Xa,4,2.65,3.6,1.9,1.8,3.6,3.5,1.7,2.42,2.13
+Q71,quán lẩu nướng cuối tuần cho nhóm 4 bạn học cũ,M1_Pure_BM25,OSRM_Road,Cafe Cong Vien 30-4,4,2.15,2.7,1.1,2.7,1.6,2.5,1.8,2.67,0.64
+Q71,quán lẩu nướng cuối tuần cho nhóm 4 bạn học cũ,M2_BM25_Distance,OSRM_Road,Cafe Cong Vien 30-4,4,2.15,2.7,1.1,2.7,1.6,2.5,1.8,2.67,0.64
+Q71,quán lẩu nướng cuối tuần cho nhóm 4 bạn học cũ,M3_CRADIS_DN4,OSRM_Road,Cafe Cong Vien 30-4,4,2.15,2.7,1.1,2.7,1.6,2.5,1.8,2.67,0.64
+Q72,quán cà phê sân vườn thoáng mát cho 4 bạn trò chuyện,M1_Pure_BM25,OSRM_Road,Cà Phê Phin,4,3.0,3.6,1.3,2.3,3.5,3.6,2.6,2.51,3.23
+Q72,quán cà phê sân vườn thoáng mát cho 4 bạn trò chuyện,M2_BM25_Distance,OSRM_Road,Cà Phê Phin,4,3.0,3.6,1.3,2.3,3.5,3.6,2.6,2.51,3.23
+Q72,quán cà phê sân vườn thoáng mát cho 4 bạn trò chuyện,M3_CRADIS_DN4,OSRM_Road,Cà Phê Phin,4,3.0,3.6,1.3,2.3,3.5,3.6,2.6,2.51,3.23
+Q73,quán cơm niêu truyền thống ăn trưa nhóm 4 người,M1_Pure_BM25,OSRM_Road,TruyenQQ Đọc Truyện Tranh,4,1.92,2.9,1.5,2.9,1.4,1.4,2.0,1.86,0.87
+Q73,quán cơm niêu truyền thống ăn trưa nhóm 4 người,M2_BM25_Distance,OSRM_Road,TruyenQQ Đọc Truyện Tranh,4,1.92,2.9,1.5,2.9,1.4,1.4,2.0,1.86,0.87
+Q73,quán cơm niêu truyền thống ăn trưa nhóm 4 người,M3_CRADIS_DN4,OSRM_Road,TruyenQQ Đọc Truyện Tranh,4,1.92,2.9,1.5,2.9,1.4,1.4,2.0,1.86,0.87
+Q74,quán bar pub thư giãn nghe nhạc cuối tuần cho nhóm 4 người,M1_Pure_BM25,OSRM_Road,Europ Invest,4,2.23,3.7,3.0,3.7,0.7,2.5,2.0,2.35,2.87
+Q74,quán bar pub thư giãn nghe nhạc cuối tuần cho nhóm 4 người,M2_BM25_Distance,OSRM_Road,Europ Invest,4,2.23,3.7,3.0,3.7,0.7,2.5,2.0,2.35,2.87
+Q74,quán bar pub thư giãn nghe nhạc cuối tuần cho nhóm 4 người,M3_CRADIS_DN4,OSRM_Road,Europ Invest,4,2.23,3.7,3.0,3.7,0.7,2.5,2.0,2.35,2.87
+Q75,tiệm trà chiều bánh ngọt cho nhóm 4 chị em hẹn hò,M1_Pure_BM25,OSRM_Road,Notre-Dame Cathedral Ho Chi Minh,4,2.33,3.0,2.0,2.4,2.9,3.0,1.0,2.38,2.02
+Q75,tiệm trà chiều bánh ngọt cho nhóm 4 chị em hẹn hò,M2_BM25_Distance,OSRM_Road,Notre-Dame Cathedral Ho Chi Minh,4,2.33,3.0,2.0,2.4,2.9,3.0,1.0,2.38,2.02
+Q75,tiệm trà chiều bánh ngọt cho nhóm 4 chị em hẹn hò,M3_CRADIS_DN4,OSRM_Road,Notre-Dame Cathedral Ho Chi Minh,4,2.33,3.0,2.0,2.4,2.9,3.0,1.0,2.38,2.02

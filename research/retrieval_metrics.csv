@@ -1,0 +1,6 @@
+Metric,Definition,Formula,Evaluation_Status,Notes
+Precision@5,Tỷ lệ địa điểm thực sự phù hợp trong top 5 kết quả,P@5 = (1/5) * sum_{i=1}^5 I(label_i >= 2),Cho_nguoi_danh_gia_doc_lap_gan_nhan,Quy tắc nhị phân hóa: Nhãn 2 (Phù hợp) và 3 (Rất phù hợp) tính là 1; Nhãn 0 và 1 tính là 0
+nDCG@5,Độ lợi tích lũy giảm dần chuẩn hóa tại thứ hạng 5,DCG@5 = sum_{i=1}^5 (2^{rel_i} - 1) / log2(i + 1); nDCG@5 = DCG@5 / IDCG@5,Cho_nguoi_danh_gia_doc_lap_gan_nhan,"Thang đo độ liên quan 4 mức (0 đến 3), phản ánh thứ tự ưu tiên tối ưu của danh sách gợi ý"
+Mean_Travel_Duration_Tavg,Thời gian di chuyển trung bình của các thành viên (phút),"T_avg = (1/P) * sum_{p=1}^P t_{p, place}",Da_tinh_toan_thuc_te,Đo trên ma trận OSRM mạng đường thực tế và mô hình vận tốc đô thị Haversine 25km/h
+Max_Travel_Duration_Tmax,Thời gian di chuyển của người đi lâu nhất (phút),"T_max = max_{p} t_{p, place}",Da_tinh_toan_thuc_te,Chỉ số thắt cổ chai hành trình trong cuộc hẹn
+Travel_Time_Spread_DeltaT,Độ chênh lệch thời gian giữa người đi lâu nhất và nhanh nhất (phút),"Delta_T = max_{p} t_{p, place} - min_{p} t_{p, place}",Da_tinh_toan_thuc_te,Chỉ số công bằng hành trình (Fairness) cốt lõi của bài báo

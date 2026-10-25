@@ -1,0 +1,7 @@
+Stage_ID,Stage_Name,Runs_Count,Min_ms,Mean_ms,Median_p50_ms,Percentile_p95_ms,Max_ms,Std_Dev_ms,Notes
+1_Candidate_Retrieval,Truy xuất ứng viên,35,160.376,180.529,172.598,212.158,323.992,27.845,"Lọc Bounding Box + Category trong bộ nhớ 53,340 POI"
+2_BM25_Scoring,Tính điểm BM25,35,0.638,0.845,0.795,1.190,1.215,0.165,NFD Tokenize + Robertson IDF + TF cho 50 ứng viên
+3_Haversine_Travel_Matrix,Ma trận hành trình Haversine,35,0.113,0.141,0.137,0.184,0.200,0.021,Tính khoảng cách và thời gian ước tính 150 cặp điểm O-D
+4_OSRM_Network_Table_API,Dịch vụ bên ngoài OSRM API,35,370.960,418.250,411.627,499.113,586.310,43.827,Gọi mạng qua HTTP Table API (router.project-osrm.org)
+5_CRADIS_DN4_Ranking,Xếp hạng CRADIS-DN4,35,0.152,0.187,0.170,0.269,0.323,0.043,"Chuẩn hóa vector DN4 + tính độ thỏa dụng K+, K- trên 50 ứng viên"
+6_EndToEnd_Backend_API,Toàn trình Backend API,35,520.308,564.320,563.613,623.316,658.500,33.163,Kestrel HTTP Server -> SQL DB -> BM25 -> Ranking -> JSON Response

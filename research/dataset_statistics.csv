@@ -1,0 +1,55 @@
+Metric_Group,Metric_Name,Value,Unit_or_Percentage,Notes
+Overview,Total_Places,53341,POI,Tổng số địa điểm trong cơ sở dữ liệu
+Overview,Valid_Coordinates,53341,100.00%,Địa điểm có toạ độ vĩ độ/kinh độ hợp lệ
+Overview,Invalid_Coordinates,0,0.00%,Địa điểm thiếu hoặc toạ độ bằng 0
+Overview,Missing_Address,1,0.0019%,Địa điểm thiếu chuỗi địa chỉ
+Overview,Missing_Category,2265,4.25%,Địa điểm có Category là NULL hoặc rỗng
+Overview,Missing_OpeningHours,53341,100.00%,Địa điểm chưa có thông tin giờ mở cửa
+Overview,Duplicate_ExternalId,0,0.00%,Số lượng bản ghi trùng mã định danh ExternalId
+Overview,Flagged_IsNotSafe,1,0.0019%,Số địa điểm bị gắn cờ không an toàn
+Geographic_Coverage,Target_Area,Quận 1,District,Khu vực hành chính hoạt động
+Geographic_Coverage,Min_Latitude,10.753531,deg N,Toạ độ vĩ độ cực nam
+Geographic_Coverage,Max_Latitude,10.796950,deg N,Toạ độ vĩ độ cực bắc
+Geographic_Coverage,Min_Longitude,106.681680,deg E,Toạ độ kinh độ cực tây
+Geographic_Coverage,Max_Longitude,106.715201,deg E,Toạ độ kinh độ cực đông
+Geographic_Coverage,Bounding_Box_Area_Approx,17.57,km2,Diện tích bao phủ tương đối của Quận 1
+Data_Provenance,Source_Overture,53341,100.00%,Nguồn cung cấp dữ liệu ban đầu
+Data_Provenance,Table_Created_At,2026-10-10 12:13:05.763,Timestamp,Thời điểm tạo bảng trong DB
+Data_Provenance,Table_Last_Modified_At,2026-10-13 19:14:47.010,Timestamp,Thời điểm đồng bộ dữ liệu gần nhất
+Venue_Groups,Coffee_and_Tea,3895,7.30%,"Quán cà phê, trà, trà sữa"
+Venue_Groups,Restaurants_and_Dining,5687,10.66%,"Nhà hàng, quán ăn các loại"
+Venue_Groups,Bars_and_Nightlife,1007,1.89%,"Quán bar, pub, cocktail lounge"
+Venue_Groups,Bakeries_and_Desserts,712,1.33%,"Tiệm bánh ngọt, tráng miệng, kem"
+Venue_Groups,Shopping_and_Retail,2890,5.42%,"Cửa hàng bán lẻ, siêu thị, trung tâm mua sắm"
+Venue_Groups,Accommodations,1743,3.27%,"Khách sạn, lưu trú"
+Venue_Groups,Wellness_and_Beauty,2694,5.05%,"Spa, làm đẹp"
+Top_Categories,restaurant,2750,5.16%,Phân bố danh mục chi tiết
+Top_Categories,coffee_shop,2610,4.89%,Phân bố danh mục chi tiết
+Top_Categories,[Uncategorized / Missing],2265,4.25%,Phân bố danh mục chi tiết
+Top_Categories,professional_service,2008,3.76%,Phân bố danh mục chi tiết
+Top_Categories,hotel,1646,3.09%,Phân bố danh mục chi tiết
+Top_Categories,real_estate_service,1554,2.91%,Phân bố danh mục chi tiết
+Top_Categories,spa,1505,2.82%,Phân bố danh mục chi tiết
+Top_Categories,shopping,1479,2.77%,Phân bố danh mục chi tiết
+Top_Categories,clothing_store,1203,2.26%,Phân bố danh mục chi tiết
+Top_Categories,beauty_salon,1189,2.23%,Phân bố danh mục chi tiết
+Top_Categories,cafe,1018,1.91%,Phân bố danh mục chi tiết
+Top_Categories,flowers_and_gifts_store,973,1.82%,Phân bố danh mục chi tiết
+Top_Categories,party_and_event_planning,944,1.77%,Phân bố danh mục chi tiết
+Top_Categories,diner,850,1.59%,Phân bố danh mục chi tiết
+Top_Categories,vietnamese_restaurant,845,1.58%,Phân bố danh mục chi tiết
+Top_Categories,bar,673,1.26%,Phân bố danh mục chi tiết
+Top_Categories,travel_service,659,1.24%,Phân bố danh mục chi tiết
+Top_Categories,beauty_supply_store,535,1.00%,Phân bố danh mục chi tiết
+Top_Categories,education,532,1.00%,Phân bố danh mục chi tiết
+Top_Categories,bakery,528,0.99%,Phân bố danh mục chi tiết
+Top_Categories,historic_site,490,0.92%,Phân bố danh mục chi tiết
+Top_Categories,womens_clothing_store,467,0.88%,Phân bố danh mục chi tiết
+Top_Categories,jewelry_store,423,0.79%,Phân bố danh mục chi tiết
+Top_Categories,fashion_and_apparel_store,407,0.76%,Phân bố danh mục chi tiết
+Top_Categories,grocery_store,405,0.76%,Phân bố danh mục chi tiết
+Top_Categories,tour_operator,361,0.68%,Phân bố danh mục chi tiết
+Top_Categories,hair_salon,354,0.66%,Phân bố danh mục chi tiết
+Top_Categories,real_estate_agent,349,0.65%,Phân bố danh mục chi tiết
+Top_Categories,barber,343,0.64%,Phân bố danh mục chi tiết
+Top_Categories,shoe_store,341,0.64%,Phân bố danh mục chi tiết

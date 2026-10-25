@@ -20,3 +20,8 @@ backend/src/LocationSearch.Api/appsettings.json
 
 # Private Transit uploads and validated import snapshots
 backend/src/LocationSearch.Api/storage/transit/
+
+# Python cache
+**/__pycache__/
+*.py[cod]
+*$py.class
