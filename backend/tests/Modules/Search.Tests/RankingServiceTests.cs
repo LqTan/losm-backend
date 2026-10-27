@@ -142,6 +142,160 @@ public class RankingServiceTests
         Assert.Equal(0.95f * 2.0f, results[0].FinalScore, precision: 4);
     }
 
+    [Fact]
+    public async Task RankMeetingCandidatesAsync_WhenOnnxIsActive_RanksEntireBatchWithOnnxEvenIfSomeCategoryMatchIsZero()
+    {
+        // Arrange
+        _onnxMock.Setup(o => o.GetStatus())
+            .Returns(new OnnxModelStatusDto(
+                HasModel: true,
+                IsActive: true,
+                ModelName: "lambdamart.onnx",
+                FileSizeBytes: 1024,
+                UploadedAt: DateTime.UtcNow,
+                InputName: "input",
+                FeatureCount: 10,
+                StatusMessage: "Model is active"
+            ));
+
+        _onnxMock.Setup(o => o.Predict(It.IsAny<RankingFeaturesDto>()))
+            .Returns((RankingFeaturesDto f) => f.Bm25Norm * 2.0f);
+
+        var rankingService = new RankingService(_tuningMock.Object, _onnxMock.Object, _cradisRanker);
+
+        var candidateA = new PlaceCandidate(Guid.NewGuid(), "Central Cafe", "123 Street", "cafe", null, 10.77, 106.69);
+        var candidateB = new PlaceCandidate(Guid.NewGuid(), "Other Shop", "456 Street", "convenience_store", null, 10.78, 106.70);
+
+        var inputs = new List<MeetingCandidateRankInput>
+        {
+            new(
+                Candidate: candidateA,
+                DistancesKm: [2.0, 3.0],
+                DurationsMinutes: [8.0, 10.0],
+                DistanceAvgKm: 2.5,
+                DistanceMaxKm: 3.0,
+                DurationAvgMin: 9.0,
+                DurationMaxMin: 10.0,
+                DurationSpreadMin: 2.0,
+                RelevanceScore: 0.95,
+                CategoryMatch: 1.0f,
+                IsRoad: true,
+                OnnxFeatures: CreateDummyFeatures(0.95f, 9.0f, 2.0f)
+            ),
+            new(
+                Candidate: candidateB,
+                DistancesKm: [3.0, 4.0],
+                DurationsMinutes: [10.0, 12.0],
+                DistanceAvgKm: 3.5,
+                DistanceMaxKm: 4.0,
+                DurationAvgMin: 11.0,
+                DurationMaxMin: 12.0,
+                DurationSpreadMin: 2.0,
+                RelevanceScore: 0.40,
+                CategoryMatch: 0.0f, // CategoryMatch is 0, but still scored by ONNX in the batch!
+                IsRoad: true,
+                OnnxFeatures: CreateDummyFeatures(0.40f, 11.0f, 2.0f)
+            )
+        };
+
+        // Act
+        var results = await rankingService.RankMeetingCandidatesAsync(inputs, 5.0, "Meeting", CancellationToken.None);
+
+        // Assert: Both must be ONNX scored (no mixing with CRADIS)
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.True(r.IsOnnxScored));
+    }
+
+    [Fact]
+    public async Task RankMeetingCandidatesAsync_WhenAllCandidatesOutOfDomain_FallsBackEntireBatchToCradis()
+    {
+        // Arrange
+        _onnxMock.Setup(o => o.GetStatus())
+            .Returns(new OnnxModelStatusDto(
+                HasModel: true,
+                IsActive: true,
+                ModelName: "lambdamart.onnx",
+                FileSizeBytes: 1024,
+                UploadedAt: DateTime.UtcNow,
+                InputName: "input",
+                FeatureCount: 10,
+                StatusMessage: "Model is active"
+            ));
+
+        var rankingService = new RankingService(_tuningMock.Object, _onnxMock.Object, _cradisRanker);
+
+        var candidate = new PlaceCandidate(Guid.NewGuid(), "Random Place", "123 Street", "unknown", null, 10.77, 106.69);
+        var inputs = new List<MeetingCandidateRankInput>
+        {
+            new(
+                Candidate: candidate,
+                DistancesKm: [2.0, 3.0],
+                DurationsMinutes: [8.0, 10.0],
+                DistanceAvgKm: 2.5,
+                DistanceMaxKm: 3.0,
+                DurationAvgMin: 9.0,
+                DurationMaxMin: 10.0,
+                DurationSpreadMin: 2.0,
+                RelevanceScore: 0.20,
+                CategoryMatch: 0.0f, // All candidates out of domain
+                IsRoad: true,
+                OnnxFeatures: CreateDummyFeatures(0.20f, 9.0f, 2.0f)
+            )
+        };
+
+        // Act
+        var results = await rankingService.RankMeetingCandidatesAsync(inputs, 5.0, "Meeting", CancellationToken.None);
+
+        // Assert: Falls back entire batch to CRADIS
+        Assert.Single(results);
+        Assert.False(results[0].IsOnnxScored);
+    }
+
+    [Fact]
+    public async Task RankMeetingCandidatesAsync_WhenForceCradisRequested_RanksWithCradisEvenIfOnnxActive()
+    {
+        // Arrange
+        _onnxMock.Setup(o => o.GetStatus())
+            .Returns(new OnnxModelStatusDto(
+                HasModel: true,
+                IsActive: true,
+                ModelName: "lambdamart.onnx",
+                FileSizeBytes: 1024,
+                UploadedAt: DateTime.UtcNow,
+                InputName: "input",
+                FeatureCount: 10,
+                StatusMessage: "Model is active"
+            ));
+
+        var rankingService = new RankingService(_tuningMock.Object, _onnxMock.Object, _cradisRanker);
+
+        var candidate = new PlaceCandidate(Guid.NewGuid(), "Central Cafe", "123 Street", "cafe", null, 10.77, 106.69);
+        var inputs = new List<MeetingCandidateRankInput>
+        {
+            new(
+                Candidate: candidate,
+                DistancesKm: [2.0, 3.0],
+                DurationsMinutes: [8.0, 10.0],
+                DistanceAvgKm: 2.5,
+                DistanceMaxKm: 3.0,
+                DurationAvgMin: 9.0,
+                DurationMaxMin: 10.0,
+                DurationSpreadMin: 2.0,
+                RelevanceScore: 0.95,
+                CategoryMatch: 1.0f,
+                IsRoad: true,
+                OnnxFeatures: CreateDummyFeatures(0.95f, 9.0f, 2.0f)
+            )
+        };
+
+        // Act: explicitly request "cradis"
+        var results = await rankingService.RankMeetingCandidatesAsync(inputs, 5.0, "Meeting", "cradis", CancellationToken.None);
+
+        // Assert: Whole batch must be CRADIS
+        Assert.Single(results);
+        Assert.False(results[0].IsOnnxScored);
+    }
+
     private static RankingFeaturesDto CreateDummyFeatures(float bm25, float durAvg, float durSpread)
     {
         return new RankingFeaturesDto(

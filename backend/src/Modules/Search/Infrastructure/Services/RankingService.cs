@@ -45,10 +45,20 @@ public sealed class RankingService : IRankingService
         return earthRadiusKm * c;
     }
 
+    public Task<IReadOnlyList<MeetingCandidateRankResult>> RankMeetingCandidatesAsync(
+        IReadOnlyList<MeetingCandidateRankInput> candidates,
+        double radiusKm,
+        string profileName,
+        CancellationToken ct)
+    {
+        return RankMeetingCandidatesAsync(candidates, radiusKm, profileName, null, ct);
+    }
+
     public async Task<IReadOnlyList<MeetingCandidateRankResult>> RankMeetingCandidatesAsync(
         IReadOnlyList<MeetingCandidateRankInput> candidates,
         double radiusKm,
         string profileName,
+        string? rankingMethod,
         CancellationToken ct)
     {
         if (candidates.Count == 0)
@@ -61,21 +71,32 @@ public sealed class RankingService : IRankingService
 
         var cradisScores = ComputeCradisScores(candidates, weights);
 
-        // Branch 1: If ONNX model is active, attempt LambdaMART inference
-        if (onnxActive && profileName == "Meeting")
+        // Determine ranking method for the entire batch:
+        // 1. If explicit method is requested: "onnx" or "cradis"
+        // 2. Otherwise auto-select: use ONNX if model is active, profile is "Meeting",
+        //    and at least one candidate matches the target category (within learned domain).
+        bool forceCradis = string.Equals(rankingMethod, "cradis", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rankingMethod, "cradis-dn4", StringComparison.OrdinalIgnoreCase);
+        bool forceOnnx = string.Equals(rankingMethod, "onnx", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(rankingMethod, "lambdamart", StringComparison.OrdinalIgnoreCase);
+
+        bool isInDomain = candidates.Any(c => c.CategoryMatch > 0f);
+        bool shouldRunOnnx = !forceCradis && onnxActive && profileName == "Meeting" && (forceOnnx || isInDomain);
+
+        // Branch 1: If ONNX model is active, Meeting profile, and in learned domain, rank the entire batch using ONNX
+        if (shouldRunOnnx)
         {
             var onnxResults = new List<MeetingCandidateRankResult>(candidates.Count);
+            bool allSucceeded = true;
 
             for (int i = 0; i < candidates.Count; i++)
             {
                 var item = candidates[i];
                 var cradis = cradisScores[i];
 
-                float? onnxScore = null;
-                if (item.CategoryMatch > 0f)
-                {
-                    onnxScore = _onnxService.Predict(item.OnnxFeatures);
-                }
+                // In LambdaMART, all candidates in the batch are scored by ONNX,
+                // including candidates with CategoryMatch == 0 (as present in training data).
+                var onnxScore = _onnxService.Predict(item.OnnxFeatures);
 
                 if (onnxScore.HasValue)
                 {
@@ -98,30 +119,18 @@ public sealed class RankingService : IRankingService
                 }
                 else
                 {
-                    // Fallback to CRADIS-DN4 for out-of-domain candidates
-                    onnxResults.Add(new MeetingCandidateRankResult(
-                        item.Candidate,
-                        item.DistancesKm,
-                        item.DurationsMinutes,
-                        item.DistanceAvgKm,
-                        item.DistanceMaxKm,
-                        item.DurationAvgMin,
-                        item.DurationMaxMin,
-                        item.DurationSpreadMin,
-                        item.RelevanceScore,
-                        item.IsRoad,
-                        DistanceScore: cradis.DistanceScore,
-                        FairnessScore: cradis.FairnessScore,
-                        FinalScore: cradis.FinalScore,
-                        IsOnnxScored: false
-                    ));
+                    allSucceeded = false;
+                    break;
                 }
             }
 
-            return onnxResults;
+            if (allSucceeded && onnxResults.Count == candidates.Count)
+            {
+                return onnxResults;
+            }
         }
 
-        // Branch 2: When ONNX is inactive, rank the entire batch using CRADIS-DN4
+        // Branch 2: Fallback to ranking the entire batch using CRADIS-DN4
         var results = new List<MeetingCandidateRankResult>(candidates.Count);
         for (int i = 0; i < candidates.Count; i++)
         {
@@ -259,10 +268,7 @@ public sealed class RankingService : IRankingService
         float? onnxScore = null;
         if (profileName == "Meeting" && onnxFeatures is not null && _onnxService.GetStatus().IsActive)
         {
-            if (onnxFeatures.CategoryMatch > 0f)
-            {
-                onnxScore = _onnxService.Predict(onnxFeatures);
-            }
+            onnxScore = _onnxService.Predict(onnxFeatures);
         }
 
         var final = onnxScore.HasValue

@@ -12,7 +12,8 @@ public sealed record SearchMeetingPlacesQuery(
     double? RadiusKm = null,
     int? TopK = null,
     string? TargetCategory = null,
-    string? SpecificPreference = null
+    string? SpecificPreference = null,
+    string? RankingMethod = null
 );
 
 public sealed record SearchMeetingPlaceResult(

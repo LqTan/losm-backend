@@ -139,6 +139,7 @@ public sealed class SearchMeetingPlacesHandler
             double DurationMax,
             double DurationSpread,
             double Relevance,
+            double RawRelevance,
             float CategoryMatch,
             bool IsRoad
         )>(candidates.Count);
@@ -204,6 +205,7 @@ public sealed class SearchMeetingPlacesHandler
                 durMax,
                 durSpread,
                 relevanceScore,
+                rawRelevance,
                 catMatch,
                 isRoad
             ));
@@ -231,7 +233,7 @@ public sealed class SearchMeetingPlacesHandler
         {
             var m = candidateMetrics[j];
             var onnxInput = new RankingFeaturesDto(
-                Bm25Norm: (float)m.Relevance,
+                Bm25Norm: (float)m.RawRelevance,
                 CategoryMatch: m.CategoryMatch,
                 DurationAvgMin: (float)m.DurationAvg,
                 DurationMaxMin: (float)m.DurationMax,
@@ -263,6 +265,7 @@ public sealed class SearchMeetingPlacesHandler
             rankInputs,
             radiusKm,
             profile,
+            query.RankingMethod,
             cancellationToken
         );
 

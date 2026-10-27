@@ -74,4 +74,12 @@ public interface IRankingService
         string profileName,
         CancellationToken ct
     );
+
+    Task<IReadOnlyList<MeetingCandidateRankResult>> RankMeetingCandidatesAsync(
+        IReadOnlyList<MeetingCandidateRankInput> candidates,
+        double radiusKm,
+        string profileName,
+        string? rankingMethod,
+        CancellationToken ct
+    );
 }

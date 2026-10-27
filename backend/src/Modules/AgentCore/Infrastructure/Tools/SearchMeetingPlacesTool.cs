@@ -121,7 +121,8 @@ public sealed class SearchMeetingPlacesTool
             arguments.RadiusKm,
             arguments.TopK,
             arguments.TargetCategory,
-            arguments.SpecificPreference);
+            arguments.SpecificPreference,
+            arguments.RankingMethod);
 
         var result = await _handler.HandleAsync(query, cancellationToken);
 

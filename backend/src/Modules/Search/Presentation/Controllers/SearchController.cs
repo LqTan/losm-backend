@@ -51,7 +51,8 @@ public sealed class SearchController : ControllerBase
                 request.RadiusKm,
                 request.TopK,
                 request.TargetCategory,
-                request.SpecificPreference),
+                request.SpecificPreference,
+                request.RankingMethod),
             cancellationToken
         );
         return Ok(result);
@@ -70,5 +71,6 @@ public sealed record SearchMeetingPlacesRequest(
     double? RadiusKm = null,
     int? TopK = null,
     string? TargetCategory = null,
-    string? SpecificPreference = null
+    string? SpecificPreference = null,
+    string? RankingMethod = null
 );

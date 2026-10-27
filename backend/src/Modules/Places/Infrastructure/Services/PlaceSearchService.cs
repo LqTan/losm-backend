@@ -31,7 +31,7 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
 
         var clean = (query ?? "").Trim();
 
-        // 1. Bounding box địa lý cơ bản (lọc bỏ các địa điểm không an toàn)
+        // 1. Basic geographic bounding box (filtering out unsafe places)
         var baseQuery = _db.Places.AsNoTracking().Where(p =>
             !p.IsNotSafe &&
             p.Latitude >= latitude - latDelta &&
@@ -39,7 +39,7 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
             p.Longitude >= longitude - lngDelta &&
             p.Longitude <= longitude + lngDelta);
 
-        // 2. Tìm kiếm theo danh mục (nếu có) và/hoặc từ khóa
+        // 2. Search by category (if specified) and/or keywords
         if (categories is { Count: > 0 })
         {
             if (!string.IsNullOrWhiteSpace(clean))
@@ -64,12 +64,15 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
                 (p.Address != null && EF.Functions.Like(p.Address, pattern)));
         }
 
+        var cosLatSq = cosLat * cosLat;
+
         var candidates = await baseQuery
+            .OrderBy(p => (p.Latitude - latitude) * (p.Latitude - latitude) + (p.Longitude - longitude) * (p.Longitude - longitude) * cosLatSq)
             .Take(Math.Min(limit * 10, 1000))
             .ToListAsync(cancellationToken);
 
-        // Fallback: Nếu không có quán nào khớp chính xác tên trong bán kính,
-        // lấy các quán an toàn trong bán kính để tầng chấm điểm BM25 / Ranking đánh giá
+        // Fallback: If no places match keyword within radius,
+        // retrieve safe places in radius ordered by distance for BM25 / Ranking evaluation
         if (candidates.Count == 0 && !string.IsNullOrWhiteSpace(clean))
         {
             candidates = await _db.Places.AsNoTracking().Where(p =>
@@ -78,6 +81,7 @@ public sealed class PlaceSpatialSearchService : IPlaceSpatialSearchService
                 p.Latitude <= latitude + latDelta &&
                 p.Longitude >= longitude - lngDelta &&
                 p.Longitude <= longitude + lngDelta)
+                .OrderBy(p => (p.Latitude - latitude) * (p.Latitude - latitude) + (p.Longitude - longitude) * (p.Longitude - longitude) * cosLatSq)
                 .Take(Math.Min(limit * 10, 1000))
                 .ToListAsync(cancellationToken);
         }
